@@ -38,7 +38,7 @@ jobs:
           curl -fsS http://127.0.0.1:4999/api/health
           curl -fsS http://127.0.0.1:4999/ | grep -q Edgewatch
 
-  # The published package promises Node 24.11, the first Node 24 LTS (package.json engines): build it, then run it on exactly that.
+  # The published package promises Node 24.22.1 (package.json engines): build it, then run it on exactly that.
   minimum-node:
     runs-on: ubuntu-latest
     steps:
@@ -51,8 +51,8 @@ jobs:
       - run: npm pack
       - uses: actions/setup-node@v4
         with:
-          node-version: 24.11.0
-      - name: Smoke-test the packed CLI on Node 24.11
+          node-version: 24.22.1
+      - name: Smoke-test the packed CLI on Node 24.22.1
         run: |
           npm install -g ./edgewatch-*.tgz
           edgewatch --version

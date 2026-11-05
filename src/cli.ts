@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Edgewatch entry point: `npx edgewatch` starts the server and opens the browser.
 
-// Edgewatch targets Node.js 24 LTS; say so plainly instead of failing on an import.
-const [major, minor] = process.versions.node.split(".").map(Number);
-if (major < 24 || (major === 24 && minor < 11)) {
-  console.error(`edgewatch: Node.js 24.11 (Node 24 LTS) or newer is required; this is ${process.versions.node}.`);
+// Edgewatch targets Node.js 24 LTS from its 24.22.1 security release; say so plainly instead of failing on an import.
+const MIN_NODE = [24, 22, 1];
+const nodeVersion = process.versions.node.split(".").map(Number);
+const differs = MIN_NODE.findIndex((n, i) => nodeVersion[i] !== n);
+if (differs >= 0 && nodeVersion[differs] < MIN_NODE[differs]) {
+  console.error(`edgewatch: Node.js ${MIN_NODE.join(".")} (Node 24 LTS) or newer is required; this is ${process.versions.node}.`);
   process.exit(1);
 }
 
