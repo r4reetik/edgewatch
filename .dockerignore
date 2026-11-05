@@ -1,0 +1,12 @@
+node_modules
+dist
+*.tgz
+.git
+.github
+test
+coverage
+.edgewatch
+docs
+dev
+scripts
+*.md

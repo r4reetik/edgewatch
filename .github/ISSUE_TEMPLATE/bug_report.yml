@@ -1,0 +1,52 @@
+name: Bug report
+description: Something in Edgewatch doesn't work as it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. Please **redact account IDs, hostnames, emails and tokens** from anything you paste.
+        A wrong finding? Use the **False positive** template instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Findings
+        2. …
+  - type: input
+    id: version
+    attributes:
+      label: Edgewatch version
+      description: Shown at the bottom of the sidebar, or `edgewatch --version`.
+      placeholder: "0.4.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: runs
+    attributes:
+      label: How you run it
+      options:
+        - npx / npm install -g
+        - Docker
+        - From source
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: Node.js version, OS and browser
+      placeholder: "Node 24.1, macOS 15, Chrome 140"
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Server output around the problem, or errors from the browser console. Redacted.
+      render: text

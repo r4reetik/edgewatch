@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      web:
+        patterns: ["react", "react-dom", "@types/react*", "@cloudflare/kumo", "@phosphor-icons/*", "echarts", "vite", "@vitejs/*", "tailwindcss", "@tailwindcss/*"]
+      tooling:
+        patterns: ["typescript", "@biomejs/*", "@types/node"]
+      server:
+        patterns: ["hono", "@hono/*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

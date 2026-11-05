@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.png binary
+# Generated: collapsed in diffs, not counted as hand-written.
+package-lock.json linguist-generated=true -diff
+docs/checks.md linguist-generated=true
+docs/permissions.md linguist-generated=true
