@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Breaking:** Edgewatch now needs Node.js 24 LTS (24.11 or newer) when run with `npx` or `npm install -g`. Upgrade Node.js before upgrading Edgewatch; `edgewatch` says so if it's too old. The Docker image already runs Node 24, so Docker users have nothing to do.
+
 ## 0.4.0
 
 - **45 new checks**, from about 60 more Cloudflare reads and GraphQL analytics:

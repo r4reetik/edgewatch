@@ -1,6 +1,6 @@
 # Deployment
 
-Edgewatch is a single Node.js process with an embedded SQLite database. It needs Node.js 22.13 or newer and
+Edgewatch is a single Node.js process with an embedded SQLite database. It needs Node.js 24 LTS (24.11 or newer) and
 outbound HTTPS to `api.cloudflare.com` and `cloudflare-dns.com`. It also contacts, unless turned off in
 Settings: your own hostnames that point at cloud providers (the takeover check, over HTTPS then HTTP),
 `api.github.com` (the update check), and any Slack or webhook URL you configure for alerts.

@@ -6,7 +6,7 @@ Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
-You need Node 22.18 or newer (`.nvmrc` pins 24). Development runs TypeScript directly, with no build step for the server.
+You need Node.js 24 LTS, 24.11 or newer (`.nvmrc` pins 24). Development runs TypeScript directly, with no build step for the server.
 
 ```bash
 npm install

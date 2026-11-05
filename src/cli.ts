@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // Edgewatch entry point: `npx edgewatch` starts the server and opens the browser.
 
-// node:sqlite and the rest need Node.js 22.13; say so plainly instead of failing on an import.
+// Edgewatch targets Node.js 24 LTS; say so plainly instead of failing on an import.
 const [major, minor] = process.versions.node.split(".").map(Number);
-if (major < 22 || (major === 22 && minor < 13)) {
-  console.error(`edgewatch: Node.js 22.13 or newer is required; this is ${process.versions.node}.`);
+if (major < 24 || (major === 24 && minor < 11)) {
+  console.error(`edgewatch: Node.js 24.11 (Node 24 LTS) or newer is required; this is ${process.versions.node}.`);
   process.exit(1);
 }
 
