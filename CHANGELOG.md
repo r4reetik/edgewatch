@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0
+
 - **Breaking:** Edgewatch now needs Node.js 24.22.1 or newer (the October 2026 security release) when run with `npx` or `npm install -g`; Node 26 LTS is recommended. Upgrade Node.js before upgrading Edgewatch; `edgewatch` says so if it's too old. Docker users have nothing to do.
 - The Docker image now runs Node.js 26 LTS.
 
