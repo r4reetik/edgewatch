@@ -4,6 +4,8 @@
 
 - **Breaking:** Edgewatch now needs Node.js 24.22.1 or newer (the October 2026 security release) when run with `npx` or `npm install -g`; Node 26 LTS is recommended. Upgrade Node.js before upgrading Edgewatch; `edgewatch` says so if it's too old. Docker users have nothing to do.
 - The Docker image now runs Node.js 26 LTS.
+- **Run scan** scans the account you have selected (or the entity, or All accounts, when that's what you're viewing). The menu beside it scans the whole entity, or every account in every entity, including entities kept out of All accounts.
+- Buttons with tooltips are one tab stop instead of two.
 
 ## 0.4.0
 

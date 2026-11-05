@@ -20,22 +20,25 @@ export function permalink(fp: string) {
 export function CopyLinkButton({ fingerprint }: { fingerprint: string }) {
   const toasts = useKumoToastManager();
   return (
-    <Tooltip content="Copy a link to this finding">
-      <Button
-        variant="ghost"
-        shape="square"
-        aria-label="Copy link"
-        icon={<LinkSimpleIcon />}
-        onClick={async () => {
-          try {
-            await navigator.clipboard.writeText(permalink(fingerprint));
-            toasts.add({ title: "Link copied", variant: "success" });
-          } catch {
-            toasts.add({ title: "Couldn't copy", description: permalink(fingerprint), variant: "error" });
-          }
-        }}
-      />
-    </Tooltip>
+    <Tooltip
+      content="Copy a link to this finding"
+      render={
+        <Button
+          variant="ghost"
+          shape="square"
+          aria-label="Copy link"
+          icon={<LinkSimpleIcon />}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(permalink(fingerprint));
+              toasts.add({ title: "Link copied", variant: "success" });
+            } catch {
+              toasts.add({ title: "Couldn't copy", description: permalink(fingerprint), variant: "error" });
+            }
+          }}
+        />
+      }
+    />
   );
 }
 
@@ -328,25 +331,34 @@ export function FindingDialog({ finding: f, onClose, onSaved, nav }: { finding: 
               {nav?.position && <span className="mr-1 hidden text-xs text-kumo-subtle tabular-nums sm:inline">{nav.position}</span>}
               {nav && (
                 <>
-                  <Tooltip content="Previous (K)">
-                    <Button variant="ghost" shape="square" aria-label="Previous finding" icon={<CaretUpIcon />} disabled={!nav.onPrev} onClick={nav.onPrev} />
-                  </Tooltip>
-                  <Tooltip content="Next (J)">
-                    <Button variant="ghost" shape="square" aria-label="Next finding" icon={<CaretDownIcon />} disabled={!nav.onNext} onClick={nav.onNext} />
-                  </Tooltip>
+                  <Tooltip
+                    content="Previous (K)"
+                    render={
+                      <Button variant="ghost" shape="square" aria-label="Previous finding" icon={<CaretUpIcon />} disabled={!nav.onPrev} onClick={nav.onPrev} />
+                    }
+                  />
+                  <Tooltip
+                    content="Next (J)"
+                    render={
+                      <Button variant="ghost" shape="square" aria-label="Next finding" icon={<CaretDownIcon />} disabled={!nav.onNext} onClick={nav.onNext} />
+                    }
+                  />
                 </>
               )}
               <CopyLinkButton fingerprint={f.fingerprint} />
-              <Tooltip content="Open as a page">
-                <a
-                  {...link(`/findings/${f.fingerprint}`)}
-                  title="Open as a page"
-                  className="inline-flex h-9 w-9 items-center justify-center rounded-md text-kumo-default hover:bg-kumo-tint focus-visible:ring-2 focus-visible:ring-kumo-brand focus-visible:outline-none"
-                >
-                  <ArrowSquareOutIcon />
-                  <span className="sr-only">Open as a page</span>
-                </a>
-              </Tooltip>
+              <Tooltip
+                content="Open as a page"
+                render={
+                  <a
+                    {...link(`/findings/${f.fingerprint}`)}
+                    title="Open as a page"
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-md text-kumo-default hover:bg-kumo-tint focus-visible:ring-2 focus-visible:ring-kumo-brand focus-visible:outline-none"
+                  >
+                    <ArrowSquareOutIcon />
+                    <span className="sr-only">Open as a page</span>
+                  </a>
+                }
+              />
               <Dialog.Close aria-label="Close" render={(p) => <Button {...p} variant="ghost" shape="square" icon={<XIcon />} aria-label="Close" />} />
             </>
           }

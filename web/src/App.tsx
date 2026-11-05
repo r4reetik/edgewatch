@@ -2,11 +2,12 @@
 // scan progress, and the router. Pages are listed in routes.tsx.
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Breadcrumbs, Button, DropdownMenu, Sidebar, Toasty, Tooltip, TooltipProvider, useKumoToastManager } from "@cloudflare/kumo";
+import { Breadcrumbs, Button, ButtonGroup, DropdownMenu, Sidebar, Toasty, Tooltip, TooltipProvider, useKumoToastManager } from "@cloudflare/kumo";
 import {
   ArrowCircleUpIcon,
   ArrowsClockwiseIcon,
   BuildingsIcon,
+  CaretDownIcon,
   CaretUpDownIcon,
   CheckIcon,
   GearIcon,
@@ -27,10 +28,12 @@ import {
   onApiError,
   plural,
   resolveView,
+  scopeKeyFor,
   useLocation,
   useMode,
   useScopeKey,
   withScope,
+  type ScanRequest,
   type ScanStatus,
   type Session,
 } from "./lib.ts";
@@ -134,9 +137,10 @@ function AppShell({ session, refreshSession, standalone }: { session: Session; r
   }, [poll, status?.running]);
 
   const startScan = useCallback(
-    async (scopeKey?: string) => {
+    async (scopeKey?: string, opts?: { every?: boolean }) => {
       try {
-        await api("/api/scan", { method: "POST", body: { scope: scopeKey ?? scope } });
+        const body: ScanRequest = { scope: scopeKey ?? scope, ...(opts?.every && { every: true }) };
+        await api("/api/scan", { method: "POST", body });
         wasRunning.current = true;
         await poll();
       } catch (e) {
@@ -247,7 +251,7 @@ function Nav() {
 }
 
 function TopBar() {
-  const { session, status, startScan, view, multi } = useShell();
+  const { session, status } = useShell();
   const { path } = useLocation();
   const [mode, setMode] = useMode();
   const route = matchRoute(path)?.route;
@@ -259,18 +263,6 @@ function TopBar() {
     : status?.lastScanAt
       ? `Last scan ${ago(status.lastScanAt)}`
       : "Not scanned yet";
-  const scanButton = (
-    <Button
-      variant="primary"
-      size="sm"
-      icon={<ArrowsClockwiseIcon />}
-      loading={running && status?.inScope}
-      disabled={running && status?.inScope}
-      onClick={() => startScan()}
-    >
-      {running && status?.inScope ? "Scanning" : "Run scan"}
-    </Button>
-  );
   return (
     <div className="no-print sticky top-0 z-10 shrink-0 border-b border-kumo-hairline bg-kumo-base">
       <div className="flex h-14 items-center gap-3 px-4">
@@ -299,25 +291,20 @@ function TopBar() {
           <span className="mr-1 hidden truncate text-sm text-kumo-subtle lg:inline" aria-live="polite">
             {progress}
           </span>
-          <Tooltip content={mode === "dark" ? "Light mode" : "Dark mode"}>
-            <Button
-              variant="ghost"
-              size="sm"
-              shape="square"
-              aria-label="Toggle color mode"
-              icon={mode === "dark" ? <SunIcon /> : <MoonIcon />}
-              onClick={() => setMode(mode === "dark" ? "light" : "dark")}
-            />
-          </Tooltip>
-          {multi ? (
-            <Tooltip
-              content={`Scans the ${plural(view.accounts.length, "account")} in ${view.kind === "all" ? "All accounts" : view.label}, one after another`}
-            >
-              {scanButton}
-            </Tooltip>
-          ) : (
-            scanButton
-          )}
+          <Tooltip
+            content={mode === "dark" ? "Light mode" : "Dark mode"}
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                shape="square"
+                aria-label="Toggle color mode"
+                icon={mode === "dark" ? <SunIcon /> : <MoonIcon />}
+                onClick={() => setMode(mode === "dark" ? "light" : "dark")}
+              />
+            }
+          />
+          <ScanButton />
         </div>
       </div>
       {/* Below lg the progress line has no room in the bar; a thin strip shows it while scanning. */}
@@ -327,6 +314,60 @@ function TopBar() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * "Run scan" scans what's in view: the selected account, or the entity or "All accounts"
+ * when one of those is selected. The menu beside it scans more: the whole entity, or every
+ * account in every entity (including entities kept out of "All accounts").
+ */
+function ScanButton() {
+  const { session, status, startScan, view } = useShell();
+  const accounts = session.accounts || [];
+  const busy = !!status?.running && !!status?.inScope;
+  const entityAccounts = view.entity ? accounts.filter((a) => a.entityId === view.entity!.id) : [];
+  const entityCount = new Set(accounts.map((a) => a.entityId)).size;
+  const what = view.kind === "account" ? view.label : `the ${plural(view.accounts.length, "account")} in ${view.kind === "all" ? "All accounts" : view.label}`;
+  const primary = (
+    <Button variant="primary" size="sm" icon={<ArrowsClockwiseIcon />} loading={busy} disabled={busy} onClick={() => startScan()}>
+      {busy ? "Scanning" : "Run scan"}
+    </Button>
+  );
+  if (accounts.length < 2) return primary;
+  return (
+    <ButtonGroup aria-label="Run scan">
+      <Tooltip content={`Scans ${what}`} render={primary} />
+      <DropdownMenu>
+        <DropdownMenu.Trigger render={<Button variant="primary" size="sm" shape="square" aria-label="More ways to scan" icon={<CaretDownIcon />} />} />
+        <DropdownMenu.Content align="end" className="min-w-72">
+          {view.kind === "account" && (
+            <DropdownMenu.Item icon={<GlobeIcon />} onClick={() => startScan()}>
+              <span className="flex-1 truncate">Scan {view.label}</span>
+              <span className="text-kumo-subtle">This account</span>
+            </DropdownMenu.Item>
+          )}
+          {view.entity && entityAccounts.length > 1 && (
+            <DropdownMenu.Item icon={<BuildingsIcon />} onClick={() => startScan(scopeKeyFor.entity(view.entity!.id))}>
+              <span className="flex-1 truncate">Scan all of {view.entity.name}</span>
+              <span className="text-kumo-subtle">{plural(entityAccounts.length, "account")}</span>
+            </DropdownMenu.Item>
+          )}
+          {view.kind === "all" && (
+            <DropdownMenu.Item icon={<SquaresFourIcon />} onClick={() => startScan()}>
+              <span className="flex-1">Scan All accounts</span>
+              <span className="text-kumo-subtle">{plural(view.accounts.length, "account")}</span>
+            </DropdownMenu.Item>
+          )}
+          <DropdownMenu.Item icon={<SquaresFourIcon />} onClick={() => startScan(undefined, { every: true })}>
+            <span className="flex-1">Scan every account</span>
+            <span className="text-kumo-subtle">
+              {plural(accounts.length, "account")} in {plural(entityCount, "entity", "entities")}
+            </span>
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu>
+    </ButtonGroup>
   );
 }
 

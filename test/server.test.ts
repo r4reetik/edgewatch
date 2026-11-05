@@ -203,6 +203,21 @@ describe("several accounts and entities", () => {
     cleanup();
   });
 
+  test("Run scan covers the account in view, its entity, or every account on request", async () => {
+    const { json, scanner, other, mock, cleanup } = await twoEntities();
+    await json(`/api/entities/${other}`, "PATCH", { includeInAll: false });
+    const scan = async (body: object) => {
+      const { queued } = await json("/api/scan", "POST", body);
+      await scanner.start("wait", queued).done;
+      return [...queued].sort();
+    };
+    assert.deepEqual(await scan({ scope: `a:${MOCK_ACCOUNT}` }), [MOCK_ACCOUNT], "an account view scans only that account");
+    assert.deepEqual(await scan({ scope: `e:${mock}` }), [MOCK_ACCOUNT]);
+    assert.deepEqual(await scan({ scope: "all" }), [MOCK_ACCOUNT], "All accounts leaves out an entity kept separate");
+    assert.deepEqual(await scan({ scope: `a:${MOCK_ACCOUNT}`, every: true }), [MOCK_ACCOUNT, MOCK_ACCOUNT_2].sort(), "every account means every entity");
+    cleanup();
+  });
+
   test("unknown scopes are rejected; scans and exports follow the scope", async () => {
     const { call, json, cleanup } = await twoEntities();
     assert.equal((await call("/api/overview?scope=a:ffffffffffffffffffffffffffffffff")).status, 404);

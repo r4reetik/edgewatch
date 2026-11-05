@@ -516,6 +516,14 @@ export interface ScansResponse {
   coverage: Coverage[];
 }
 
+/** POST /api/scan. */
+export interface ScanRequest {
+  /** The view to scan: "all", "e:<entity id>" or "a:<account id>". */
+  scope: string;
+  /** Scan every account in every entity instead, including entities kept out of "All accounts". */
+  every?: boolean;
+}
+
 export interface ScanStatus {
   running: boolean;
   accountId: string | null;

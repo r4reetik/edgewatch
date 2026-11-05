@@ -6,7 +6,7 @@ import { displayName, type Repo, type Scope } from "../../store/repo.ts";
 import { CHECK_BY_ID } from "../../core/catalog.ts";
 import { countBySeverity, emptyCounts, type SeverityCounts } from "../../shared/severity.ts";
 import { badRequest, notFound } from "../errors.ts";
-import { FINGERPRINT, param } from "../validate.ts";
+import { FINGERPRINT, param, readJson } from "../validate.ts";
 import {
   activity,
   brief,
@@ -25,6 +25,7 @@ import {
 } from "../scope.ts";
 import type {
   ActivityResponse,
+  ScanRequest,
   AttackPath,
   Finding,
   FindingBrief,
@@ -90,12 +91,15 @@ export function dashboardRoutes(r: Routes, { repo, scanner, version }: AppContex
     return { scans, findings: scopeFindings(repo, scans, repo.settings.get()) };
   };
 
-  r.post("/api/scan", (c) => {
-    const scope = c.get("scope");
-    if (!scope.accounts.length) throw badRequest("No accounts in this view.");
+  // Scans the accounts in `scope` (one account, an entity, or "all"), or with `every: true`
+  // every account in every entity, including entities kept out of "All accounts".
+  r.post("/api/scan", async (c) => {
+    const body = (await readJson(c)) as ScanRequest | null;
+    const accounts = body?.every === true ? repo.accounts.list() : c.get("scope").accounts;
+    if (!accounts.length) throw badRequest("No accounts in this view.");
     const s = scanner.start(
       "manual",
-      scope.accounts.map((a) => a.id),
+      accounts.map((a) => a.id),
     );
     return c.json({ queued: s.queued, alreadyRunning: s.alreadyRunning }, 202);
   });

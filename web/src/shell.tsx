@@ -10,8 +10,8 @@ export interface Shell {
   status: ScanStatus | null;
   /** Increments whenever a scan finishes, so pages refetch. */
   dataVersion: number;
-  /** Scans the current view, or the given scope key (an account's row scans just that account). */
-  startScan: (scopeKey?: string) => Promise<void>;
+  /** Scans the current view, or the given scope key (an account's row scans just that account); `every` scans every account in every entity. */
+  startScan: (scopeKey?: string, opts?: { every?: boolean }) => Promise<void>;
   /** What the dashboard is looking at: all included accounts, one entity, or one account. */
   view: View;
   setScope: (key: string) => void;
