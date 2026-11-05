@@ -260,6 +260,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the layout of the code and how to add
 [docs/architecture.md](docs/architecture.md) for how a scan works, and [SUPPORT.md](SUPPORT.md) for where
 to ask questions. Everyone taking part is expected to follow the [code of conduct](CODE_OF_CONDUCT.md).
 
+## Sponsoring
+
+Edgewatch is free and MIT-licensed. If it's useful to you or your company, you can support its development
+through [GitHub Sponsors](https://github.com/sponsors/r4reetik).
+
 ## License
 
 [MIT](LICENSE)
