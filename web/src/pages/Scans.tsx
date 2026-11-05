@@ -129,12 +129,18 @@ export function ScansPage() {
                         ) : null}
                         {c.message && (
                           <span className="truncate" title={c.message}>
-                            Cloudflare said: {c.message}
+                            {c.permission ? "Cloudflare said: " : ""}
+                            {c.message}
                           </span>
                         )}
-                        <a {...link("/accounts")} className="text-kumo-link">
-                          Replace the token on the Accounts page
-                        </a>
+                        {c.permission ? (
+                          <a {...link("/accounts")} className="text-kumo-link">
+                            Replace the token on the Accounts page
+                          </a>
+                        ) : (
+                          // Public DNS lookups and probes need no permission, only outbound network access.
+                          <span>Check that this server can reach the internet over HTTPS.</span>
+                        )}
                       </div>
                     )}
                   </Table.Cell>

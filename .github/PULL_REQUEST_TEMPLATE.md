@@ -12,4 +12,4 @@
 - [ ] New or changed checks have a failing case in `test/checks/cases.ts`, and `npm run docs` was run
 - [ ] The scanner still only reads (GET, or GraphQL queries)
 - [ ] No secrets, account IDs or real hostnames in code, tests or screenshots
-- [ ] User-facing changes are in `CHANGELOG.md` under the next version
+- [ ] User-facing changes are under `## Unreleased` in `CHANGELOG.md`, marked `**Breaking:**` if users must act

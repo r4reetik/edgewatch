@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { Banner, Button, Table, Tabs } from "@cloudflare/kumo";
-import { ArrowRightIcon, ArrowsClockwiseIcon, WarningIcon } from "@phosphor-icons/react";
+import { ArrowRightIcon, ArrowsClockwiseIcon, FileTextIcon, WarningIcon } from "@phosphor-icons/react";
 import { useScopedApi, useShell } from "../shell.tsx";
 import {
   ago,
@@ -21,6 +21,7 @@ import {
   type FindingBrief,
   type FindingGroup,
   type Overview,
+  withScope,
 } from "../lib.ts";
 import { Aside, Card, ConfidenceBadge, ListCard, NoRows, Page, PageState, Row, ScoreMeter, SeverityBadge, Stat } from "../components/ui.tsx";
 import { TrendCharts } from "../components/charts.tsx";
@@ -44,10 +45,18 @@ export function OverviewPage() {
         loading={!data && loading}
         empty={!!data && !data.scan}
         retry={reload}
+        // Adding accounts starts their first scan, so most people arrive here while it runs.
+        emptyText={
+          status?.running && status.inScope
+            ? `The first scan is running${status.phase ? `: ${status.phase.toLowerCase()}` : ""}. Results appear here when it finishes.`
+            : undefined
+        }
         emptyAction={
-          <Button variant="primary" icon={<ArrowsClockwiseIcon />} loading={status?.running} onClick={startScan}>
-            Run first scan
-          </Button>
+          status?.running && status.inScope ? undefined : (
+            <Button variant="primary" icon={<ArrowsClockwiseIcon />} loading={status?.running} onClick={() => startScan()}>
+              Run first scan
+            </Button>
+          )
         }
       />
     );
@@ -64,7 +73,16 @@ export function OverviewPage() {
   const sinceRows = since === "new" ? data.newSince : data.resolvedSince;
 
   return (
-    <Page title={TITLE} description={description}>
+    <Page
+      title={TITLE}
+      description={description}
+      actions={
+        // The print-ready report for this view; a new tab, so the dashboard stays where it was.
+        <Button variant="secondary" icon={<FileTextIcon />} onClick={() => window.open(withScope("/report", view.key), "_blank", "noopener")}>
+          Audit report
+        </Button>
+      }
+    >
       {gaps.length > 0 && (
         <Banner
           variant="alert"

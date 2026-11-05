@@ -2,9 +2,9 @@
 // finding page, the single-finding triage form, and bulk triage.
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, Dialog, Input, InputArea, Link, Select, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
+import { Button, Checkbox, Dialog, Input, InputArea, Link, Select, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import { ArrowSquareOutIcon, BookOpenIcon, CaretDownIcon, CaretUpIcon, LinkSimpleIcon, XIcon } from "@phosphor-icons/react";
-import { api, dateOnly, dateTime, link, STATUS_LABEL, type Finding, type Triage, type TriageStatus } from "../lib.ts";
+import { api, dateOnly, dateTime, link, plural, STATUS_LABEL, type Finding, type Triage, type TriageStatus } from "../lib.ts";
 import { isoDate } from "../../../src/shared/time.ts";
 import { ConfidenceBadge, FormGrid, ReopenedBadge, SeverityBadge, StatusBadge } from "./ui.tsx";
 import { useShell } from "../shell.tsx";
@@ -297,6 +297,7 @@ export interface DialogNav {
 export function FindingDialog({ finding: f, onClose, onSaved, nav }: { finding: Finding; onClose: () => void; onSaved: (t: Triage) => void; nav?: DialogNav }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return; // leave Cmd/Ctrl+K and friends to the browser
       if (e.target instanceof HTMLElement && e.target.closest("input, textarea, select, [contenteditable], [role=combobox], [role=listbox]")) return;
       if (e.key === "j" && nav?.onNext) {
         e.preventDefault();
@@ -370,8 +371,11 @@ export function BulkTriageDialog({ findings, onClose, onSaved }: { findings: Fin
   const toasts = useKumoToastManager();
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>(KEEP);
-  const [owner, setOwner] = useState<string | null>(null);
-  const [due, setDue] = useState<string | null>(null);
+  // An empty field leaves each finding as it is; clearing is a separate, explicit choice.
+  const [owner, setOwner] = useState("");
+  const [clearOwner, setClearOwner] = useState(false);
+  const [due, setDue] = useState("");
+  const [clearDue, setClearDue] = useState(false);
   const [note, setNote] = useState("");
   const [noteMode, setNoteMode] = useState<"append" | "replace">("append");
   const count = findings.length;
@@ -402,8 +406,12 @@ export function BulkTriageDialog({ findings, onClose, onSaved }: { findings: Fin
   const save = async () => {
     const body: Record<string, unknown> = { fingerprints: findings.map((f) => f.fingerprint) };
     if (status !== KEEP) body.status = status;
-    if (owner !== null) body.owner = owner;
-    if (due !== null && !NO_DUE.has(status as TriageStatus)) body.dueDate = due;
+    if (clearOwner) body.owner = "";
+    else if (owner.trim()) body.owner = owner.trim();
+    if (!NO_DUE.has(status as TriageStatus)) {
+      if (clearDue) body.dueDate = "";
+      else if (due) body.dueDate = due;
+    }
     if (note.trim()) body[noteMode === "append" ? "appendNote" : "note"] = note.trim();
     if (Object.keys(body).length === 1) {
       onClose();
@@ -413,7 +421,7 @@ export function BulkTriageDialog({ findings, onClose, onSaved }: { findings: Fin
     try {
       await api("/api/triage", { method: "POST", body });
       onSaved();
-      toasts.add({ title: `Updated ${count} findings`, variant: "success", actions: [{ children: "Undo", onClick: () => void undo() }] });
+      toasts.add({ title: `Updated ${plural(count, "finding")}`, variant: "success", actions: [{ children: "Undo", onClick: () => void undo() }] });
     } catch (e) {
       toasts.add({ title: "Couldn't save", description: (e as Error).message, variant: "error" });
     } finally {
@@ -431,7 +439,7 @@ export function BulkTriageDialog({ findings, onClose, onSaved }: { findings: Fin
       <Dialog size="lg" className="p-6">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <Dialog.Title className="text-lg font-semibold text-kumo-default">Triage {count} findings</Dialog.Title>
+            <Dialog.Title className="text-lg font-semibold text-kumo-default">Triage {plural(count, "finding")}</Dialog.Title>
             <Dialog.Description className="text-sm text-kumo-subtle">
               Only the fields you change are applied. Everything else stays as it is on each finding.
             </Dialog.Description>
@@ -454,24 +462,23 @@ export function BulkTriageDialog({ findings, onClose, onSaved }: { findings: Fin
               onValueChange={(v) => setStatus(String(v))}
               items={{ [KEEP]: "Leave unchanged", ...STATUS_LABEL }}
             />
-            <Input
-              className="w-full"
-              label="Owner"
-              placeholder="Leave unchanged"
-              value={owner ?? ""}
-              onChange={(e) => setOwner(e.target.value)}
-              maxLength={120}
-              description={owner === "" ? "Clears the owner." : undefined}
-            />
-            {!NO_DUE.has(status as TriageStatus) && (
+            <div className="flex flex-col gap-2">
               <Input
                 className="w-full"
-                label="Due date"
-                type="date"
-                value={due ?? ""}
-                onChange={(e) => setDue(e.target.value)}
-                description={due === null ? "Leave empty to keep each finding's date." : undefined}
+                label="Owner"
+                placeholder="Leave unchanged"
+                value={owner}
+                disabled={clearOwner}
+                onChange={(e) => setOwner(e.target.value)}
+                maxLength={120}
               />
+              <Checkbox label="Remove the owner" checked={clearOwner} onCheckedChange={(v: boolean) => setClearOwner(v)} />
+            </div>
+            {!NO_DUE.has(status as TriageStatus) && (
+              <div className="flex flex-col gap-2">
+                <Input className="w-full" label="Due date" type="date" value={due} disabled={clearDue} onChange={(e) => setDue(e.target.value)} />
+                <Checkbox label="Use the SLA instead" checked={clearDue} onCheckedChange={(v: boolean) => setClearDue(v)} />
+              </div>
             )}
           </FormGrid>
           <InputArea label="Note" placeholder="Leave empty to keep each finding's note" value={note} onValueChange={setNote} minRows={3} maxLength={4000} />

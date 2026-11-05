@@ -58,11 +58,16 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
     const unseen = ids.find((id) => !visible.has(id));
     if (unseen) throw badRequest(`This token can't read account ${unseen}.`);
 
+    // Accounts already here only get the new token and stay in their entity, so a new entity is
+    // created only when at least one account is new; otherwise it would be left empty.
+    const fresh = ids.filter((id) => !repo.accounts.get(id));
     let entityId: number;
     if (body.entityId != null) {
       const e = repo.entities.get(Number(body.entityId));
       if (!e) throw badRequest("That entity no longer exists.");
       entityId = e.id;
+    } else if (!fresh.length) {
+      entityId = repo.accounts.get(ids[0])!.entityId;
     } else {
       const name = body.entityName != null ? cleanName(body.entityName) : visible.get(ids[0]) || "My organization";
       if (!name) throw badRequest("Give the entity a name.");
@@ -110,14 +115,18 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
   r.patch("/api/accounts/:id", async (c) => {
     const a = account(param(c, "id"));
     const body = await requireJson(c);
-    if (body.alias !== undefined) repo.accounts.update(a.id, { alias: body.alias == null ? null : cleanName(body.alias) || null });
-    if (body.scheduled !== undefined) repo.accounts.update(a.id, { scheduled: bool(body.scheduled, "scheduled") });
-    if (body.entityId !== undefined) {
-      const e = repo.entities.get(Number(body.entityId));
-      if (!e) throw badRequest("Unknown entity");
-      if (e.id !== a.entityId) repo.accounts.setEntity(a.id, e.id);
-    }
-    if (body.move !== undefined) repo.accounts.move(a.id, direction(body.move));
+    // Validate everything first, so a rejected request changes nothing.
+    const alias = body.alias === undefined ? undefined : body.alias == null ? null : cleanName(body.alias) || null;
+    const scheduled = body.scheduled === undefined ? undefined : bool(body.scheduled, "scheduled");
+    const entity = body.entityId === undefined ? undefined : repo.entities.get(Number(body.entityId));
+    if (body.entityId !== undefined && !entity) throw badRequest("Unknown entity");
+    const move = body.move === undefined ? undefined : direction(body.move);
+    repo.store.tx(() => {
+      if (alias !== undefined) repo.accounts.update(a.id, { alias });
+      if (scheduled !== undefined) repo.accounts.update(a.id, { scheduled });
+      if (entity && entity.id !== a.entityId) repo.accounts.setEntity(a.id, entity.id);
+      if (move) repo.accounts.move(a.id, move);
+    });
     return c.json({ ok: true, account: publicAccount(vault, repo.accounts.get(a.id)!) });
   });
 

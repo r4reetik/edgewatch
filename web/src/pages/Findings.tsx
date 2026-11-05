@@ -4,7 +4,7 @@
 // changes, so a search can narrow what to triage without losing the rest.
 
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Button, Checkbox, DropdownMenu, Input, Pagination, Select, Table, Tabs, Empty } from "@cloudflare/kumo";
+import { Button, Checkbox, DropdownMenu, Input, Pagination, Select, Table, Tabs, Empty, useKumoToastManager } from "@cloudflare/kumo";
 import {
   CaretDownIcon,
   CaretRightIcon,
@@ -17,6 +17,7 @@ import {
 } from "@phosphor-icons/react";
 import { useScopedApi, useShell } from "../shell.tsx";
 import {
+  clampPage,
   dateOnly,
   filterFindings,
   filtersFromParams,
@@ -73,10 +74,14 @@ export function FindingsPage() {
   const { multi, view } = useShell();
   const { data, error, loading, reload, setData } = useScopedApi<FindingsResponse>("/api/findings");
   const { params } = useLocation();
+  const toasts = useKumoToastManager();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<string | null>(null);
   const [bulk, setBulk] = useState(false);
-  const [page, setPage] = useState(1);
+  // A selection belongs to the view it was made in.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: clears on every change of view
+  useEffect(() => setSelected(new Set()), [view.key]);
+  const [pageState, setPage] = useState(1);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const query = params.toString();
@@ -124,6 +129,21 @@ export function FindingsPage() {
         if (v) q.set(p, String(v));
       }
     return withScope(`/api/export/findings.${fmt}?${q}`, view.key);
+  };
+  /** Downloads an export; an error shows as a toast instead of replacing the page with the server's answer. */
+  const download = async (url: string) => {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(((await res.json().catch(() => null)) as { error?: string } | null)?.error || `HTTP ${res.status}`);
+      const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") || "")?.[1] || "findings";
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(await res.blob());
+      a.download = name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch (e) {
+      toasts.add({ title: "Couldn't export", description: (e as Error).message, variant: "error" });
+    }
   };
 
   const applyTriage = (fps: string[], t: Triage) => {
@@ -181,14 +201,14 @@ export function FindingsPage() {
         <DropdownMenu.Label>What's shown ({num(rows.length)})</DropdownMenu.Label>
         <DropdownMenu.Item
           onClick={() => {
-            location.href = exportUrl("csv");
+            void download(exportUrl("csv"));
           }}
         >
           CSV (spreadsheets)
         </DropdownMenu.Item>
         <DropdownMenu.Item
           onClick={() => {
-            location.href = exportUrl("json");
+            void download(exportUrl("json"));
           }}
         >
           JSON (automation)
@@ -217,14 +237,14 @@ export function FindingsPage() {
           <DropdownMenu.Content>
             <DropdownMenu.Item
               onClick={() => {
-                location.href = exportUrl("csv", [...selected]);
+                void download(exportUrl("csv", [...selected]));
               }}
             >
               CSV
             </DropdownMenu.Item>
             <DropdownMenu.Item
               onClick={() => {
-                location.href = exportUrl("json", [...selected]);
+                void download(exportUrl("json", [...selected]));
               }}
             >
               JSON
@@ -322,6 +342,7 @@ export function FindingsPage() {
     );
 
   const pages = Math.ceil(rows.length / PER_PAGE);
+  const page = clampPage(pageState, rows.length, PER_PAGE);
   const flat = groupBy === "none";
   const footer = (
     <>

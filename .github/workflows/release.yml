@@ -1,40 +1,144 @@
 name: Release
 
+# Two ways to release (see docs/releasing.md):
+# - Actions → Release → Run workflow, and pick the bump. It versions package.json,
+#   moves the CHANGELOG's "Unreleased" notes under the new version, commits,
+#   tags, and publishes.
+# - Push a tag vX.Y.Z yourself, matching package.json and a CHANGELOG section.
+#
+# Stable releases go to npm "latest", and to GHCR as :X.Y.Z, :X.Y (the release
+# line), :X from 1.0, and :latest. Release candidates (X.Y.Z-rc.N) go to npm
+# "next" and GHCR :X.Y.Z-rc.N only, so nobody receives one without asking.
+#
+# Every publishing step skips what's already done, so re-running a release that
+# failed halfway (or the run a RELEASE_TOKEN's tag push starts) finishes it
+# instead of failing on "version already exists".
+
 on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "What to release. patch: fixes. minor: features (before 1.0, also breaking changes). major: breaking changes from 1.0. rc: a release candidate of the next line."
+        type: choice
+        options: [patch, minor, major, rc]
+        default: patch
   push:
     tags: ["v*"]
 
 permissions:
   contents: read
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
+  prepare:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0 # tags, so the script can compare with the last release
+          # A token that may push to a protected main; the default works when main isn't protected.
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: bump
+        run: node scripts/release.ts bump "$BUMP"
+        env:
+          BUMP: ${{ inputs.bump }}
+      - name: Commit and tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Release $TAG"
+          git tag -a "$TAG" -m "Edgewatch $TAG"
+          git push origin HEAD:main "$TAG"
+        env:
+          TAG: ${{ steps.bump.outputs.tag }}
+
+  verify:
+    needs: prepare
+    # Runs after prepare, or on its own for a pushed tag.
+    if: ${{ !cancelled() && (needs.prepare.result == 'success' || needs.prepare.result == 'skipped') }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+      stable_major: ${{ steps.meta.outputs.stable_major }}
+      released: ${{ steps.meta.outputs.released }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - id: meta
+        name: The tag matches package.json and has release notes
+        run: |
+          tag="${PREPARED_TAG:-$GITHUB_REF_NAME}"
+          version="$(node -p 'require("./package.json").version')"
+          test "$tag" = "v$version" || { echo "Tag $tag doesn't match package.json $version"; exit 1; }
+          node scripts/release.ts notes "$version" > /dev/null
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # Already fully released (a duplicate run): nothing left to do.
+          if gh release view "$tag" > /dev/null 2>&1; then echo "released=true" >> "$GITHUB_OUTPUT"; fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          case "$version" in *-*) echo "prerelease=true" >> "$GITHUB_OUTPUT";; *) echo "prerelease=false" >> "$GITHUB_OUTPUT";; esac
+          case "$version" in 0.*|*-*) echo "stable_major=false" >> "$GITHUB_OUTPUT";; *) echo "stable_major=true" >> "$GITHUB_OUTPUT";; esac
+        env:
+          PREPARED_TAG: ${{ needs.prepare.outputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+
   npm:
+    needs: verify
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.verify.outputs.released != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci
-      - run: npm run check
-      - name: The tag matches package.json
-        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - run: npm publish --provenance --access public
+      - name: Publish, unless this version is already on npm
+        run: |
+          if npm view "edgewatch@$VERSION" version > /dev/null 2>&1; then echo "edgewatch@$VERSION is already published"; exit 0; fi
+          npm publish --provenance --access public --tag "$DIST_TAG"
         env:
+          VERSION: ${{ needs.verify.outputs.version }}
+          DIST_TAG: ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   docker:
+    needs: verify
+    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.verify.outputs.released != 'true' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -46,10 +150,13 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}
+          # Prereleases only get their exact version; {{major}}.{{minor}} is never generated for them.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
+            type=semver,pattern={{version}},value=${{ needs.verify.outputs.version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.verify.outputs.version }}
+            type=semver,pattern={{major}},value=${{ needs.verify.outputs.version }},enable=${{ needs.verify.outputs.stable_major == 'true' }}
+            type=raw,value=latest,enable=${{ needs.verify.outputs.prerelease == 'false' }}
+          flavor: latest=false
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -59,18 +166,24 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   github:
+    needs: [verify, npm, docker]
+    if: ${{ !cancelled() && needs.npm.result == 'success' && needs.docker.result == 'success' }}
     runs-on: ubuntu-latest
-    needs: [npm, docker]
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.tag }}
       - name: Release notes from CHANGELOG.md
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          awk -v v="## $version" '$0 == v {on=1; next} /^## / && on {exit} on' CHANGELOG.md > notes.md
-          test -s notes.md || { echo "No CHANGELOG entry for $version"; exit 1; }
-          printf '\n**Install:** `npx edgewatch@%s` or `docker run ghcr.io/%s:%s`\n' "$version" "$GITHUB_REPOSITORY" "$version" >> notes.md
-      - run: gh release create "$GITHUB_REF_NAME" --title "Edgewatch $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+          node scripts/release.ts notes "$VERSION" > notes.md
+          printf '\n---\n\n**Install:** `npx edgewatch@%s` or `docker pull ghcr.io/%s:%s`. Upgrading? See [docs/upgrading.md](https://github.com/%s/blob/main/docs/upgrading.md).\n' \
+            "$VERSION" "$GITHUB_REPOSITORY" "$VERSION" "$GITHUB_REPOSITORY" >> notes.md
+        env:
+          VERSION: ${{ needs.verify.outputs.version }}
+      - run: gh release create "$TAG" --title "Edgewatch $TAG" --notes-file notes.md --verify-tag $([ "$PRERELEASE" = true ] && echo --prerelease)
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify.outputs.tag }}
+          PRERELEASE: ${{ needs.verify.outputs.prerelease }}

@@ -65,14 +65,10 @@ Severity guide: **critical** means it's exploitable now (a takeover, a leaked cr
 
 - Keep each pull request to one change, with a test that would have caught the bug or covers the feature.
 - Use the mock (`npm run dev -- --mock`) for screenshots. Never commit real account IDs, hostnames, emails or tokens, in code, fixtures or images.
-- Add a line to `CHANGELOG.md` for anything a user would notice.
+- Add a line under `## Unreleased` in `CHANGELOG.md` for anything a user would notice, marked `**Breaking:**` if users may need to act (see [docs/releasing.md](docs/releasing.md)).
 
 ## Releases
 
-1. Bump `version` in `package.json` (and `package-lock.json`, with `npm install`), and move the CHANGELOG entry under `## X.Y.Z`.
-2. Commit, tag `vX.Y.Z`, and push the tag.
-3. The release workflow runs `npm run check`, publishes to npm with provenance, pushes the multi-arch image to
-   `ghcr.io/r4reetik/edgewatch`, and creates a GitHub release with that version's CHANGELOG entry as notes.
-
-The workflow needs an `NPM_TOKEN` repository secret (an npm automation token), or npm trusted publishing set
-up for this repository and workflow.
+Releases are cut from GitHub: **Actions → Release → Run workflow**. The workflow versions, tags and publishes
+to npm, GHCR and GitHub releases. [docs/releasing.md](docs/releasing.md) covers the steps, release candidates,
+breaking changes and the one-time setup; [docs/upgrading.md](docs/upgrading.md) is what users see.

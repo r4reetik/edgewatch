@@ -108,6 +108,8 @@ async function post(url: string, body: unknown): Promise<string> {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(10_000),
+      // A redirect could send the alert somewhere other than the https URL that was configured.
+      redirect: "error",
     });
     return res.ok ? "ok" : `HTTP ${res.status}`;
   } catch (e) {
@@ -117,15 +119,25 @@ async function post(url: string, body: unknown): Promise<string> {
 
 const SEV_LABEL: Record<string, string> = { critical: "Critical", high: "High", medium: "Medium", low: "Low", info: "Info" };
 
+/** Slack rejects a section over 3000 characters, which would lose the whole alert. */
+const SLACK_SECTION_MAX = 2900;
+const SLACK_LINES_MAX = 15;
+const clip = (t: string, n: number) => (t.length > n ? `${t.slice(0, n - 1)}…` : t);
+
 function slackPayload(s: ScanSummary, link: string | null, findingUrl: (fp?: string) => string | null) {
-  const lines = s.newFindings.slice(0, 15).map((f) => {
+  const lines: string[] = [];
+  let size = 0;
+  for (const f of s.newFindings.slice(0, SLACK_LINES_MAX)) {
     const url = findingUrl(f.fingerprint);
     const title = url ? `<${url}|${esc(f.title)}>` : esc(f.title);
-    return `• *${SEV_LABEL[f.severity]}*${f.reopened ? " (came back)" : ""}: ${title} (${esc(f.resource)})`;
-  });
-  if (s.newFindings.length > 15) lines.push(`…and ${s.newFindings.length - 15} more`);
+    const line = `• *${SEV_LABEL[f.severity]}*${f.reopened ? " (came back)" : ""}: ${title} (${esc(clip(f.resource, 120))})`;
+    if (size + line.length + 40 > SLACK_SECTION_MAX) break;
+    lines.push(line);
+    size += line.length + 1;
+  }
+  if (s.newFindings.length > lines.length) lines.push(`…and ${s.newFindings.length - lines.length} more`);
   const back = s.newFindings.filter((f) => f.reopened).length;
-  const headline = `${s.newFindings.length} new finding${s.newFindings.length === 1 ? "" : "s"} in ${s.accountName}${back ? ` (${back} came back after being fixed)` : ""}`;
+  const headline = `${s.newFindings.length} new finding${s.newFindings.length === 1 ? "" : "s"} in ${esc(s.accountName)}${back ? ` (${back} came back after being fixed)` : ""}`;
   return {
     text: headline,
     blocks: [

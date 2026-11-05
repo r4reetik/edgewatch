@@ -150,6 +150,33 @@ export interface Session {
   configured: boolean;
   accounts?: SessionAccount[];
   entities?: SessionEntity[];
+  /** Whether a newer release is out (signed-in users only). */
+  update?: UpdateStatus;
+}
+
+/** How this copy was installed, which decides the upgrade instructions. */
+export type InstallKind = "docker" | "npm";
+
+export interface UpdateStatus {
+  /** Checking is on (Settings) and not switched off with EDGEWATCH_UPDATE_CHECK=off. */
+  enabled: boolean;
+  /** EDGEWATCH_UPDATE_CHECK=off, so the Settings switch has no effect. */
+  lockedOff: boolean;
+  current: string;
+  install: InstallKind;
+  /** The release line this version updates within without breaking changes: "0.4", or "1" from 1.0. */
+  line: string;
+  /** The newest stable release, when it's newer than this one. */
+  latest: { version: string; url: string; publishedAt: string | null; sameLine: boolean } | null;
+  /** The newest compatible update on this release line, when the latest starts a new line. */
+  inLine: { version: string; url: string } | null;
+  /** A release between this version and the latest marks breaking changes. */
+  breaking: boolean;
+  /** How many releases are newer than this one. */
+  newerCount: number;
+  checkedAt: string | null;
+  /** Why the last check failed; the previous result is kept. */
+  error: string | null;
 }
 
 export interface EntityNotificationsView {
@@ -229,6 +256,8 @@ export interface Settings {
   probes: { takeover: boolean };
   /** Address people use to open Edgewatch, for links in notifications. */
   baseUrl: string;
+  /** Check GitHub daily for a newer release. */
+  updates: { check: boolean };
 }
 
 export interface CheckRow {

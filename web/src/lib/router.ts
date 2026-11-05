@@ -2,13 +2,19 @@
 // The dashboard scope (?scope=) is carried across navigations, so every page's
 // URL says what it shows and can be shared as is.
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 const listeners = new Set<() => void>();
 export const emitRoute = () => listeners.forEach((l) => l());
 window.addEventListener("popstate", emitRoute);
 
 const current = () => location.pathname + location.search;
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+};
 
 /** Keeps the current ?scope= on a same-app link that doesn't set its own. */
 export function carryScope(to: string): string {
@@ -28,10 +34,7 @@ export function navigate(to: string, { replace = false } = {}) {
 }
 
 export function useLocation() {
-  const href = useSyncExternalStore((cb) => {
-    listeners.add(cb);
-    return () => listeners.delete(cb);
-  }, current);
+  const href = useSyncExternalStore(subscribe, current);
   const url = new URL(href, location.origin);
   return { path: url.pathname, params: url.searchParams, href };
 }
@@ -45,7 +48,8 @@ export function setParams(next: Record<string, string | null | undefined>) {
   }
   const to = url.pathname + url.search;
   if (to !== current()) {
-    history.replaceState(null, "", to);
+    // Keep the #fragment, so links to a section (/settings#updates) still land on it.
+    history.replaceState(null, "", to + url.hash);
     emitRoute();
   }
 }
@@ -61,3 +65,24 @@ export function linkHandler(to: string) {
 
 /** href and onClick for an in-app link, with the scope carried. */
 export const link = (to: string) => ({ href: carryScope(to), onClick: linkHandler(to) });
+
+/**
+ * Scrolls to the #fragment after each navigation (/scans#coverage, /settings#updates). The section may
+ * only render once its data loads, so it looks for the element for a couple of seconds.
+ */
+export function useScrollToHash(): void {
+  // The full URL, so a link to another section of the same page still scrolls.
+  const href = useSyncExternalStore(subscribe, () => location.href);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs on every navigation; the hash is read from location
+  useEffect(() => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    if (!id) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      const el = document.getElementById(id);
+      if (el || ++tries > 20) clearInterval(timer);
+      el?.scrollIntoView({ block: "start" });
+    }, 100);
+    return () => clearInterval(timer);
+  }, [href]);
+}

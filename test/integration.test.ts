@@ -14,9 +14,12 @@ function setup() {
 describe("full scan against a mocked Cloudflare API", () => {
   test("produces the expected findings, snapshot and coverage", async () => {
     const methods = new Set<string>();
+    const graphql: string[] = [];
     const restore = installMockCloudflare({
       onRequest: (u, init) => {
         if (u.hostname === "api.cloudflare.com" && !u.pathname.endsWith("/graphql")) methods.add(init?.method || "GET");
+        // GraphQL is POST by design; what it sends must only ever be a query.
+        if (u.pathname.endsWith("/graphql")) graphql.push(JSON.parse(String(init?.body ?? "{}")).query ?? "");
       },
     });
     after(restore);
@@ -54,6 +57,11 @@ describe("full scan against a mocked Cloudflare API", () => {
       JSON.stringify(snap.coverage.filter((c: { ok: boolean }) => !c.ok)),
     );
     assert.deepEqual([...methods], ["GET"], "the scanner must only read");
+    assert.ok(graphql.length > 0, "the scan used analytics");
+    assert.ok(
+      graphql.every((q) => /^\s*(query\b|\{)/.test(q) && !/\bmutation\b/.test(q)),
+      "GraphQL requests are queries only",
+    );
     assert.ok(typeof result.score === "number" && result.score > 0 && result.score < 100);
   });
 

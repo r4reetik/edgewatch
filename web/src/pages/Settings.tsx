@@ -2,12 +2,14 @@
 // switches on the Accounts and Checks pages; text fields save when they lose focus.
 
 import { useState } from "react";
-import { Input, Link, Select, Switch, useKumoToastManager } from "@cloudflare/kumo";
-import { api, link, SCORED_SEVERITIES, SEVERITY_LABEL, useApi, type Settings } from "../lib.ts";
+import { Banner, Button, Input, Link, Select, Switch, useKumoToastManager } from "@cloudflare/kumo";
+import { ArrowCircleUpIcon, CheckCircleIcon, WarningIcon } from "@phosphor-icons/react";
+import { ago, api, link, SCORED_SEVERITIES, SEVERITY_LABEL, useApi, type Settings, type UpdateStatus } from "../lib.ts";
 import { Card, FormGrid, Page, PageState, SettingRow, SettingRows } from "../components/ui.tsx";
 
 const TITLE = "Settings";
-const DESCRIPTION = "Scan schedule, history and how findings are tracked. These apply to every account.";
+const DESCRIPTION = "Scan schedule, history, how findings are tracked, and updates. These apply to every account.";
+const UPGRADING_DOCS = "https://github.com/r4reetik/edgewatch/blob/main/docs/upgrading.md";
 const HOURS = Object.fromEntries(Array.from({ length: 24 }, (_, h) => [String(h), `${String(h).padStart(2, "0")}:00 UTC`]));
 type Save = (patch: Record<string, unknown>, label: string) => Promise<boolean>;
 
@@ -34,6 +36,7 @@ export function SettingsPage() {
       <ScansCard s={data} save={save} />
       <PolicyCard s={data} save={save} />
       <LinksCard s={data} save={save} />
+      <UpdatesCard s={data} save={save} />
     </Page>
   );
 }
@@ -110,7 +113,7 @@ function ScansCard({ s, save }: { s: Settings; save: Save }) {
         <SettingRow
           end
           title="Confirm subdomain takeovers"
-          description="Sends one plain GET to each of your hostnames that points at a cloud provider (S3, Vercel, Heroku, GitHub Pages and others) and checks for that provider's 'doesn't exist' page. Turn off to keep every request inside Cloudflare's API."
+          description="Sends a GET to each of your hostnames that points at a cloud provider (S3, Vercel, Heroku, GitHub Pages and others), at most 100 per scan, and checks for that provider's 'doesn't exist' page. Turn off to keep every request inside Cloudflare's API."
         >
           <Switch
             aria-label="Confirm subdomain takeovers"
@@ -197,5 +200,128 @@ function LinksCard({ s, save }: { s: Settings; save: Save }) {
         </SettingRow>
       </SettingRows>
     </Card>
+  );
+}
+
+/** How to move to `version`, for the way this copy was installed. */
+function upgradeSteps(u: UpdateStatus, version: string): { text: string; command: string } {
+  if (u.install === "docker") {
+    const sameLine = u.latest?.sameLine;
+    return {
+      text: sameLine
+        ? `If your image tag is :${u.line} or :latest, pull it again and restart. With a pinned version, change the tag to :${version} first.`
+        : `${version} starts a new release line. Change your image tag to :${version
+            .split(".")
+            .slice(0, version.startsWith("0.") ? 2 : 1)
+            .join(".")} (or :${version}), then pull and restart.`,
+      command: "docker compose pull && docker compose up -d",
+    };
+  }
+  return { text: "Install the new version and restart Edgewatch. With npx, run it with @latest once.", command: `npm install -g edgewatch@${version}` };
+}
+
+function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
+  const { data: u, reload, setData } = useApi<UpdateStatus>("/api/updates", s.updates.check);
+  const [checking, setChecking] = useState(false);
+  const checkNow = async () => {
+    setChecking(true);
+    try {
+      setData(await api<UpdateStatus>("/api/updates/check", { method: "POST", body: {} }));
+    } catch {
+      void reload();
+    } finally {
+      setChecking(false);
+    }
+  };
+  const steps = u?.latest && upgradeSteps(u, u.latest.version);
+  return (
+    <div id="updates" className="scroll-mt-6">
+      <Card title="Updates">
+        <SettingRows>
+          <SettingRow
+            end
+            title="Check for updates"
+            description={
+              u?.lockedOff
+                ? "Turned off for this installation with EDGEWATCH_UPDATE_CHECK=off."
+                : "Shortly after start and then daily, reads the public list of Edgewatch releases on GitHub. Nothing about this installation is sent."
+            }
+          >
+            <Switch
+              aria-label="Check for updates"
+              checked={s.updates.check && !u?.lockedOff}
+              disabled={u?.lockedOff}
+              onCheckedChange={(v: boolean) => save({ updates: { check: v } }, v ? "Update checks on" : "Update checks off")}
+            />
+          </SettingRow>
+          {u && (
+            <div className="flex flex-col gap-3 py-4 last:pb-0">
+              {u.latest ? (
+                <Banner
+                  variant={u.breaking ? "alert" : undefined}
+                  icon={u.breaking ? <WarningIcon weight="fill" /> : <ArrowCircleUpIcon weight="fill" />}
+                  title={`Edgewatch ${u.latest.version} is available`}
+                  description={
+                    <>
+                      You're on {u.current}
+                      {u.newerCount > 1 ? `, ${u.newerCount} releases behind` : ""}.{" "}
+                      {u.breaking
+                        ? "It includes breaking changes: read the release notes before upgrading."
+                        : u.latest.sameLine
+                          ? "It's a compatible update."
+                          : "It starts a new release line; the release notes list what changed."}{" "}
+                      <Link href={u.latest.url} target="_blank" rel="noreferrer">
+                        Release notes
+                      </Link>
+                    </>
+                  }
+                />
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-kumo-default">
+                  <CheckCircleIcon weight="fill" className="text-kumo-success" />
+                  {u.enabled
+                    ? u.checkedAt
+                      ? `Edgewatch ${u.current} is the latest version.`
+                      : `Running Edgewatch ${u.current}. The first check runs shortly after start.`
+                    : `Running Edgewatch ${u.current}. Update checks are off.`}
+                </div>
+              )}
+              {steps && (
+                <div className="flex flex-col gap-2 text-sm text-kumo-subtle">
+                  <span>{steps.text}</span>
+                  <code className="rounded-md bg-kumo-recessed px-3 py-2 font-mono text-xs text-kumo-default">{steps.command}</code>
+                  <span>
+                    Your database is backed up automatically before an upgrade changes it.{" "}
+                    <Link href={UPGRADING_DOCS} target="_blank" rel="noreferrer">
+                      Upgrading Edgewatch
+                    </Link>
+                  </span>
+                </div>
+              )}
+              {u.inLine && (
+                <p className="text-sm text-kumo-default">
+                  Not ready for {u.latest?.version}? {u.inLine.version} is the newest compatible update on {u.line}:{" "}
+                  <code className="rounded bg-kumo-recessed px-1.5 py-0.5 font-mono text-xs">
+                    {u.install === "docker" ? `ghcr.io/r4reetik/edgewatch:${u.line}` : `npm install -g edgewatch@${u.line}`}
+                  </code>{" "}
+                  <Link href={u.inLine.url} target="_blank" rel="noreferrer">
+                    Notes
+                  </Link>
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 text-xs text-kumo-subtle">
+                {u.enabled && (
+                  <Button size="sm" variant="secondary" loading={checking} onClick={checkNow}>
+                    Check now
+                  </Button>
+                )}
+                {u.checkedAt && <span>Last checked {ago(u.checkedAt)}</span>}
+                {u.error && <span>· The last check failed ({u.error}); it will try again tomorrow.</span>}
+              </div>
+            </div>
+          )}
+        </SettingRows>
+      </Card>
+    </div>
   );
 }

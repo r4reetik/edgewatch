@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { Badge, Button, Empty, Input, Pagination, Select, Tabs } from "@cloudflare/kumo";
 import { CaretRightIcon, ClipboardTextIcon } from "@phosphor-icons/react";
 import { useScopedApi, useShell } from "../shell.tsx";
-import { ago, dateOnly, link, navigate, num, setParams, useLocation, type FindingEvent, type TriagedFinding, type TriagedResponse } from "../lib.ts";
+import { ago, clampPage, dateOnly, link, navigate, num, setParams, useLocation, type FindingEvent, type TriagedFinding, type TriagedResponse } from "../lib.ts";
 import { ListCard, NoRows, Page, PageState, Row, SeverityBadge, Stat, StatusBadge } from "../components/ui.tsx";
 import { FindingDialog } from "../components/triage.tsx";
 import { describeEvent, LANE_LABEL, LaneLegend, laneSegments, StatusLane, Timeline, type LaneState } from "../components/history.tsx";
@@ -42,7 +42,7 @@ export function TriagedPage() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const filterKey = [view, state, period, account, q].join("|");
   const [paging, setPaging] = useState({ key: filterKey, page: 1 });
-  const page = paging.key === filterKey ? paging.page : 1;
+  const pageState = paging.key === filterKey ? paging.page : 1;
   const setPage = (p: number) => setPaging({ key: filterKey, page: p });
 
   // "Now" for the shared axis moves on each reload, not on every render.
@@ -74,6 +74,7 @@ export function TriagedPage() {
         .sort((a, b) => b.e.at.localeCompare(a.e.at)),
     [rows, since],
   );
+  const page = clampPage(pageState, view === "changes" ? feed.length : rows.length, view === "changes" ? FEED_PER_PAGE : PER_PAGE);
 
   if (error || !data) return <PageState title={TITLE} description={DESCRIPTION} error={error} loading={!data && loading} empty={false} retry={reload} />;
 

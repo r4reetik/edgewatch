@@ -45,8 +45,16 @@ export async function api<T = unknown>(path: string, init: { method?: string; bo
  * `reload` refetches while keeping the previous data on screen.
  */
 export function useApi<T>(path: string | null, key: unknown = null) {
-  const [data, setData] = useState<T | null>(null);
-  const [error, setError] = useState<Error | null>(null);
+  // Data and errors remember the path they came from: after switching views, the previous view's numbers
+  // must not sit under the new view's name while it loads.
+  const [result, setResult] = useState<{ path: string | null; data: T | null; error: Error | null }>({ path: null, data: null, error: null });
+  const data = result.path === path ? result.data : null;
+  const error = result.path === path ? result.error : null;
+  const setData = useCallback(
+    (next: T | null | ((prev: T | null) => T | null)) =>
+      setResult((r) => ({ ...r, path, data: typeof next === "function" ? (next as (prev: T | null) => T | null)(r.path === path ? r.data : null) : next })),
+    [path],
+  );
   const [loading, setLoading] = useState(path != null);
   const inflight = useRef<AbortController | null>(null);
 
@@ -61,12 +69,10 @@ export function useApi<T>(path: string | null, key: unknown = null) {
     setLoading(true);
     try {
       const d = await api<T>(path, { signal: ctl.signal });
-      if (!ctl.signal.aborted) {
-        setData(d);
-        setError(null);
-      }
+      if (!ctl.signal.aborted) setResult({ path, data: d, error: null });
     } catch (e) {
-      if (!ctl.signal.aborted) setError(e as Error);
+      // A failed refresh keeps what's on screen and reports the error alongside it.
+      if (!ctl.signal.aborted) setResult((r) => ({ path, data: r.path === path ? r.data : null, error: e as Error }));
     } finally {
       if (!ctl.signal.aborted) setLoading(false);
     }

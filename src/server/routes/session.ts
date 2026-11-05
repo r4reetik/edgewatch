@@ -7,7 +7,7 @@ import { readJson } from "../validate.ts";
 import { HttpError } from "../errors.ts";
 import type { Session } from "../../shared/api.ts";
 
-export function sessionRoutes(r: Routes, { repo, auth, vault, version }: AppContext) {
+export function sessionRoutes(r: Routes, { repo, auth, vault, version, updates }: AppContext) {
   r.get("/api/health", (c) => c.json({ ok: true, version }));
 
   r.get("/api/session", (c) => {
@@ -18,12 +18,14 @@ export function sessionRoutes(r: Routes, { repo, auth, vault, version }: AppCont
       authRequired: auth.required,
       authenticated: authed,
       configured: accounts.length > 0,
-      ...(authed ? { accounts: accounts.map((a) => publicAccount(vault, a)), entities: repo.entities.list().map(sessionEntity) } : {}),
+      ...(authed
+        ? { accounts: accounts.map((a) => publicAccount(vault, a)), entities: repo.entities.list().map(sessionEntity), update: updates?.status() }
+        : {}),
     } satisfies Session);
   });
 
   r.post("/api/login", async (c) => {
-    const err = auth.login(c, String((await readJson(c))?.password ?? ""));
+    const err = await auth.login(c, String((await readJson(c))?.password ?? ""));
     if (err) throw new HttpError(401, err, "auth");
     return c.json({ ok: true });
   });

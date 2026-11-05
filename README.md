@@ -144,7 +144,7 @@ from analytics instead.
 docker run -d --name edgewatch -p 4317:4317 \
   -v edgewatch-data:/data \
   -e EDGEWATCH_PASSWORD='a-long-admin-password' \
-  ghcr.io/r4reetik/edgewatch:latest
+  ghcr.io/r4reetik/edgewatch:0.4
 ```
 
 Open it, sign in with the password, and add accounts in the browser. Tokens are stored in the volume.
@@ -153,7 +153,16 @@ The container listens on all interfaces, so it **refuses to start without a pass
 authenticating proxy such as Cloudflare Access already protects it, set `EDGEWATCH_AUTH=none`
 instead. Behind a TLS-terminating proxy, also set `EDGEWATCH_TRUST_PROXY=1` so session cookies are
 marked Secure. Data lives in `/data`; back up that volume. [docs/deployment.md](docs/deployment.md) covers
-Compose, Cloudflare Access, reverse proxies, systemd, backups and upgrades.
+Compose, Cloudflare Access, reverse proxies, systemd and backups.
+
+## Updating
+
+Edgewatch tells you when a new version is out (in the sidebar and under **Settings → Updates**), with the
+exact upgrade command and a warning when it has breaking changes. Releases follow semantic versioning in
+**release lines** (`0.4`, `0.5`…; `1`, `2`… from 1.0): updates within a line never break anything, so it's
+safe to take them automatically. The Docker tag `:0.4` above does exactly that; `npm install -g
+edgewatch@0.4` is the npm equivalent. The database is backed up before every upgrade that changes it.
+[docs/upgrading.md](docs/upgrading.md) has automatic updates, release candidates and rolling back.
 
 ## Configuration
 
@@ -168,6 +177,7 @@ Compose, Cloudflare Access, reverse proxies, systemd, backups and upgrades.
 | | `EDGEWATCH_AUTH=none` | | Allow no password on a network address (only behind an authenticating proxy) |
 | | `EDGEWATCH_ALLOWED_HOSTS` | | Extra hostnames accepted in local mode, comma-separated |
 | | `EDGEWATCH_LOG=json` | text | Log one JSON object per line |
+| | `EDGEWATCH_UPDATE_CHECK=off` | on | Never check GitHub for new releases |
 
 Schedule, retention, SLAs and the takeover probe are set in **Settings**. Accounts, entities, company
 email domains and alert destinations are set on the **Accounts** page.
@@ -177,14 +187,14 @@ history, email domains and alert destinations.
 
 ## Security and privacy
 
-- **Read-only.** The scanner only sends GET requests and GraphQL analytics queries (GraphQL is POST by design, and query-only), and a test enforces this.
-- **Local.** Findings and tokens stay in the data directory, which is created readable by your user only.
+- **Read-only.** The scanner only sends GET requests and GraphQL analytics queries (GraphQL is POST by design, and query-only). A test runs a full scan and fails if any request to Cloudflare is anything else.
+- **Local.** Findings and tokens stay in the data directory. The database, tokens and backups are readable by your user only, and so is the directory when Edgewatch creates it.
   Tokens live in `credentials.json`, apart from the database, which only holds a reference to each one.
 - **Contained.**
   - Tokens are never sent to the browser or written to logs. Each account is only ever scanned with its own token.
   - Webhook URLs are write-only in the UI.
-  - Outbound traffic goes to `api.cloudflare.com`, to `cloudflare-dns.com` (public DNS lookups), and to any webhook you configure.
-  - **Takeover confirmation (on by default):** one plain `GET /` to each of your own hostnames that points at a cloud provider known for takeovers (S3, GitHub Pages, Heroku, Vercel, Azure…). At most 100 hosts per scan, no cookies, and a User-Agent of `Edgewatch takeover check`. Turn it off under **Settings → Scans** to keep every request inside Cloudflare's API.
+  - Outbound traffic goes to `api.cloudflare.com`, to `cloudflare-dns.com` (public DNS lookups), to any webhook you configure, and to `api.github.com` shortly after start and then daily, to see if there's a newer release (no identifying data; turn it off in Settings or with `EDGEWATCH_UPDATE_CHECK=off`).
+  - **Takeover check (on by default):** a `GET /` to each of your own hostnames that points at a cloud provider known for takeovers (S3, GitHub Pages, Heroku, Vercel, Azure…), over HTTPS and then HTTP if that fails, following at most two redirects on the same host. At most 100 hosts per scan, no cookies, the first 64 KB of the answer, and a User-Agent of `Edgewatch takeover check (+https://github.com/r4reetik/edgewatch)`. Turn it off under **Settings → Scans → Confirm subdomain takeovers** to keep every request inside Cloudflare's API.
   - There is no telemetry.
 - **Hardened web app.**
   - In local mode, Host-header checks block DNS rebinding.
@@ -208,11 +218,13 @@ than roughly 20–30. Confirm with the record's owner before deleting anything.
 ## FAQ
 
 **Can Edgewatch change anything in my account?** No. Give it a read-only token. The scanner only sends GET
-requests and GraphQL queries, and a test fails the build if it ever sends anything else.
+requests and GraphQL queries, and a test that runs a full scan fails the build if it ever sends anything else.
 
 **Does any data leave my machine?** Only requests to Cloudflare's API and public DNS, the optional takeover
-check (one GET to your own hostnames that point at cloud providers), and alerts to webhooks you configure.
-There's no telemetry, no account, and no hosted service.
+check (one GET to your own hostnames that point at cloud providers), alerts to webhooks you configure, and the
+update check.
+The daily update check only reads GitHub's public list of releases. There's no telemetry, no account, and
+no hosted service.
 
 **How is this different from Cloudflare Security Center?** Security Center flags individual settings.
 Edgewatch imports its insights, and adds checks that correlate sources Security Center doesn't combine (DNS

@@ -104,7 +104,7 @@ export default defineChecks(
       category: "Zero Trust",
       severity: "low",
       docs: "https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/",
-      requires: ["tunnels", "dnsRecords"],
+      requires: ["tunnels", "dnsRecords", "privateRoutes"],
       title: "Tunnel has no public hostname or private route",
       why: "A healthy tunnel with no DNS route may be unused infrastructure that still holds credentials. (It may also serve private-network routes; confirm.)",
       fix: "Confirm whether the tunnel is still needed; delete it and its connector if not.",

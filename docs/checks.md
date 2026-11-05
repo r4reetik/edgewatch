@@ -384,7 +384,7 @@ Check the cloudflared connector on the origin host, or delete the tunnel and its
 
 ### ZT-008: Tunnel has no public hostname or private route
 
-**Severity:** Low · **Reads:** Tunnels, DNS records · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/)
+**Severity:** Low · **Reads:** Tunnels, DNS records, Private network routes · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/)
 
 A healthy tunnel with no DNS route may be unused infrastructure that still holds credentials. (It may also serve private-network routes; confirm.)
 

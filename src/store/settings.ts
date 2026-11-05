@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
   slaDays: { critical: 7, high: 30, medium: 90, low: 180 },
   probes: { takeover: true },
   baseUrl: "",
+  updates: { check: true },
 };
 
 export interface Overrides {
@@ -32,6 +33,7 @@ export class SettingsRepo {
       probes: { ...DEFAULT_SETTINGS.probes, ...(saved.probes || {}) },
       // 0.2 kept the link URL under notifications.
       baseUrl: saved.baseUrl ?? saved.notifications?.baseUrl ?? DEFAULT_SETTINGS.baseUrl,
+      updates: { ...DEFAULT_SETTINGS.updates, ...(saved.updates || {}) },
     };
   }
 

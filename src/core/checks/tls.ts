@@ -180,7 +180,15 @@ export default defineChecks(
         edgeCerts = d.zone(zone, "ssl-tls/edge-certificates");
 
       const sslSev = ({ off: "critical", flexible: "high", full: "medium" } as Record<string, Severity>)[String(s.ssl)];
-      report("TLS-001", { zone, resource: zone, pass: s.ssl === "strict", severity: sslSev, detail: `SSL/TLS mode is "${s.ssl}".`, link: ssl });
+      // "origin_pull" is Strict (SSL-Only Origin Pull), Enterprise's stricter mode.
+      report("TLS-001", {
+        zone,
+        resource: zone,
+        pass: s.ssl === "strict" || s.ssl === "origin_pull",
+        severity: sslSev,
+        detail: `SSL/TLS mode is "${s.ssl}".`,
+        link: ssl,
+      });
       report("TLS-002", {
         zone,
         resource: zone,

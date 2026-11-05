@@ -2,6 +2,7 @@
 // accounts in them, in the order the user arranged them.
 
 import type { Store } from "./db.ts";
+import { deleteOrphans } from "./findings.ts";
 import type { AccountRecord, EntityRecord } from "./rows.ts";
 import type { Severity } from "../shared/severity.ts";
 import type { TokenKind } from "../shared/api.ts";
@@ -171,12 +172,9 @@ export class AccountRepo {
   /** Removes an account with its scans, findings, triage and history. */
   remove(id: string): void {
     this.#s.tx(() => {
-      const fps = "SELECT DISTINCT f.fingerprint FROM findings f JOIN scans s ON s.id = f.scan_id WHERE s.account_id = ?";
-      this.#s.run(`DELETE FROM triage_events WHERE fingerprint IN (${fps})`, id);
-      this.#s.run(`DELETE FROM triage WHERE fingerprint IN (${fps})`, id);
-      this.#s.run(`DELETE FROM finding_history WHERE fingerprint IN (${fps})`, id);
       this.#s.run("DELETE FROM scans WHERE account_id = ?", id);
       this.#s.run("DELETE FROM accounts WHERE id = ?", id);
+      deleteOrphans(this.#s);
     });
   }
 }

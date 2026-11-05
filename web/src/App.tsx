@@ -3,9 +3,22 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Breadcrumbs, Button, DropdownMenu, Sidebar, Toasty, Tooltip, TooltipProvider, useKumoToastManager } from "@cloudflare/kumo";
-import { ArrowsClockwiseIcon, BuildingsIcon, CaretUpDownIcon, CheckIcon, GearIcon, GlobeIcon, MoonIcon, SquaresFourIcon, SunIcon } from "@phosphor-icons/react";
+import {
+  ArrowCircleUpIcon,
+  ArrowsClockwiseIcon,
+  BuildingsIcon,
+  CaretUpDownIcon,
+  CheckIcon,
+  GearIcon,
+  GlobeIcon,
+  MoonIcon,
+  SquaresFourIcon,
+  SunIcon,
+  WarningIcon,
+} from "@phosphor-icons/react";
 import {
   adoptScope,
+  useScrollToHash,
   api,
   ago,
   defaultScope,
@@ -73,11 +86,16 @@ function Root() {
   return <AppShell session={session} refreshSession={refreshSession} standalone={path === "/report"} />;
 }
 
+/** Status checks that fail in a row before the app says the server is unreachable. */
+const POLL_FAILURES_SHOWN = 3;
+
 function AppShell({ session, refreshSession, standalone }: { session: Session; refreshSession: () => Promise<void>; standalone: boolean }) {
+  useScrollToHash();
   const [status, setStatus] = useState<ScanStatus | null>(null);
   const [dataVersion, setDataVersion] = useState(0);
   const toasts = useKumoToastManager();
   const wasRunning = useRef(false);
+  const failedPolls = useRef(0);
   const [key, setScope] = useScopeKey();
   // A removed account or entity falls back to the default view.
   const view = useMemo(() => (key && resolveView(session, key)) || resolveView(session, defaultScope(session))!, [session, key]);
@@ -98,8 +116,14 @@ function AppShell({ session, refreshSession, standalone }: { session: Session; r
         void refreshSession();
       }
       wasRunning.current = s.running;
-    } catch {
-      /* surfaced by the next page request */
+      if (failedPolls.current >= POLL_FAILURES_SHOWN) toasts.add({ title: "Connected to Edgewatch again", variant: "success" });
+      failedPolls.current = 0;
+    } catch (e) {
+      // A server that stopped mid-scan would otherwise leave "Scanning…" on screen forever.
+      if (++failedPolls.current === POLL_FAILURES_SHOWN) {
+        setStatus((s) => s && { ...s, running: false });
+        toasts.add({ title: "Can't reach Edgewatch", description: `${(e as Error).message}. Checking again in a moment.`, variant: "error" });
+      }
     }
   }, [toasts, scope, refreshSession]);
 
@@ -109,15 +133,18 @@ function AppShell({ session, refreshSession, standalone }: { session: Session; r
     return () => clearInterval(t);
   }, [poll, status?.running]);
 
-  const startScan = useCallback(async () => {
-    try {
-      await api("/api/scan", { method: "POST", body: { scope } });
-      wasRunning.current = true;
-      await poll();
-    } catch (e) {
-      toasts.add({ title: "Couldn't start a scan", description: (e as Error).message, variant: "error" });
-    }
-  }, [poll, toasts, scope]);
+  const startScan = useCallback(
+    async (scopeKey?: string) => {
+      try {
+        await api("/api/scan", { method: "POST", body: { scope: scopeKey ?? scope } });
+        wasRunning.current = true;
+        await poll();
+      } catch (e) {
+        toasts.add({ title: "Couldn't start a scan", description: (e as Error).message, variant: "error" });
+      }
+    },
+    [poll, toasts, scope],
+  );
 
   const shell: Shell = { session, refreshSession, status, dataVersion, startScan, view, setScope, scoped, multi: view.accounts.length > 1 };
   if (standalone)
@@ -149,6 +176,11 @@ function AppShell({ session, refreshSession, standalone }: { session: Session; r
 function Router() {
   const { path } = useLocation();
   const m = matchRoute(path);
+  // Name the tab and history entry after the page.
+  const label = m?.route.label;
+  useEffect(() => {
+    document.title = label ? `${label} · Edgewatch` : "Edgewatch";
+  }, [label]);
   if (!m)
     return (
       <Page title="Page not found">
@@ -194,8 +226,19 @@ function Nav() {
       </Sidebar.Content>
       <Sidebar.Footer>
         <div className="px-2 pb-2 text-xs leading-relaxed whitespace-normal text-kumo-subtle group-data-[state=collapsed]/sidebar:hidden">
-          Edgewatch {session.version}
-          <br />
+          <span className="flex flex-wrap items-center gap-x-1.5">
+            Edgewatch {session.version}
+            {session.update?.latest && (
+              <a
+                {...link("/settings#updates")}
+                title={`Edgewatch ${session.update.latest.version} is available${session.update.breaking ? ", with breaking changes" : ""}`}
+                className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${session.update.breaking ? "text-kumo-warning" : "text-kumo-link"}`}
+              >
+                {session.update.breaking ? <WarningIcon weight="fill" aria-hidden /> : <ArrowCircleUpIcon weight="fill" aria-hidden />}
+                {session.update.latest.version} available
+              </a>
+            )}
+          </span>
           Not affiliated with Cloudflare.
         </div>
       </Sidebar.Footer>
@@ -223,7 +266,7 @@ function TopBar() {
       icon={<ArrowsClockwiseIcon />}
       loading={running && status?.inScope}
       disabled={running && status?.inScope}
-      onClick={startScan}
+      onClick={() => startScan()}
     >
       {running && status?.inScope ? "Scanning" : "Run scan"}
     </Button>

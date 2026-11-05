@@ -23,7 +23,17 @@ export function evaluate(inv: Inventory, opts: EngineOptions): Evaluation {
   const ev = new Evaluator(opts);
   for (const m of MODULES as readonly CheckModule[]) ev.run(m, inv);
 
-  const failures = ev.results.filter((r) => !r.pass);
+  // One evaluation per resource: two records reported under the same name would otherwise count twice in the
+  // score while appearing once as a finding. A failure wins over a pass.
+  const unique = new Map<string, Result>();
+  for (const r of ev.results) {
+    const fp = fingerprint(inv.accountId, r);
+    const prev = unique.get(fp);
+    if (!prev || (prev.pass && !r.pass)) unique.set(fp, r);
+  }
+  const results = [...unique.values()];
+
+  const failures = results.filter((r) => !r.pass);
   const sc = securityCenterFindings(inv, failures, opts.disabledChecks).map((f) => ({ ...f, severity: opts.severityOverrides[f.checkId] || f.severity }));
 
   const byFp = new Map<string, Result>();
@@ -34,7 +44,7 @@ export function evaluate(inv: Inventory, opts: EngineOptions): Evaluation {
 
   const categories: CategoryTotals = Object.fromEntries(CATEGORIES.map((c) => [c, { total: 0, evaluated: 0 }]));
   const checkStats: Evaluation["checkStats"] = {};
-  for (const r of ev.results) {
+  for (const r of results) {
     const def = CHECK_BY_ID[r.checkId];
     const w = SEVERITY_WEIGHT[r.pass ? opts.severityOverrides[r.checkId] || def.severity : r.severity] || 0;
     categories[r.category].total += w;
@@ -45,7 +55,7 @@ export function evaluate(inv: Inventory, opts: EngineOptions): Evaluation {
   }
 
   return {
-    results: ev.results,
+    results,
     findings: [...byFp.values()],
     categories,
     checkStats,

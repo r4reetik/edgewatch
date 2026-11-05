@@ -152,7 +152,12 @@ export function SettingRow({ title, description, end, children }: { title: React
  */
 export function FormGrid({ cols = 2, children }: { cols?: 2 | 4; children: ReactNode }) {
   return (
-    <div className={cn("grid items-start gap-x-4 gap-y-4 [&>*]:min-w-0 [&_input]:min-w-0", cols === 4 ? "grid-cols-4" : "grid-cols-1 sm:grid-cols-2")}>
+    <div
+      className={cn(
+        "grid items-start gap-x-4 gap-y-4 [&>*]:min-w-0 [&_input]:min-w-0",
+        cols === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-1 sm:grid-cols-2",
+      )}
+    >
       {children}
     </div>
   );

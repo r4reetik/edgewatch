@@ -3,10 +3,11 @@
 // - Loopback without a password: no login, but the Host header must be a
 //   loopback name, which blocks DNS-rebinding attacks from web pages.
 // - Password mode: scrypt-verified login, HttpOnly SameSite=Strict session
-//   cookie, per-IP login rate limit.
+//   cookie, login rate limits per IP and overall.
 // - Every state-changing request must be JSON and same-origin (CSRF).
 
-import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
+import { randomBytes, scrypt, scryptSync, timingSafeEqual } from "node:crypto";
+import { promisify } from "node:util";
 import type { Context, MiddlewareHandler } from "hono";
 import { getCookie, setCookie, deleteCookie } from "hono/cookie";
 
@@ -23,6 +24,14 @@ const SESSION_COOKIE = "edgewatch_session";
 const SESSION_TTL_MS = 12 * 3600_000;
 const LOGIN_WINDOW_MS = 15 * 60_000;
 const LOGIN_MAX_ATTEMPTS = 10;
+/** Failed logins from all addresses together, so many addresses can't guess (or burn CPU) in parallel. */
+const LOGIN_MAX_FAILURES_TOTAL = 100;
+/** Addresses remembered for rate limiting; the oldest are forgotten first. */
+const LOGIN_TRACKED_IPS = 10_000;
+/** A session's cookie is re-issued once it has slid this far, so active users stay signed in. */
+const SESSION_REFRESH_MS = 3600_000;
+
+const scryptAsync = promisify(scrypt) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 
 export class Auth {
@@ -31,6 +40,7 @@ export class Auth {
   readonly #hash: { salt: Buffer; key: Buffer } | null;
   readonly #sessions = new Map<string, number>();
   readonly #attempts = new Map<string, number[]>();
+  #failures: number[] = [];
 
   constructor(opts: AuthOptions) {
     this.#opts = opts;
@@ -48,29 +58,20 @@ export class Auth {
     const id = getCookie(c, SESSION_COOKIE);
     if (!id) return false;
     const exp = this.#sessions.get(id);
-    if (!exp || exp < Date.now()) {
+    const now = Date.now();
+    if (!exp || exp < now) {
       this.#sessions.delete(id);
       return false;
     }
-    this.#sessions.set(id, Date.now() + SESSION_TTL_MS); // sliding expiry
+    // Sliding expiry: the cookie is renewed with it, or the browser would drop it 12 hours after sign-in.
+    if (exp - now < SESSION_TTL_MS - SESSION_REFRESH_MS) {
+      this.#sessions.set(id, now + SESSION_TTL_MS);
+      this.#setCookie(c, id);
+    }
     return true;
   }
 
-  /** Returns null on success, or an error message. */
-  login(c: Context, password: string): string | null {
-    if (!this.#hash) return null;
-    const ip = clientIp(c, this.#opts.trustProxy);
-    const now = Date.now();
-    const recent = (this.#attempts.get(ip) || []).filter((t) => t > now - LOGIN_WINDOW_MS);
-    if (recent.length >= LOGIN_MAX_ATTEMPTS) return "Too many attempts. Try again in a few minutes.";
-    const key = scryptSync(String(password || ""), this.#hash.salt, 64);
-    if (!timingSafeEqual(key, this.#hash.key)) {
-      this.#attempts.set(ip, [...recent, now]);
-      return "Incorrect password.";
-    }
-    this.#attempts.delete(ip);
-    const id = randomBytes(32).toString("base64url");
-    this.#sessions.set(id, now + SESSION_TTL_MS);
+  #setCookie(c: Context, id: string): void {
     setCookie(c, SESSION_COOKIE, id, {
       httpOnly: true,
       sameSite: "Strict",
@@ -78,6 +79,30 @@ export class Auth {
       secure: isHttps(c, this.#opts.trustProxy),
       maxAge: SESSION_TTL_MS / 1000,
     });
+  }
+
+  /** Returns null on success, or an error message. Hashing runs off the event loop, so guesses can't stall the server. */
+  async login(c: Context, password: string): Promise<string | null> {
+    if (!this.#hash) return null;
+    const ip = clientIp(c, this.#opts.trustProxy);
+    const now = Date.now();
+    const since = now - LOGIN_WINDOW_MS;
+    const recent = (this.#attempts.get(ip) || []).filter((t) => t > since);
+    this.#failures = this.#failures.filter((t) => t > since);
+    if (recent.length >= LOGIN_MAX_ATTEMPTS || this.#failures.length >= LOGIN_MAX_FAILURES_TOTAL) return "Too many attempts. Try again in a few minutes.";
+    const key = await scryptAsync(String(password || ""), this.#hash.salt, 64);
+    if (!timingSafeEqual(key, this.#hash.key)) {
+      this.#attempts.delete(ip); // re-insert, so the map stays in least-recent order
+      this.#attempts.set(ip, [...recent, now]);
+      if (this.#attempts.size > LOGIN_TRACKED_IPS) this.#attempts.delete(this.#attempts.keys().next().value as string);
+      this.#failures.push(now);
+      return "Incorrect password.";
+    }
+    this.#attempts.delete(ip);
+    for (const [sid, exp] of this.#sessions) if (exp < now) this.#sessions.delete(sid);
+    const id = randomBytes(32).toString("base64url");
+    this.#sessions.set(id, now + SESSION_TTL_MS);
+    this.#setCookie(c, id);
     return null;
   }
 
@@ -132,10 +157,14 @@ export function securityHeaders(): MiddlewareHandler {
   };
 }
 
+/**
+ * The address login limits apply to. Behind a trusted proxy that's the last X-Forwarded-For
+ * entry: the one the proxy itself added. Earlier entries come from the client and can be forged.
+ */
 function clientIp(c: Context, trustProxy: boolean): string {
   if (trustProxy) {
     const xff = c.req.header("x-forwarded-for");
-    if (xff) return xff.split(",")[0].trim();
+    if (xff) return xff.split(",").at(-1)?.trim() || "unknown";
   }
   const env = c.env as { incoming?: { socket?: { remoteAddress?: string } } } | undefined;
   return env?.incoming?.socket?.remoteAddress || "unknown";

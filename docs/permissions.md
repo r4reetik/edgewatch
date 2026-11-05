@@ -8,7 +8,7 @@ Two sources need more:
 - **Account API tokens** need *Account API Tokens Read*, which the template doesn't include.
 - **Logpush jobs** can only be listed with a write permission, so Edgewatch doesn't list them; it reads Logpush health from GraphQL analytics instead.
 
-A source the token can't read shows up under **Scans → Coverage** with the permission it needs, and the checks that depend on it are
+A source the token can't read shows up under **Scans → Data coverage** with the permission it needs, and the checks that depend on it are
 skipped rather than passed. The setup screen tests a token against each source before you connect it.
 
 | Source | Permission | Checks that read it |
@@ -30,7 +30,7 @@ skipped rather than passed. The setup screen tests a token against each source b
 | Access users | Account · Access: Audit Logs · Read | ZT-022 |
 | Tunnels | Account · Cloudflare Tunnel · Read | ZT-007, ZT-008, ZT-021, DNS-001 |
 | Tunnel configurations | Account · Cloudflare Tunnel · Read | ATS-004, ATS-005, ATS-006 |
-| Private network routes | Account · Cloudflare Tunnel · Read | ZT-019 |
+| Private network routes | Account · Cloudflare Tunnel · Read | ZT-008, ZT-019 |
 | Zero Trust devices | Account · Zero Trust · Read | ZT-018, ZT-020 |
 | WARP device profiles | Account · Zero Trust · Read | ZT-018 |
 | Device posture rules | Account · Zero Trust · Read | ZT-020 |

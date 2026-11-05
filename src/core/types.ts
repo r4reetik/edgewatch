@@ -81,17 +81,17 @@ export interface ZoneAnalytics {
   from: string;
   to: string;
   days: number;
-  /** Fields the zone's plan doesn't expose (for coverage notes). */
+  /** Fields the zone's plan doesn't expose (for coverage notes). Any list below is null when it couldn't be read, never empty. */
   unavailable: string[];
   /** Requests answered 200 on paths that usually hold secrets or debug data. */
-  sensitive: { host: string; path: string; contentType: string; count: number }[];
+  sensitive: { host: string; path: string; contentType: string; count: number }[] | null;
   /** Requests a security rule matched but only logged, by the product that matched. */
-  logOnly: { source: string; count: number }[];
+  logOnly: { source: string; count: number }[] | null;
   /** The most requested hostnames. */
-  hosts: { host: string; count: number }[];
-  oldTls: { host: string; protocol: string; count: number }[];
+  hosts: { host: string; count: number }[] | null;
+  oldTls: { host: string; protocol: string; count: number }[] | null;
   plainHttp: { host: string; count: number }[] | null;
-  leakedLogins: { host: string; path: string; result: string; status: number; count: number }[];
+  leakedLogins: { host: string; path: string; result: string; status: number; count: number }[] | null;
   attacksPassed: { host: string; path: string; count: number }[] | null;
   botsPassed: { host: string; path: string; count: number }[] | null;
   /** Security events per rule ID over the window; null when the window is too short to judge dead rules. */
@@ -145,6 +145,11 @@ export interface WorkerInfo {
 export interface Inventory {
   accountId: string;
   accountName: string | null;
+  /**
+   * Sources the token couldn't read in this scan. Every check that requires one is skipped,
+   * so missing data never turns into a pass or a false failure.
+   */
+  unreadable?: SourceKey[];
   now: number;
   zones: ZoneInventory[];
   members: CF.Member[] | null;

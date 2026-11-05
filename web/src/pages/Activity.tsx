@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Badge, Empty, Input, Pagination, Select, Table } from "@cloudflare/kumo";
 import { ClockCounterClockwiseIcon } from "@phosphor-icons/react";
 import { useScopedApi, useShell } from "../shell.tsx";
-import { dateTime, num, setParams, useLocation, type ActivityResponse } from "../lib.ts";
+import { clampPage, dateTime, num, setParams, useLocation, type ActivityResponse } from "../lib.ts";
 import { ListCard, NoRows, Page, PageState, Row, Stat, unreadableText } from "../components/ui.tsx";
 
 const ALL = "all";
@@ -29,7 +29,7 @@ export function ActivityPage() {
     param("actor", ALL),
     param("show", "changes"),
   ];
-  const [page, setPage] = useState(1);
+  const [pageState, setPage] = useState(1);
   const a = data?.activity;
   const rows = useMemo(
     () =>
@@ -45,6 +45,7 @@ export function ActivityPage() {
       }),
     [a, q, area, actor, account, show],
   );
+  const page = clampPage(pageState, rows.length, PER_PAGE);
 
   if (error || !data?.scan || !a)
     return (

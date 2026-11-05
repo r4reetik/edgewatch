@@ -1,6 +1,7 @@
 // Scan records: lifecycle, history for trends, and retention.
 
 import type { Store } from "./db.ts";
+import { deleteOrphans } from "./findings.ts";
 import type { ScanRecord, ScanSummaryRecord } from "./rows.ts";
 import type { Result, CategoryTotals } from "../core/types.ts";
 import type { ScanSnapshot } from "../shared/api.ts";
@@ -183,14 +184,15 @@ export class ScanRepo {
     return this.#s.all("SELECT fingerprint, check_id, title, resource, severity, zone, category, confidence FROM findings WHERE scan_id = ?", scanId);
   }
 
-  /** Deletes scans (and their findings) older than the retention window, always keeping the latest. */
+  /** Deletes scans (and their findings) older than the retention window, always keeping the latest, and the triage of findings that leaves behind. */
   prune(accountId: string, retentionDays: number): void {
     const latest = this.latestSummary(accountId);
-    this.#s.run(
+    const { changes } = this.#s.run(
       "DELETE FROM scans WHERE account_id = ? AND started_at < ? AND id != ?",
       accountId,
       new Date(Date.now() - retentionDays * DAY_MS).toISOString(),
       latest?.id ?? -1,
     );
+    if (Number(changes) > 0) deleteOrphans(this.#s);
   }
 }

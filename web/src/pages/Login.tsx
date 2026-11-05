@@ -27,7 +27,9 @@ export function LoginPage({ onDone }: { onDone: () => void }) {
           <Wordmark />
         </div>
         <LayerCard>
-          <LayerCard.Secondary>Sign in</LayerCard.Secondary>
+          <LayerCard.Secondary>
+            <h1 className="m-0 text-base font-medium">Sign in</h1>
+          </LayerCard.Secondary>
           <LayerCard.Primary className="flex flex-col gap-4">
             <SensitiveInput
               label="Admin password"

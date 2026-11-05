@@ -6,13 +6,13 @@
 import { pool } from "./cloudflare.ts";
 import { isHostRecord } from "./dns-util.ts";
 import type { TakeoverProbe, ZoneInventory } from "./types.ts";
-import { readFileSync } from "node:fs";
+import { HOMEPAGE } from "../meta.ts";
 
 const MAX_HOSTS = 100;
 const MAX_BYTES = 64 * 1024;
 const TIMEOUT_MS = 8000;
 /** Identifies the probe to whoever runs the host, with a link to the project (package.json homepage). */
-const USER_AGENT = `Edgewatch takeover check (+${String(JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")).homepage || "").replace(/#.*$/, "")})`;
+const USER_AGENT = `Edgewatch takeover check (+${HOMEPAGE})`;
 
 interface Fingerprint {
   provider: string;

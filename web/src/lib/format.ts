@@ -30,3 +30,6 @@ export function openFor(s: string | null | undefined): string {
 }
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${num(n)} ${n === 1 ? one : many}`;
+
+/** A page number that still exists after the list shrank (a triaged row left the tab, the view changed). */
+export const clampPage = (page: number, total: number, perPage: number) => Math.min(page, Math.max(1, Math.ceil(total / perPage)));

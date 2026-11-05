@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 0.4.0
 
 - **45 new checks** (120 in total), from about 60 more Cloudflare reads and GraphQL analytics:
@@ -16,9 +18,14 @@
 - **The URL carries the view** (`?scope=`), so any page can be shared as it is.
 - **Alerts** link to each new finding and say when a finding came back after being fixed.
 - **Settings** save as soon as they change.
+- **Updates.** Edgewatch checks GitHub daily for a newer release and says so in the sidebar; Settings → Updates shows the upgrade command for Docker or npm and warns about breaking changes. Releases follow semantic versioning in release lines (Docker `:0.4`, npm `edgewatch@0.4`) that are safe to auto-update. Turn checks off in Settings or with `EDGEWATCH_UPDATE_CHECK=off`.
+- **Safer upgrades.** The database is copied to `<data-dir>/backups/` before a migration changes it, and a database from a newer Edgewatch is refused instead of misread, so a rollback is restoring one file.
+- **Checks you can trust when access is partial.** A check that needs data the token couldn't read is now skipped everywhere, rather than failing on the missing data (Access hosts reported as unprotected, live tunnels as deleted) or passing on it (traffic checks after an analytics error, email checks when public DNS is blocked). Long lists are read completely: R2 buckets past the first 20, audit logs past 1000 entries, and list endpoints that don't report a page count. The API rate limit is shared by every account on a token, and a 429 pauses all of them.
+- **Harder to abuse when exposed.** Request bodies are capped, login limits use the address your proxy saw rather than one the client sends, failed logins no longer block the server, and sessions renew while you use them. Slack alerts stay under Slack's size limit, and alert webhooks don't follow redirects.
+- **Smaller fixes.** "Scan now" on an account scans that account; the audit report has a button on the Overview; switching views clears stale data, filters and selections; exports report errors instead of leaving the page; bulk triage only clears an owner or due date when you tick it; clear messages for a wrong flag, an unreadable password file or an old Node.js.
 - **Documentation.** A reference page for every check and every token permission, generated from the code; guides for deployment and how a scan works; issue templates for bugs, false positives and new checks.
 - **For contributors:** checks are self-describing modules with typed IDs, a contract test requires a failing case for every check, server and web share their API types, the server is split into route modules with guards on each route, `npm run dev -- --mock` runs on mocked data, and Biome lints and formats the code.
-- **Changed:** API responses use camelCase; triage requests take `dueDate` and `acceptUntil`. CSV export columns are camelCase (`checkId`, `firstSeen`).
+- **Breaking:** API responses use camelCase; triage requests take `dueDate` and `acceptUntil`. CSV export columns are camelCase (`checkId`, `firstSeen`).
 - **Next:** alerts before accepted risks expire, comments on findings, ticketing integrations, saved views.
 
 ## 0.3.0
