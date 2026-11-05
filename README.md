@@ -45,7 +45,7 @@ npx edgewatch
 ```
 
 That's the whole install. A browser tab opens, you paste a read-only token, pick the accounts it should
-scan, and the first scans run. It needs Node.js 24 LTS, 24.22.1 or newer. To run it for a team, use
+scan, and the first scans run. It needs Node.js 26 LTS (recommended) or 24.22.1 or newer. To run it for a team, use
 [Docker](#run-it-for-a-team-docker).
 
 ## What it checks

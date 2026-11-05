@@ -49,7 +49,7 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
       - id: bump
         run: node scripts/release.ts bump "$BUMP"
         env:
@@ -81,7 +81,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.tag || github.ref }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
           cache: npm
       - run: npm ci
       - run: npm run check
@@ -115,7 +115,7 @@ jobs:
           ref: ${{ needs.verify.outputs.tag }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: 26
           registry-url: https://registry.npmjs.org
           cache: npm
       - run: npm ci

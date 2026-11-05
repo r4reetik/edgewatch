@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
@@ -9,7 +9,7 @@ COPY src ./src
 COPY web ./web
 RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
-FROM node:24-slim
+FROM node:26-slim
 LABEL org.opencontainers.image.source="https://github.com/r4reetik/edgewatch" \
       org.opencontainers.image.description="Security posture tracking for Cloudflare accounts. Read-only." \
       org.opencontainers.image.licenses="MIT"

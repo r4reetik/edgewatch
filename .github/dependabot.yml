@@ -13,7 +13,7 @@ updates:
       server:
         patterns: ["hono", "@hono/*"]
     ignore:
-      # Types match the Node.js line Edgewatch targets (24 LTS); move both together.
+      # Types match the Node.js line Edgewatch is built on (26 LTS); move both together.
       - dependency-name: "@types/node"
         update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
@@ -25,6 +25,6 @@ updates:
     schedule:
       interval: monthly
     ignore:
-      # The image stays on Node 24 LTS until the project moves to a new Node line.
+      # The image stays on Node 26 LTS until the project moves to a new Node line.
       - dependency-name: node
         update-types: ["version-update:semver-major"]

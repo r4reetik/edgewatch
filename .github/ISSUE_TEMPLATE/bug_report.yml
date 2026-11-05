@@ -43,7 +43,7 @@ body:
     id: env
     attributes:
       label: Node.js version, OS and browser
-      placeholder: "Node 24.1, macOS 15, Chrome 140"
+      placeholder: "Node 26.13, macOS 15, Chrome 140"
   - type: textarea
     id: logs
     attributes:

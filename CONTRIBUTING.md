@@ -6,7 +6,7 @@ Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
-You need Node.js 24 LTS, 24.22.1 or newer (`.nvmrc` pins it). Development runs TypeScript directly, with no build step for the server.
+You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). CI also tests on Node 24.22.1, the oldest version the package supports, so avoid APIs Node 24 lacks. Development runs TypeScript directly, with no build step for the server.
 
 ```bash
 npm install

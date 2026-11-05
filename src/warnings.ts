@@ -1,4 +1,4 @@
-// node:sqlite prints an ExperimentalWarning on some Node 24 releases; it is stable enough for this use.
+// node:sqlite prints an ExperimentalWarning on some Node.js releases; it is stable enough for this use.
 // Imported first by every entry point, before node:sqlite loads.
 
 const emitWarning = process.emitWarning.bind(process);
