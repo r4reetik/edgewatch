@@ -51,43 +51,45 @@ export async function collectInventory(
 ): Promise<Inventory> {
   const acc = cf.accountId;
   const now = Date.now();
-  const A = (path: string) => `/accounts/${acc}${path ? `/${path}` : ""}`;
+  const accountPath = (path: string) => `/accounts/${acc}${path ? `/${path}` : ""}`;
 
   onProgress({ phase: "Reading account" });
   const a = await collect({
     zones: cf.list<Api>("zones", `/zones?account.id=${acc}`, { perPage: 50 }),
-    members: cf.list<CF.Member>("members", A("members"), { perPage: 50 }),
-    account: cf.get<Api>("account", A("")),
-    accountTokens: cf.list<CF.AccountToken>("accountTokens", A("tokens"), { perPage: 50, max: 1000 }),
-    accessApps: cf.list<CF.AccessApp>("accessApps", A("access/apps")),
-    accessIdps: cf.list("accessIdps", A("access/identity_providers")),
-    accessOrg: cf.get<CF.AccessOrg>("accessOrg", A("access/organizations")),
-    accessGroups: cf.list<CF.AccessGroup>("accessGroups", A("access/groups")),
-    accessPolicies: cf.list<CF.AccessPolicy>("accessPolicies", A("access/policies")),
-    accessUsers: cf.list<CF.AccessUser>("accessUsers", A("access/users"), { perPage: 100, max: 5000 }),
-    serviceTokens: cf.list<CF.ServiceToken>("accessServiceTokens", A("access/service_tokens")),
-    tunnels: cf.list<CF.Tunnel>("tunnels", A("cfd_tunnel?is_deleted=false")),
-    deletedTunnels: cf.list<CF.Tunnel>("tunnels", A("cfd_tunnel?is_deleted=true"), { max: 1000 }),
-    privateRoutes: cf.list<CF.PrivateRoute>("privateRoutes", A("teamnet/routes?is_deleted=false")),
-    alertPolicies: cf.get<Api[]>("notifications", A("alerting/v3/policies")),
-    availableAlerts: cf.get<Record<string, Api[]>>("notifications", A("alerting/v3/available_alerts")),
-    webhooks: cf.get<CF.WebhookDestination[]>("notifications", A("alerting/v3/destinations/webhooks")),
-    workers: cf.get<Api[]>("workers", A("workers/scripts")),
-    workerDomains: cf.list<CF.WorkerDomain>("workerDomains", A("workers/domains")),
-    pages: cf.list<CF.PagesProject>("pages", A("pages/projects"), { perPage: 10, max: 500 }),
-    r2Buckets: cf.listCursor<Api>("r2", A("r2/buckets"), { key: "buckets", absent: [/enable R2/i] }),
-    subscriptions: cf.get<Api[]>("subscriptions", A("subscriptions")),
-    audit: cf.list<CF.AuditEntry>("auditLogs", A(`audit_logs?since=${isoSeconds(now - 7 * DAY_MS)}&direction=desc`), { perPage: 1000, max: 20_000 }),
-    devices: cf.list("devices", A("devices"), { max: 200 }),
-    deviceProfiles: cf.get<CF.DeviceProfile[]>("deviceProfiles", A("devices/policies")),
-    devicePosture: cf.get<Api[]>("devicePosture", A("devices/posture")),
-    gatewayRules: cf.list<CF.GatewayRule>("gatewayRules", A("gateway/rules")),
-    gatewayConfig: cf.getOptional<CF.GatewayConfig>("gatewayConfig", A("gateway/configuration")),
-    accountIpRules: cf.list<CF.IpAccessRule>("accountIpRules", A("firewall/access_rules/rules"), { perPage: 100, max: 2000 }),
-    mtlsCertificates: cf.get<CF.ExpiringCertificate[]>("mtlsCertificates", A("mtls_certificates")),
-    lbPools: cf.get<CF.LbPool[]>("lbPools", A("load_balancers/pools")),
+    members: cf.list<CF.Member>("members", accountPath("members"), { perPage: 50 }),
+    account: cf.get<Api>("account", accountPath("")),
+    accountTokens: cf.list<CF.AccountToken>("accountTokens", accountPath("tokens"), { perPage: 50, max: 1000 }),
+    accessApps: cf.list<CF.AccessApp>("accessApps", accountPath("access/apps")),
+    accessIdps: cf.list("accessIdps", accountPath("access/identity_providers")),
+    accessOrg: cf.get<CF.AccessOrg>("accessOrg", accountPath("access/organizations")),
+    accessGroups: cf.list<CF.AccessGroup>("accessGroups", accountPath("access/groups")),
+    accessPolicies: cf.list<CF.AccessPolicy>("accessPolicies", accountPath("access/policies")),
+    accessUsers: cf.list<CF.AccessUser>("accessUsers", accountPath("access/users"), { perPage: 100, max: 5000 }),
+    serviceTokens: cf.list<CF.ServiceToken>("accessServiceTokens", accountPath("access/service_tokens")),
+    tunnels: cf.list<CF.Tunnel>("tunnels", accountPath("cfd_tunnel?is_deleted=false")),
+    deletedTunnels: cf.list<CF.Tunnel>("tunnels", accountPath("cfd_tunnel?is_deleted=true"), { max: 1000 }),
+    privateRoutes: cf.list<CF.PrivateRoute>("privateRoutes", accountPath("teamnet/routes?is_deleted=false")),
+    alertPolicies: cf.get<Api[]>("notifications", accountPath("alerting/v3/policies")),
+    availableAlerts: cf.get<Record<string, Api[]>>("notifications", accountPath("alerting/v3/available_alerts")),
+    webhooks: cf.get<CF.WebhookDestination[]>("notifications", accountPath("alerting/v3/destinations/webhooks")),
+    workers: cf.get<Api[]>("workers", accountPath("workers/scripts")),
+    workerDomains: cf.list<CF.WorkerDomain>("workerDomains", accountPath("workers/domains")),
+    pages: cf.list<CF.PagesProject>("pages", accountPath("pages/projects"), { perPage: 10, max: 500 }),
+    r2Buckets: cf.listCursor<Api>("r2", accountPath("r2/buckets"), { key: "buckets", absent: [/enable R2/i] }),
+    subscriptions: cf.get<Api[]>("subscriptions", accountPath("subscriptions")),
+    audit: cf.list<CF.AuditEntry>("auditLogs", accountPath(`audit_logs?since=${isoSeconds(now - 7 * DAY_MS)}&direction=desc`), { perPage: 1000, max: 20_000 }),
+    devices: cf.list("devices", accountPath("devices"), { max: 200 }),
+    deviceProfiles: cf.get<CF.DeviceProfile[]>("deviceProfiles", accountPath("devices/policies")),
+    devicePosture: cf.get<Api[]>("devicePosture", accountPath("devices/posture")),
+    gatewayRules: cf.list<CF.GatewayRule>("gatewayRules", accountPath("gateway/rules")),
+    gatewayConfig: cf.getOptional<CF.GatewayConfig>("gatewayConfig", accountPath("gateway/configuration")),
+    accountIpRules: cf.list<CF.IpAccessRule>("accountIpRules", accountPath("firewall/access_rules/rules"), { perPage: 100, max: 2000 }),
+    mtlsCertificates: cf.get<CF.ExpiringCertificate[]>("mtlsCertificates", accountPath("mtls_certificates")),
+    lbPools: cf.get<CF.LbPool[]>("lbPools", accountPath("load_balancers/pools")),
     accountRulesets: collect(
-      Object.fromEntries(ACCOUNT_PHASES.map((ph) => [ph, cf.getOptional<CF.Ruleset>("accountRulesets", A(`rulesets/phases/${ph}/entrypoint`), [notEntitled])])),
+      Object.fromEntries(
+        ACCOUNT_PHASES.map((ph) => [ph, cf.getOptional<CF.Ruleset>("accountRulesets", accountPath(`rulesets/phases/${ph}/entrypoint`), [notEntitled])]),
+      ),
     ),
     insights: securityCenter(cf),
   });
@@ -96,18 +98,18 @@ export async function collectInventory(
   const workerList = await pool(a.workers || [], 5, async (w: Api) => {
     const name = String(w.id);
     const s = await collect({
-      subdomain: cf.get<{ enabled?: boolean; previews_enabled?: boolean }>("workers", A(`workers/scripts/${encodeURIComponent(name)}/subdomain`)),
-      settings: cf.get<{ bindings?: CF.WorkerBinding[] }>("workerSettings", A(`workers/scripts/${encodeURIComponent(name)}/settings`)),
+      subdomain: cf.get<{ enabled?: boolean; previews_enabled?: boolean }>("workers", accountPath(`workers/scripts/${encodeURIComponent(name)}/subdomain`)),
+      settings: cf.get<{ bindings?: CF.WorkerBinding[] }>("workerSettings", accountPath(`workers/scripts/${encodeURIComponent(name)}/settings`)),
     });
     return { name, modified: w.modified_on, subdomain: s.subdomain, bindings: s.settings?.bindings ?? null };
   });
-  const workersSubdomain = a.workers?.length ? await cf.get<{ subdomain?: string }>("workers", A("workers/subdomain")) : null;
+  const workersSubdomain = a.workers?.length ? await cf.get<{ subdomain?: string }>("workers", accountPath("workers/subdomain")) : null;
   const r2List = await pool(a.r2Buckets || [], 5, async (b) => {
     const name = String(b.name),
       path = `r2/buckets/${encodeURIComponent(name)}`;
     const r = await collect({
-      managed: cf.get<{ enabled?: boolean; domain?: string }>("r2", A(`${path}/domains/managed`)),
-      cors: cf.getOptional<{ rules?: CF.R2CorsRule[] }>("r2", A(`${path}/cors`)),
+      managed: cf.get<{ enabled?: boolean; domain?: string }>("r2", accountPath(`${path}/domains/managed`)),
+      cors: cf.getOptional<{ rules?: CF.R2CorsRule[] }>("r2", accountPath(`${path}/cors`)),
     });
     return { name, managed: r.managed, cors: r.cors?.rules ?? null };
   });
@@ -115,7 +117,9 @@ export async function collectInventory(
   // Remotely managed tunnels expose their routing (ingress) rules; locally managed ones return none.
   let tunnelIngress: Inventory["tunnelIngress"] = a.tunnels ? {} : null;
   if (a.tunnels) {
-    const cfgs = await pool(a.tunnels, 5, (t) => cf.get<{ config?: { ingress?: CF.IngressRule[] } }>("tunnelConfigs", A(`cfd_tunnel/${t.id}/configurations`)));
+    const cfgs = await pool(a.tunnels, 5, (t) =>
+      cf.get<{ config?: { ingress?: CF.IngressRule[] } }>("tunnelConfigs", accountPath(`cfd_tunnel/${t.id}/configurations`)),
+    );
     if (cf.coverage.get("tunnelConfigs")?.ok === false) tunnelIngress = null;
     else
       a.tunnels.forEach((t, i) => {
@@ -216,47 +220,51 @@ export async function collectInventory(
 async function collectZone(cf: CloudflareClient, z: Api): Promise<ZoneInventory> {
   const id = z.id;
   const plan: string = z.plan?.legacy_id || "free";
-  const Z = (path: string) => `/zones/${id}/${path}`;
+  const zonePath = (path: string) => `/zones/${id}/${path}`;
   // Reads for features a plan doesn't have are skipped rather than counted as permission gaps.
   const paid = PAID.has(plan),
     business = BUSINESS.has(plan);
   const skip = Promise.resolve(null);
   const r = await collect({
-    settings: cf.get<Api[]>("zoneSettings", Z("settings")),
-    dns: cf.list<CF.DnsRecord>("dnsRecords", Z("dns_records"), { perPage: 1000, max: 50_000 }),
-    dnssec: cf.get<{ status: string }>("dnssec", Z("dnssec")),
-    certPacks: cf.list<CF.CertificatePack>("certificates", Z("ssl/certificate_packs?status=all")),
+    settings: cf.get<Api[]>("zoneSettings", zonePath("settings")),
+    dns: cf.list<CF.DnsRecord>("dnsRecords", zonePath("dns_records"), { perPage: 1000, max: 50_000 }),
+    dnssec: cf.get<{ status: string }>("dnssec", zonePath("dnssec")),
+    certPacks: cf.list<CF.CertificatePack>("certificates", zonePath("ssl/certificate_packs?status=all")),
     originCerts: cf.get<CF.OriginCertificate[]>("originCertificates", `/certificates?zone_id=${id}`),
-    aop: cf.get<{ enabled?: boolean }>("originCertificates", Z("origin_tls_client_auth/settings")),
-    aopHostnames: cf.get<CF.ExpiringCertificate[]>("originCertificates", Z("origin_tls_client_auth/hostnames/certificates")),
-    customCerts: business ? cf.getOptional<CF.ExpiringCertificate[]>("tlsSettings", Z("custom_certificates"), [400]) : skip,
-    clientCerts: cf.getOptional<CF.ExpiringCertificate[]>("tlsSettings", Z("client_certificates?per_page=50"), [400]),
-    mtls: cf.getOptional<CF.MtlsAssociation>("tlsSettings", Z("certificate_authorities/hostname_associations"), [400]),
-    hostnameMinTls: business ? cf.getOptional<CF.HostnameTlsSetting[]>("tlsSettings", Z("hostnames/settings/min_tls_version"), [400]) : skip,
-    universalSsl: cf.get<{ enabled?: boolean }>("tlsSettings", Z("ssl/universal/settings")),
-    totalTls: paid ? cf.getOptional<{ enabled?: boolean }>("tlsSettings", Z("acm/total_tls"), [400, 403]) : skip,
-    bot: cf.get("bot", Z("bot_management")),
-    wafManaged: cf.getOptional<CF.Ruleset>("wafRulesets", Z("rulesets/phases/http_request_firewall_managed/entrypoint")),
-    wafCustom: cf.getOptional<CF.Ruleset>("wafRulesets", Z("rulesets/phases/http_request_firewall_custom/entrypoint")),
-    rateLimit: cf.getOptional<CF.Ruleset>("wafRulesets", Z("rulesets/phases/http_ratelimit/entrypoint")),
-    ddos: cf.getOptional<CF.Ruleset>("ddosRules", Z("rulesets/phases/ddos_l7/entrypoint")),
-    phases: collect(Object.fromEntries(EXTRA_PHASES.map((ph) => [ph, cf.getOptional<CF.Ruleset>("otherRulesets", Z(`rulesets/phases/${ph}/entrypoint`))]))),
-    pageShield: cf.get<{ enabled?: boolean }>("pageShield", Z("page_shield")),
-    leaked: cf.get<{ enabled?: boolean }>("leakedCredentials", Z("leaked-credential-checks")),
-    pageRules: cf.get<Api[]>("pageRules", Z("pagerules")),
-    workerRoutes: cf.get<Api[]>("workerRoutes", Z("workers/routes")),
-    urlNormalization: cf.get<{ type?: string; scope?: string }>("urlNormalization", Z("url_normalization")),
-    managedHeaders: cf.get<ZoneInventory["managedHeaders"]>("managedHeaders", Z("managed_headers")),
-    ipRules: cf.list<CF.IpAccessRule>("firewallRules", Z("firewall/access_rules/rules"), { perPage: 100, max: 2000 }),
-    spectrum: paid ? cf.getOptional<CF.SpectrumApp[]>("spectrum", Z("spectrum/apps"), [403]) : skip,
-    loadBalancers: cf.get<CF.LoadBalancer[]>("loadBalancers", Z("load_balancers")),
-    healthChecks: paid ? cf.getOptional<CF.HealthCheck[]>("healthChecks", Z("healthchecks"), [403]) : skip,
-    emailCatchAll: cf.getOptional<CF.EmailCatchAll>("emailRouting", Z("email/routing/rules/catch_all")),
-    schemaValidation: business ? cf.getOptional<ZoneInventory["schemaValidation"]>("apiShield", Z("api_gateway/settings/schema_validation"), [403]) : skip,
+    aop: cf.get<{ enabled?: boolean }>("originCertificates", zonePath("origin_tls_client_auth/settings")),
+    aopHostnames: cf.get<CF.ExpiringCertificate[]>("originCertificates", zonePath("origin_tls_client_auth/hostnames/certificates")),
+    customCerts: business ? cf.getOptional<CF.ExpiringCertificate[]>("tlsSettings", zonePath("custom_certificates"), [400]) : skip,
+    clientCerts: cf.getOptional<CF.ExpiringCertificate[]>("tlsSettings", zonePath("client_certificates?per_page=50"), [400]),
+    mtls: cf.getOptional<CF.MtlsAssociation>("tlsSettings", zonePath("certificate_authorities/hostname_associations"), [400]),
+    hostnameMinTls: business ? cf.getOptional<CF.HostnameTlsSetting[]>("tlsSettings", zonePath("hostnames/settings/min_tls_version"), [400]) : skip,
+    universalSsl: cf.get<{ enabled?: boolean }>("tlsSettings", zonePath("ssl/universal/settings")),
+    totalTls: paid ? cf.getOptional<{ enabled?: boolean }>("tlsSettings", zonePath("acm/total_tls"), [400, 403]) : skip,
+    bot: cf.get("bot", zonePath("bot_management")),
+    wafManaged: cf.getOptional<CF.Ruleset>("wafRulesets", zonePath("rulesets/phases/http_request_firewall_managed/entrypoint")),
+    wafCustom: cf.getOptional<CF.Ruleset>("wafRulesets", zonePath("rulesets/phases/http_request_firewall_custom/entrypoint")),
+    rateLimit: cf.getOptional<CF.Ruleset>("wafRulesets", zonePath("rulesets/phases/http_ratelimit/entrypoint")),
+    ddos: cf.getOptional<CF.Ruleset>("ddosRules", zonePath("rulesets/phases/ddos_l7/entrypoint")),
+    phases: collect(
+      Object.fromEntries(EXTRA_PHASES.map((ph) => [ph, cf.getOptional<CF.Ruleset>("otherRulesets", zonePath(`rulesets/phases/${ph}/entrypoint`))])),
+    ),
+    pageShield: cf.get<{ enabled?: boolean }>("pageShield", zonePath("page_shield")),
+    leaked: cf.get<{ enabled?: boolean }>("leakedCredentials", zonePath("leaked-credential-checks")),
+    pageRules: cf.get<Api[]>("pageRules", zonePath("pagerules")),
+    workerRoutes: cf.get<Api[]>("workerRoutes", zonePath("workers/routes")),
+    urlNormalization: cf.get<{ type?: string; scope?: string }>("urlNormalization", zonePath("url_normalization")),
+    managedHeaders: cf.get<ZoneInventory["managedHeaders"]>("managedHeaders", zonePath("managed_headers")),
+    ipRules: cf.list<CF.IpAccessRule>("firewallRules", zonePath("firewall/access_rules/rules"), { perPage: 100, max: 2000 }),
+    spectrum: paid ? cf.getOptional<CF.SpectrumApp[]>("spectrum", zonePath("spectrum/apps"), [403]) : skip,
+    loadBalancers: cf.get<CF.LoadBalancer[]>("loadBalancers", zonePath("load_balancers")),
+    healthChecks: paid ? cf.getOptional<CF.HealthCheck[]>("healthChecks", zonePath("healthchecks"), [403]) : skip,
+    emailCatchAll: cf.getOptional<CF.EmailCatchAll>("emailRouting", zonePath("email/routing/rules/catch_all")),
+    schemaValidation: business
+      ? cf.getOptional<ZoneInventory["schemaValidation"]>("apiShield", zonePath("api_gateway/settings/schema_validation"), [403])
+      : skip,
   });
   // Page Shield's script list is only worth reading when monitoring is on.
   const pageShieldScripts = r.pageShield?.enabled
-    ? await cf.list<CF.PageShieldScript>("pageShield", Z("page_shield/scripts?exclude_cdn_cgi=true"), { perPage: 100, max: 1000 })
+    ? await cf.list<CF.PageShieldScript>("pageShield", zonePath("page_shield/scripts?exclude_cdn_cgi=true"), { perPage: 100, max: 1000 })
     : null;
   return {
     id,

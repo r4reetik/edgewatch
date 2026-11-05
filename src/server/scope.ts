@@ -152,6 +152,7 @@ export function trend(repo: Repo, accounts: Account[]): TrendPoint[] {
     .map((a) => repo.scans.trend(a.id).map((t): TrendPoint => ({ at: t.finished_at!, score: t.score, counts: JSON.parse(t.counts || "{}") })))
     .filter((s) => s.length);
   if (series.length === 1) return series[0];
+  // biome-ignore lint/complexity/useMathMinMax: these are ISO timestamps (strings); Math.max would turn them into NaN.
   const start = series.reduce((m, s) => (s[0].at > m ? s[0].at : m), "");
   const times = [...new Set(series.flat().map((p) => p.at))]
     .filter((t) => t >= start)

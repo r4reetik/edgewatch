@@ -41,13 +41,13 @@ jobs:
     outputs:
       tag: ${{ steps.bump.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0 # tags, so the script can compare with the last release
           # A token that may push to a protected main; the default works when main isn't protected.
           token: ${{ secrets.RELEASE_TOKEN || github.token }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
       - id: bump
@@ -76,13 +76,13 @@ jobs:
       stable_major: ${{ steps.meta.outputs.stable_major }}
       released: ${{ steps.meta.outputs.released }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag || github.ref }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
-          cache: npm
+          # No dependency cache in the release: a cache written by another workflow can't reach what gets published.
       - run: npm ci
       - run: npm run check
       - id: meta
@@ -110,14 +110,13 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.verify.outputs.tag }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 26
           registry-url: https://registry.npmjs.org
-          cache: npm
       - run: npm ci
       - name: Publish, unless this version is already on npm
         run: |
@@ -136,18 +135,18 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.verify.outputs.tag }}
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           # Prereleases only get their exact version; {{major}}.{{minor}} is never generated for them.
@@ -157,7 +156,7 @@ jobs:
             type=semver,pattern={{major}},value=${{ needs.verify.outputs.version }},enable=${{ needs.verify.outputs.stable_major == 'true' }}
             type=raw,value=latest,enable=${{ needs.verify.outputs.prerelease == 'false' }}
           flavor: latest=false
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -172,7 +171,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.verify.outputs.tag }}
       - name: Release notes from CHANGELOG.md
