@@ -157,7 +157,7 @@ jobs:
             type=semver,pattern={{major}},value=${{ needs.verify.outputs.version }},enable=${{ needs.verify.outputs.stable_major == 'true' }}
             type=raw,value=latest,enable=${{ needs.verify.outputs.prerelease == 'false' }}
           flavor: latest=false
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
