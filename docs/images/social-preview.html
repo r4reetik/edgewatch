@@ -1,0 +1,25 @@
+<!doctype html>
+<!-- Source of social-preview.png (GitHub's 1280x640 link card). To update it, open this file in a
+     browser with a 1280x640 viewport and capture the page; it uses overview-dark.png next to it. -->
+<html lang="en"><head><meta charset="utf-8"><title>Edgewatch social preview</title><style>
+*{box-sizing:border-box;margin:0}
+body{width:1280px;height:640px;overflow:hidden;background:#0b0d12;color:#f4f5f7;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;position:relative}
+.glow{position:absolute;inset:0;background:radial-gradient(900px 500px at 15% 10%,rgba(0,85,220,.35),transparent 60%),radial-gradient(700px 500px at 100% 100%,rgba(0,85,220,.18),transparent 60%)}
+.left{position:absolute;left:72px;top:0;bottom:0;width:560px;display:flex;flex-direction:column;justify-content:center;gap:26px}
+.brand{display:flex;align-items:center;gap:18px;font-size:56px;font-weight:700;letter-spacing:-1.5px}
+.brand svg{width:72px;height:72px}
+h2{font-size:34px;line-height:1.2;font-weight:600;letter-spacing:-.5px;color:#fff}
+p{font-size:21px;line-height:1.45;color:#aeb4c0}
+.pills{display:flex;flex-wrap:wrap;gap:10px}
+.pill{font-size:17px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#dfe3ea}
+code{font-family:ui-monospace,Menlo,monospace;font-size:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:10px 16px;border-radius:10px;color:#fff;align-self:flex-start}
+.shot{position:absolute;left:680px;top:70px;width:900px;border-radius:14px;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+</style></head><body><div class="glow"></div>
+<img class="shot" src="overview-dark.png" alt="">
+<div class="left">
+ <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#0055dc"/><path d="M16 6.5 8 9.6v6.2c0 5 3.4 9 8 10.2 4.6-1.2 8-5.2 8-10.2V9.6z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="m12.4 16 2.6 2.6 4.8-5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Edgewatch</div>
+ <h2>Security posture tracking for Cloudflare accounts</h2>
+ <p>Read-only checks across DNS, WAF, TLS, Zero Trust, email and live traffic. Triage every finding until it's fixed.</p>
+ <div class="pills"><span class="pill">Read-only</span><span class="pill">Self-hosted</span><span class="pill">Multi-account</span><span class="pill">MIT</span></div>
+ <code>npx edgewatch</code>
+</div></body></html>

@@ -4,7 +4,7 @@
 
 ## 0.4.0
 
-- **45 new checks** (120 in total), from about 60 more Cloudflare reads and GraphQL analytics:
+- **45 new checks**, from about 60 more Cloudflare reads and GraphQL analytics:
   - **Traffic**, a new category that checks configuration against the last 7 days of requests: managed rules overridden to log while matching attacks, attack-scored requests that got an answer, leaked-password logins nothing stops, `.env` or `/.git/` files being served, plain-HTTP responses, clients still on TLS 1.0/1.1, rules that never match, and bots succeeding on login pages. Analytics queries adapt to each zone's plan.
   - **Identity & access:** account API tokens without an IP restriction or expiry, unused for 90 days, or able to change every zone.
   - **Zero Trust:** Access groups and reusable policies open to everyone or a webmail domain (and groups are now resolved inside app policies), leaked service tokens, CORS with credentials, weak Access cookies, one-time PIN beside SSO, Gateway without TLS inspection or logging, WARP that users can turn off, broad private routes, missing posture checks, outdated cloudflared, idle seats.

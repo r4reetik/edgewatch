@@ -2,7 +2,7 @@
 
 # Checks
 
-Edgewatch runs 120 checks of its own, and imports Cloudflare Security Center insights alongside them.
+Edgewatch runs its own checks, and imports Cloudflare Security Center insights alongside them.
 A check evaluates every resource it applies to (an account, zone, hostname, rule, token, application…) as pass or fail;
 each failure is a finding. Severity is the check's default, and a finding can raise or lower it
 (for example, a public R2 bucket is critical when it holds backups). Checks marked **Attack path** describe a concrete way in
