@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Smoke-test the packed CLI
+        run: |
+          npm pack
+          npm install -g ./edgewatch-*.tgz
+          edgewatch --version
+          (edgewatch --no-open --port 4999 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
+          curl -fsS http://127.0.0.1:4999/api/health
+          curl -fsS http://127.0.0.1:4999/ | grep -q Edgewatch
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: edgewatch:ci
+      - name: Smoke-test the container
+        run: |
+          docker run -d --name ew -p 4318:4317 -e EDGEWATCH_AUTH=none edgewatch:ci
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4318/api/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:4318/api/health
+          docker logs ew

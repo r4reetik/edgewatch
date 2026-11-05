@@ -1,0 +1,81 @@
+{
+  "name": "edgewatch",
+  "version": "0.4.0",
+  "description": "Security posture and best-practice tracker for Cloudflare accounts. Read-only, runs locally.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "edgewatch": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=22.13"
+  },
+  "keywords": [
+    "cloudflare",
+    "security",
+    "posture",
+    "cspm",
+    "audit",
+    "compliance",
+    "dns",
+    "waf",
+    "zero-trust",
+    "self-hosted"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.ts",
+    "dev:server": "node --watch src/cli.ts --no-open --data-dir .edgewatch",
+    "dev:mock": "node --watch dev/mock/server.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build": "npm run build:server && npm run build:web",
+    "build:server": "tsc -p tsconfig.build.json && chmod +x dist/cli.js",
+    "build:web": "vite build --config web/vite.config.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "docs": "node scripts/docs.ts",
+    "test": "node --test --test-reporter=spec 'test/**/*.test.ts'",
+    "check": "npm run typecheck && npm run lint && npm test",
+    "start": "node dist/cli.js",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.6",
+    "hono": "4.13.16"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@cloudflare/kumo": "2.17.0",
+    "@phosphor-icons/react": "2.1.10",
+    "@tailwindcss/vite": "4.3.4",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.2.1",
+    "echarts": "6.1.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "tailwindcss": "4.3.4",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  },
+  "allowScripts": {
+    "fsevents": false
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/r4reetik/edgewatch.git"
+  },
+  "homepage": "https://github.com/r4reetik/edgewatch#readme",
+  "bugs": {
+    "url": "https://github.com/r4reetik/edgewatch/issues"
+  },
+  "author": "Edgewatch contributors"
+}

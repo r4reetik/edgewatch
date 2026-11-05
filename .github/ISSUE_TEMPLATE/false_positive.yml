@@ -1,0 +1,48 @@
+name: False positive
+description: A check reported a finding that isn't a real problem, or missed one it should catch.
+labels: [false-positive, checks]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Wrong findings are the most useful reports we get. Please **redact account IDs, hostnames, emails and tokens**.
+        Until it's fixed, you can mark the finding **False positive** in its triage panel so it stops counting.
+  - type: input
+    id: check
+    attributes:
+      label: Check ID
+      description: Shown next to the finding's title, for example `TLS-004`.
+      placeholder: ATS-001
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What's wrong
+      options:
+        - It reported a problem that isn't one (false positive)
+        - It missed a problem it should have found (false negative)
+        - The severity is wrong
+        - The explanation or fix is wrong
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: The finding
+      description: The "What we found" and "How we know" sections, redacted.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it's wrong
+      description: What the configuration really is, and why it's safe (or unsafe). Plan type (Free, Pro, Business, Enterprise) helps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Edgewatch version
+      placeholder: "0.4.0"

@@ -1,0 +1,41 @@
+name: New check
+description: Suggest a misconfiguration or risk Edgewatch should detect.
+labels: [checks, enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: The [list of checks](https://github.com/r4reetik/edgewatch/blob/main/docs/checks.md) shows what's covered today.
+  - type: textarea
+    id: risk
+    attributes:
+      label: The risk
+      description: What can go wrong, and what an attacker (or an outage) could do with it.
+    validations:
+      required: true
+  - type: textarea
+    id: detect
+    attributes:
+      label: How to detect it
+      description: The Cloudflare setting, API endpoint or GraphQL dataset that shows it, and what a bad value looks like. Links to Cloudflare docs help.
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Suggested severity
+      options:
+        - Critical (exploitable now)
+        - High (a direct path in, or a missing core protection)
+        - Medium (a weakness that needs another failure)
+        - Low (hardening)
+  - type: input
+    id: permission
+    attributes:
+      label: Token permission needed
+      description: If you know it. Edgewatch only ever reads.
+  - type: checkboxes
+    id: pr
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to implement this check (see CONTRIBUTING.md, "Adding a check")

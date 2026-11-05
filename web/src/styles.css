@@ -1,0 +1,38 @@
+@import "@cloudflare/kumo/styles";
+@import "tailwindcss";
+@source "../../node_modules/@cloudflare/kumo/dist/**/*.{js,jsx,ts,tsx}";
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+/*
+ * Kumo's Field (label, control, description) is a CSS grid. When a taller
+ * neighbour stretches it, its rows would share the extra height and the control
+ * would drift down. Keep its rows packed at the top so controls line up and
+ * descriptions hang below them. The selector matches the Field root's own class.
+ */
+[class*="has-[[role=switch]]:grid-cols-[auto_1fr]"] {
+  align-content: start;
+}
+
+/* Print: the report renders on white with no app chrome. */
+@media print {
+  html {
+    --print: 1;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-break {
+    break-before: page;
+  }
+  .avoid-break {
+    break-inside: avoid;
+  }
+  body {
+    background: white !important;
+  }
+}
