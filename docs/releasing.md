@@ -47,6 +47,13 @@ You can also release by pushing a tag `vX.Y.Z` yourself, when `package.json` alr
 Releases are cut from `main`, so the newest line is the only one that gets updates; there are no backports
 to older lines.
 
+**Push before you release, and pull afterwards.** The workflow commits `Release vX.Y.Z` to `main`. If you
+release with commits still unpushed and then `git pull`, git merges the two, and notes your commits added
+under `## Unreleased` can end up under the version just released. The next release then stops with
+"Nothing to release", and the tests fail with the versions whose notes changed: move those lines back under
+`## Unreleased` (`git show vX.Y.Z:CHANGELOG.md` shows what the release had). `git pull --rebase` keeps the
+history straight, but can move the notes the same way.
+
 ## Setup, once
 
 - **npm:** add an `NPM_TOKEN` repository secret: a granular access token with read and write access to

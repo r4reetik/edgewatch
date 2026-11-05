@@ -20,6 +20,8 @@ jobs:
         node: [24, 26]
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # release tags, so the tests can compare CHANGELOG.md with what each release shipped
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node }}

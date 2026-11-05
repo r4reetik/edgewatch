@@ -5,7 +5,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { migrationsAddedSince, newLine, nextVersion, releaseNotes, rollChangelog, section } from "../scripts/release.ts";
+import { changelogAtTag, migrationsAddedSince, newLine, nextVersion, releasedNotesChanged, releaseNotes, rollChangelog, section } from "../scripts/release.ts";
 
 const LOG = `# Changelog
 
@@ -78,5 +78,25 @@ describe("changelog", () => {
 +const SHIPPED = ["1d4e7bd803fb7be7", "03a85dfc75f3fd2a", "aaaaaaaaaaaaaaaa"];`;
     assert.equal(migrationsAddedSince(diff), 1);
     assert.equal(migrationsAddedSince(""), 0);
+  });
+});
+
+describe("released notes", () => {
+  test("notes that moved under a released version are caught", () => {
+    const released = "# Changelog\n\n## Unreleased\n\n## 0.5.0\n\n- Node 26.\n\n## 0.4.0\n\n- Old.\n";
+    const merged = "# Changelog\n\n## Unreleased\n\n## 0.5.0\n\n- Node 26.\n- Split Run scan.\n\n## 0.4.0\n\n- Old.\n";
+    const atTag = (v: string) => (v === "0.5.0" || v === "0.4.0" ? released : null);
+    assert.deepEqual(releasedNotesChanged(merged, atTag), ["0.5.0"]);
+    assert.deepEqual(releasedNotesChanged(released, atTag), []);
+    assert.deepEqual(
+      releasedNotesChanged(merged, () => null),
+      [],
+      "versions without a tag aren't compared",
+    );
+  });
+
+  test("CHANGELOG.md still has the notes each tagged release shipped with", () => {
+    const changed = releasedNotesChanged(readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8"), changelogAtTag);
+    assert.deepEqual(changed, [], `move notes added after ${changed.join(", ")} under "## Unreleased"`);
   });
 });

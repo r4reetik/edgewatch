@@ -2,6 +2,7 @@
 //
 //   node scripts/release.ts bump <patch|minor|major|rc>   bump package.json and roll CHANGELOG.md
 //   node scripts/release.ts notes <version>               print that version's release notes
+//   node scripts/release.ts check                         released notes still match their tags
 //
 // The policy it enforces: a release needs notes under "## Unreleased"; notes
 // that mark a change "**Breaking:**" need a new release line (a minor version
@@ -93,6 +94,40 @@ export function rollChangelog(changelog: string, current: string, next: string):
   return changelog.replace(new RegExp(`^${UNRELEASED}$`, "m"), `${UNRELEASED}\n\n## ${next}`);
 }
 
+/**
+ * Versions whose CHANGELOG notes differ from the notes at their release tag. Notes
+ * written after a release belong under "## Unreleased", but a merge or rebase across
+ * the workflow's "Release vX.Y.Z" commit can land them under that version instead,
+ * which leaves "Unreleased" empty and describes the release wrongly.
+ * `atTag(version)` returns CHANGELOG.md as tagged, or null when there's no such tag.
+ */
+export function releasedNotesChanged(changelog: string, atTag: (version: string) => string | null): string[] {
+  const versions = [...changelog.matchAll(/^## (\d+\.\d+\.\d+)\s*$/gm)].map((m) => m[1]);
+  return versions.filter((v) => {
+    const tagged = atTag(v);
+    return tagged != null && section(tagged, `## ${v}`) !== section(changelog, `## ${v}`);
+  });
+}
+
+/** CHANGELOG.md at tag v<version>, or null when the tag isn't there (a shallow clone has none). */
+export function changelogAtTag(version: string): string | null {
+  try {
+    return execFileSync("git", ["show", `v${version}:CHANGELOG.md`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+  } catch {
+    return null;
+  }
+}
+
+function checkReleasedNotes(changelog: string) {
+  const changed = releasedNotesChanged(changelog, changelogAtTag);
+  if (changed.length) {
+    throw new Error(
+      `CHANGELOG.md has different notes for ${changed.join(", ")} than the release had. Notes added since belong under "## Unreleased" ` +
+        "(a git pull that merged the Release commit can move them); compare with `git show v<version>:CHANGELOG.md`.",
+    );
+  }
+}
+
 /** Fingerprints added to the shipped-migrations list since a git ref (test/migrations.test.ts). */
 export function migrationsAddedSince(diff: string): number {
   return (
@@ -122,6 +157,7 @@ function bump(kind: string) {
   const pkg = JSON.parse(read("package.json"));
   const lock = JSON.parse(read("package-lock.json"));
   const next = nextVersion(pkg.version, kind as Bump);
+  checkReleasedNotes(read("CHANGELOG.md"));
   checkMigrations(pkg.version, next);
   writeFileSync("CHANGELOG.md", rollChangelog(read("CHANGELOG.md"), pkg.version, next));
   pkg.version = lock.version = lock.packages[""].version = next;
@@ -135,8 +171,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const [cmd, arg] = process.argv.slice(2);
   try {
     if (cmd === "bump") bump(arg);
+    else if (cmd === "check") checkReleasedNotes(readFileSync("CHANGELOG.md", "utf8"));
     else if (cmd === "notes") console.log(releaseNotes(readFileSync("CHANGELOG.md", "utf8"), String(arg).replace(/^v/, "")));
-    else throw new Error("Usage: node scripts/release.ts bump <patch|minor|major|rc> | notes <version>");
+    else throw new Error("Usage: node scripts/release.ts bump <patch|minor|major|rc> | notes <version> | check");
   } catch (e) {
     console.error(`release: ${(e as Error).message}`);
     process.exit(1);
