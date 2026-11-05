@@ -38,6 +38,28 @@ jobs:
           curl -fsS http://127.0.0.1:4999/api/health
           curl -fsS http://127.0.0.1:4999/ | grep -q Edgewatch
 
+  # The published package promises Node 22.13 (package.json engines): build it, then run it on exactly that.
+  minimum-node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm pack
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+      - name: Smoke-test the packed CLI on Node 22.13
+        run: |
+          npm install -g ./edgewatch-*.tgz
+          edgewatch --version
+          (edgewatch --no-open --port 4998 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
+          curl -fsS http://127.0.0.1:4998/api/health
+          curl -fsS http://127.0.0.1:4998/ | grep -q Edgewatch
+
   docker:
     runs-on: ubuntu-latest
     steps:

@@ -1,7 +1,9 @@
 # Deployment
 
-Edgewatch is a single Node.js process with an embedded SQLite database. It needs Node.js 22.13 or newer,
-outbound HTTPS to `api.cloudflare.com` and `cloudflare-dns.com`, and nothing else.
+Edgewatch is a single Node.js process with an embedded SQLite database. It needs Node.js 22.13 or newer and
+outbound HTTPS to `api.cloudflare.com` and `cloudflare-dns.com`. It also contacts, unless turned off in
+Settings: your own hostnames that point at cloud providers (the takeover check, over HTTPS then HTTP),
+`api.github.com` (the update check), and any Slack or webhook URL you configure for alerts.
 
 ## On your own machine
 
@@ -26,7 +28,8 @@ edgewatch
 # compose.yaml
 services:
   edgewatch:
-    image: ghcr.io/r4reetik/edgewatch:latest
+    # The release line: compatible updates only. See upgrading.md.
+    image: ghcr.io/r4reetik/edgewatch:0.4
     restart: unless-stopped
     ports:
       - "4317:4317"
@@ -60,10 +63,16 @@ and let Access do the sign-in:
 
 `EDGEWATCH_AUTH=none` turns off Edgewatch's own password, so never expose the port anywhere else.
 
+If Edgewatch itself listens on `127.0.0.1` (the systemd setup below, or `cloudflared` on the same host) and
+has no password, it only answers requests addressed to `localhost`, which blocks DNS-rebinding attacks. Add the
+public hostname with `EDGEWATCH_ALLOWED_HOSTS=edgewatch.example.com`, or set a password.
+
 ## Behind another reverse proxy
 
 Terminate TLS at the proxy, keep the password on, and set `EDGEWATCH_TRUST_PROXY=1` so session cookies are
-marked `Secure` and client IPs (used for login rate limiting) come from `X-Forwarded-For`. With Caddy:
+marked `Secure` and login rate limits apply to the client's address. Edgewatch takes that address from the last
+`X-Forwarded-For` entry, the one your proxy adds, so the proxy must append to the header (Caddy, nginx's
+`$proxy_add_x_forwarded_for` and most others do). With Caddy:
 
 ```
 edgewatch.example.com {
@@ -107,21 +116,35 @@ WantedBy=multi-user.target
 | | `EDGEWATCH_AUTH=none` | | Allow no password on a network address (only behind an authenticating proxy) |
 | | `EDGEWATCH_ALLOWED_HOSTS` | | Extra hostnames accepted in local mode, comma-separated |
 | | `EDGEWATCH_LOG=json` | text | Log one JSON object per line, for log collectors |
+| | `EDGEWATCH_UPDATE_CHECK=off` | on | Never check GitHub for new releases, whatever Settings say |
 
 Everything else (scan schedule, retention, SLAs, the takeover probe, accounts, entities and alert destinations)
 is set in the web app and stored in the database.
 
 ## Data, backups and upgrades
 
-The data directory holds two files, both readable by the owning user only:
+The data directory holds:
 
-- `edgewatch.db`: accounts, scans, findings, triage and settings (SQLite).
+- `edgewatch.db`, with `edgewatch.db-wal` and `edgewatch.db-shm` next to it while it runs: accounts, scans,
+  findings, triage and settings (SQLite).
 - `credentials.json`: the API tokens. The database only holds a reference to each.
+- `backups/`: copies of the database from before each upgrade that changed it, the newest three.
 
-Back up both together; a copy of the directory taken while Edgewatch is stopped is a complete backup. Treat it
-like the tokens themselves. Scans older than the retention period (Settings → Scans) are pruned automatically;
-triage is kept.
+All of them are readable by the owning user only. Back up the whole directory; a copy taken while Edgewatch
+is stopped is complete. Treat it like the tokens themselves. Scans older than the retention period (Settings →
+Scans) are pruned automatically, along with the triage of findings no scan reports any more.
 
-Upgrading is replacing the binary or image and restarting. Database migrations run on start and are
-forward-only, so back up before upgrading across minor versions. See the [changelog](../CHANGELOG.md) for
-breaking changes.
+Upgrading is replacing the package or image and restarting; Edgewatch copies the database to `backups/` before
+migrating it. Release lines, automatic updates and rolling back are covered in [upgrading.md](upgrading.md).
+
+## Operating it
+
+- **Logs** go to standard output (warnings and errors to standard error): `docker logs edgewatch`,
+  `journalctl -u edgewatch`, or the terminal. `EDGEWATCH_LOG=json` writes one JSON object per line.
+- **Changing the password:** Edgewatch doesn't store it. Change `EDGEWATCH_PASSWORD` (or the password file)
+  and restart. Sessions are kept in memory, so a restart signs everyone out.
+- **Removing an account** (Accounts → the account's menu → Remove) deletes its scans, findings and triage.
+  Older copies remain in `backups/` until newer upgrades replace them.
+- **Uninstalling:** stop Edgewatch and delete the data directory (`~/.edgewatch` by default) or the Docker
+  volume. Nothing is stored anywhere else. Revoke the API tokens in Cloudflare too.
+- `PORT` is read when `EDGEWATCH_PORT` isn't set, for platforms that assign one.

@@ -226,7 +226,7 @@ export default defineChecks(
         for (const r of skips) {
           report("WAF-010", {
             zone,
-            resource: r.description || String(r.expression).slice(0, 80),
+            resource: `${r.description || String(r.expression).slice(0, 80)}${r.id ? ` (${r.id.slice(0, 8)})` : ""}`,
             pass: false,
             link: d.zone(zone, "security/waf/custom-rules"),
             detail: `Skips: ${(r.action_parameters?.phases || []).join(", ")}.`,

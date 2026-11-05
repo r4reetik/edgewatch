@@ -18,6 +18,7 @@ const running = await start({
   trustProxy: false,
   allowedHosts: [],
   schedule: false,
+  updateCheck: false,
 });
 const { repo, vault, scanner } = running;
 repo.settings.save({ ...repo.settings.get(), probes: { takeover: false } });

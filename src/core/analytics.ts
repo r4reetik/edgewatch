@@ -282,11 +282,11 @@ export async function zoneAnalytics(cf: CloudflareClient, zones: ZoneInventory[]
           to: vars.to,
           days: WINDOW_DAYS,
           unavailable: [...unavailable, ...PARTS.filter((p) => TIER_RANK[tier] < TIER_RANK[p.min]).map((p) => p.key)],
-          sensitive: (value("sensitive") as ZoneAnalytics["sensitive"]) ?? [],
-          logOnly: (value("logOnly") as ZoneAnalytics["logOnly"]) ?? [],
-          hosts: (value("hosts") as ZoneAnalytics["hosts"]) ?? [],
-          oldTls: (value("oldTls") as ZoneAnalytics["oldTls"]) ?? [],
-          leakedLogins: (value("leakedLogins") as ZoneAnalytics["leakedLogins"]) ?? [],
+          sensitive: value("sensitive") as ZoneAnalytics["sensitive"],
+          logOnly: value("logOnly") as ZoneAnalytics["logOnly"],
+          hosts: value("hosts") as ZoneAnalytics["hosts"],
+          oldTls: value("oldTls") as ZoneAnalytics["oldTls"],
+          leakedLogins: value("leakedLogins") as ZoneAnalytics["leakedLogins"],
           plainHttp: value("plainHttp") as ZoneAnalytics["plainHttp"],
           attacksPassed: value("attacksPassed") as ZoneAnalytics["attacksPassed"],
           botsPassed: value("botsPassed") as ZoneAnalytics["botsPassed"],
@@ -308,18 +308,20 @@ export async function trafficTotals(cf: CloudflareClient, zoneTags: string[], no
   const out: Inventory["traffic"] = {};
   const q = `query($tags:[String!],$from:Date!,$to:Date!){viewer{zones(filter:{zoneTag_in:$tags}){zoneTag
     httpRequests1dGroups(limit:40,filter:{date_geq:$from,date_lt:$to}){sum{requests cachedRequests threats bytes}}}}}`;
-  try {
-    for (let i = 0; i < zoneTags.length; i += 50) {
-      const d = await cf.graphql(q, { tags: zoneTags.slice(i, i + 50), from: isoSeconds(now - 30 * DAY_MS).slice(0, 10), to: isoSeconds(now).slice(0, 10) });
+  // One failing batch is recorded, and the other batches still count.
+  for (let i = 0; i < zoneTags.length; i += ZONES_PER_QUERY) {
+    try {
+      const tags = zoneTags.slice(i, i + ZONES_PER_QUERY);
+      const d = await cf.graphql(q, { tags, from: isoSeconds(now - 30 * DAY_MS).slice(0, 10), to: isoSeconds(now).slice(0, 10) });
       for (const z of d.viewer.zones as Api[]) {
         const t = { requests: 0, cachedRequests: 0, threats: 0, bytes: 0 };
         for (const g of z.httpRequests1dGroups) for (const k of Object.keys(t) as (keyof typeof t)[]) t[k] += g.sum[k] || 0;
         out[z.zoneTag] = t;
       }
+      cf.note("traffic", true);
+    } catch (e) {
+      cf.note("traffic", false, e);
     }
-    if (zoneTags.length) cf.note("traffic", true);
-  } catch (e) {
-    cf.note("traffic", false, e);
   }
   return out;
 }

@@ -87,4 +87,24 @@ describe("CloudflareClient", () => {
     serve(json({ data: null, errors: [{ message: "zone does not have access to the field" }] }));
     await assert.rejects(new CloudflareClient("t", "a").graphql("{viewer{zones{zoneTag}}}", {}), /does not have access/);
   });
+  test("pages continue without total_pages: by total_count, or while pages come back full", async () => {
+    serve(ok([1, 2], { result_info: { total_count: 3 } }), ok([3], { result_info: { total_count: 3 } }));
+    assert.deepEqual(await new CloudflareClient("t", "a").list("auditLogs", "/accounts/a/audit_logs", { perPage: 2 }), [1, 2, 3]);
+    const seen = serve(ok([1, 2], { result_info: {} }), ok([3], { result_info: {} }));
+    assert.deepEqual(await new CloudflareClient("t", "a").list("auditLogs", "/accounts/a/audit_logs", { perPage: 2 }), [1, 2, 3]);
+    assert.equal(seen.length, 2, "a short page ends it");
+  });
+
+  test("cursor lists follow result_info.cursor; a 'not set up' answer is null, a denial undefined", async () => {
+    const seen = serve(ok({ buckets: [{ name: "a" }] }, { result_info: { cursor: "c1" } }), ok({ buckets: [{ name: "b" }] }, { result_info: {} }));
+    const cf = new CloudflareClient("t", "a");
+    assert.deepEqual(await cf.listCursor("r2", "/accounts/a/r2/buckets", { key: "buckets" }), [{ name: "a" }, { name: "b" }]);
+    assert.match(seen[1], /cursor=c1/);
+    serve(json({ success: false, errors: [{ message: "Please enable R2 through the Cloudflare Dashboard." }] }, 403));
+    assert.equal(await new CloudflareClient("t", "a").listCursor("r2", "/r2", { key: "buckets", absent: [/enable R2/i] }), null);
+    serve(json({ success: false, errors: [{ message: "Authentication error" }] }, 403));
+    const denied = new CloudflareClient("t", "a");
+    assert.equal(await denied.listCursor("r2", "/r2", { key: "buckets", absent: [/enable R2/i] }), undefined);
+    assert.equal(denied.coverage.get("r2")?.ok, false);
+  });
 });

@@ -94,9 +94,14 @@ export class Evaluator {
   /** Runs a module, giving it a `report` bound to its own metadata. */
   run<Id extends string>(m: CheckModule<Id>, inv: Inventory): void {
     const ctx: CheckContext = { inv, opts: this.#opts, d: dash(inv), org: orgDomains(inv, this.#opts) };
-    const report = ((id: Id, r: EvalInput) => this.#add(id, m.meta[id], r)) as Report<Id>;
+    // A check that needs a source the token couldn't read is skipped: no pass, no failure.
+    const unreadable = new Set(inv.unreadable ?? []);
+    const skipped = (meta: CheckMeta | undefined) => !!meta?.requires?.some((k) => unreadable.has(k));
+    const report = ((id: Id, r: EvalInput) => {
+      if (!skipped(m.meta[id])) this.#add(id, m.meta[id], r);
+    }) as Report<Id>;
     report.passIfNone = (id, resource = "account", zone = null) => {
-      if (!this.#counts.get(id)) this.#add(id, m.meta[id], { zone, resource, pass: true });
+      if (!this.#counts.get(id) && !skipped(m.meta[id])) this.#add(id, m.meta[id], { zone, resource, pass: true });
     };
     m.run(ctx, report);
   }

@@ -1,7 +1,7 @@
 // Starts Edgewatch: store, scanner, scheduler and HTTP server. The CLI parses
 // options and calls this; the mock dev server calls it with seeded accounts.
 
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
@@ -14,8 +14,10 @@ import { Auth } from "./server/security.ts";
 import { TokenVault } from "./config.ts";
 import { importLegacy } from "./store/legacy.ts";
 import { log } from "./log.ts";
+import { REPOSITORY, VERSION } from "./meta.ts";
+import { UpdateChecker } from "./updates.ts";
 
-export const VERSION: string = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+export { VERSION } from "./meta.ts";
 
 export interface StartOptions {
   host: string;
@@ -29,6 +31,8 @@ export interface StartOptions {
   allowedHosts: string[];
   /** Run the daily scan schedule (off for the mock dev server). */
   schedule?: boolean;
+  /** Check GitHub for newer releases, if Settings allow (off for the mock dev server). */
+  updateCheck?: boolean;
   /** Called with the URL once the server is listening. */
   onListening?: (url: string, ctx: Running) => void;
 }
@@ -51,7 +55,7 @@ function findWebDir(): string | null {
 
 export async function start(o: StartOptions): Promise<Running> {
   const vault = new TokenVault(o.dataDir);
-  const store = new Store(o.dataDir ? join(o.dataDir, "edgewatch.db") : ":memory:");
+  const store = new Store(o.dataDir ? join(o.dataDir, "edgewatch.db") : ":memory:", { log: log.info });
   const repo = new Repo(store);
   repo.scans.recoverInterrupted();
   if (o.dataDir) importLegacy(o.dataDir, repo, vault, log.info);
@@ -64,8 +68,21 @@ export async function start(o: StartOptions): Promise<Running> {
     trustProxy: o.trustProxy,
     allowedHosts: o.allowedHosts,
   });
-  const app = createApp({ repo, scanner, auth, vault, webDir: findWebDir(), version: VERSION });
+  const updates =
+    o.updateCheck === false
+      ? undefined
+      : new UpdateChecker({
+          version: VERSION,
+          repository: REPOSITORY,
+          // The Docker image sets EDGEWATCH_INSTALL=docker, so upgrade instructions match.
+          install: process.env.EDGEWATCH_INSTALL === "docker" ? "docker" : "npm",
+          lockedOff: process.env.EDGEWATCH_UPDATE_CHECK === "off",
+          enabled: () => repo.settings.get().updates.check,
+          log: log.info,
+        });
+  const app = createApp({ repo, scanner, auth, vault, webDir: findWebDir(), version: VERSION, updates });
   const stopScheduler = o.schedule === false ? () => {} : startScheduler(repo, scanner, log.info);
+  const stopUpdates = updates ? updates.start() : () => {};
 
   return new Promise((resolve, reject) => {
     const server = serve({ fetch: app.fetch, hostname: o.host, port: o.port }, () => {
@@ -78,6 +95,7 @@ export async function start(o: StartOptions): Promise<Running> {
         close: () =>
           new Promise<void>((done) => {
             stopScheduler();
+            stopUpdates();
             server.close(() => {
               store.close();
               done();
@@ -89,6 +107,7 @@ export async function start(o: StartOptions): Promise<Running> {
     });
     server.on("error", (e: NodeJS.ErrnoException) => {
       stopScheduler();
+      stopUpdates();
       reject(e.code === "EADDRINUSE" ? new Error(`Port ${o.port} is already in use. Pick another with --port.`) : e);
     });
   });

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Button, Meter, Table } from "@cloudflare/kumo";
 import { ArrowLeftIcon, PrinterIcon } from "@phosphor-icons/react";
 import { useShell } from "../shell.tsx";
-import { useApi, plural, dateOnly, dateTime, num, SCORED_SEVERITIES, SEVERITY_LABEL, STATUS_LABEL } from "../lib.ts";
+import { useApi, plural, dateOnly, dateTime, num, SCORED_SEVERITIES, SEVERITY_LABEL, STATUS_LABEL, withScope } from "../lib.ts";
 import { ErrorState, Loading, SeverityBadge } from "../components/ui.tsx";
 import { Wordmark } from "../components/brand.tsx";
 import type { Report } from "../lib.ts";
@@ -54,7 +54,8 @@ export function ReportPage() {
           variant="ghost"
           icon={<ArrowLeftIcon />}
           onClick={() => {
-            location.href = "/";
+            // A full load: the report renders outside the app shell. Keep the view it was made for.
+            location.href = withScope("/", new URLSearchParams(location.search).get("scope") || "all");
           }}
         >
           Back to Edgewatch

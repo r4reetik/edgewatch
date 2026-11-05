@@ -18,7 +18,8 @@ const MIME: Record<string, string> = {
 
 export async function serveWeb(c: Context, webDir: string | null): Promise<Response> {
   if (!webDir) return c.text("Web UI is not built. Run `npm run build:web`.", 503);
-  const rel = normalize(decodeURIComponent(c.req.path)).replace(/^([/\\])+/, "");
+  // c.req.path is already decoded; decoding again would turn "%25" into "%" and throw on stray percent signs.
+  const rel = normalize(c.req.path).replace(/^([/\\])+/, "");
   const file = join(webDir, rel);
   if (!file.startsWith(webDir + sep) && file !== webDir) return c.text("Not found", 404);
   let target = file;

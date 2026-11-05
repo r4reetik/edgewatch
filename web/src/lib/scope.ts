@@ -35,7 +35,8 @@ export function useScopeKey(): [string | null, (s: string) => void] {
   const fromUrl = params.get("scope");
   const set = useCallback((s: string) => {
     remember(s);
-    setParams({ scope: s });
+    // An account filter belongs to the view it was picked in; another view may not contain that account.
+    setParams({ scope: s, account: null });
   }, []);
   return [fromUrl || remembered(), set];
 }

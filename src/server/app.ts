@@ -5,7 +5,8 @@
 //   configured findings permalinks (needs a connected account)
 //   scoped     dashboard data and exports (?scope=all | e:<id> | a:<id>)
 
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import type { AppContext, AppEnv } from "./env.ts";
 import { routes } from "./router.ts";
 import { onError } from "./errors.ts";
@@ -21,9 +22,16 @@ import { exportRoutes } from "./routes/exports.ts";
 
 export type { AppContext } from "./env.ts";
 
+/** Request bodies are small JSON: a cap stops a huge upload from exhausting memory before auth runs. */
+const MAX_BODY = 1_000_000;
+const MAX_LOGIN_BODY = 4096;
+const tooLarge = (c: Context) => c.json({ error: "Request too large" }, 413);
+
 export function createApp(ctx: AppContext) {
   const app = new Hono<AppEnv>();
   app.use("*", securityHeaders());
+  app.use("/api/login", bodyLimit({ maxSize: MAX_LOGIN_BODY, onError: tooLarge }));
+  app.use("/api/*", bodyLimit({ maxSize: MAX_BODY, onError: tooLarge }));
   app.use("*", ctx.auth.guard());
   app.onError(onError);
 

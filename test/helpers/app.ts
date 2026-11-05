@@ -14,7 +14,7 @@ import { seedAccount } from "../../dev/mock/accounts.ts";
 
 export const PASSWORD = "correct horse battery staple";
 
-export function makeApp({ password = null as string | null, configured = false } = {}) {
+export function makeApp({ password = null as string | null, configured = false, trustProxy = false } = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), "edgewatch-test-"));
   const webDir = join(dataDir, "web");
   mkdirSync(join(webDir, "assets"), { recursive: true });
@@ -26,7 +26,7 @@ export function makeApp({ password = null as string | null, configured = false }
   const vault = new TokenVault(dataDir);
   if (configured) seedAccount(repo, vault);
   const scanner = new Scanner(repo, vault, () => {});
-  const auth = new Auth({ password, insecureNoAuth: false, loopback: !password, trustProxy: false, allowedHosts: [] });
+  const auth = new Auth({ password, insecureNoAuth: false, loopback: !password, trustProxy, allowedHosts: [] });
   const app = createApp({ repo, scanner, auth, vault, webDir, version: "test" });
   const call = (path: string, init: RequestInit & { host?: string } = {}) =>
     app.request(path, {

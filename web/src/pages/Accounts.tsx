@@ -96,10 +96,7 @@ export function AccountsPage() {
             setScope(scope);
             navigate("/");
           }}
-          onScan={async (a) => {
-            setScope(`a:${a.id}`);
-            await startScan();
-          }}
+          onScan={(a) => startScan(`a:${a.id}`)}
         />
       ))}
 
@@ -161,7 +158,12 @@ export function AccountsPage() {
         />
       )}
       {modal?.kind === "entity-settings" && (
-        <EntitySettingsDialog entity={modal.entity} onClose={close} onSave={(body) => patchEntity(modal.entity, body, `${modal.entity.name} saved`)} />
+        // The live entity, so the dialog reflects a removed webhook right after saving.
+        <EntitySettingsDialog
+          entity={data?.entities.find((e) => e.id === modal.entity.id) ?? modal.entity}
+          onClose={close}
+          onSave={(body) => patchEntity(modal.entity, body, `${modal.entity.name} saved`)}
+        />
       )}
       {modal?.kind === "token" && (
         <TokenDialog

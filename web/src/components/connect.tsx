@@ -12,7 +12,6 @@ type Verify = VerifyResponse;
 export type Connected = AddAccountsResponse;
 
 const NEW = "new";
-/** Permissions are checked for at most this many of the selected accounts. */
 
 export function TokenHelp() {
   const [url, setUrl] = useState<string | null>(null);
@@ -136,6 +135,10 @@ export function ConnectForm({
           setToken(e.target.value.trim());
           setResult(null);
           setSelected(new Set());
+        }}
+        onKeyDown={(e: React.KeyboardEvent) => {
+          // Enter verifies a pasted token, like submitting a form.
+          if (e.key === "Enter" && token && !result && !busy) void verify([]);
         }}
         description="Stored only on this machine, readable by your user only. It is never shown again or sent anywhere except api.cloudflare.com."
       />

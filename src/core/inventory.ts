@@ -3,7 +3,7 @@
 // Any single source failing is recorded in coverage and never fails the scan.
 // Every Cloudflare read is a GET; analytics use read-only GraphQL queries.
 
-import { type CloudflareClient, pool, doh, type DohAnswer } from "./cloudflare.ts";
+import { type CloudflareClient, pool, doh, dohStats, type DohAnswer } from "./cloudflare.ts";
 import { deepDns } from "./deep-dns.ts";
 import { probeTakeovers, takeoverCandidates } from "./probe.ts";
 import { accessLogins, dnsLookups, trafficTotals, zoneAnalytics } from "./analytics.ts";
@@ -37,6 +37,13 @@ const ACCOUNT_PHASES = ["http_request_firewall_managed", "http_request_firewall_
 const PAID = new Set(["pro", "business", "enterprise"]);
 const BUSINESS = new Set(["business", "enterprise"]);
 
+/**
+ * Account-level rulesets answer 403 on plans that don't include them: that's "not set up". A token
+ * missing the permission gets Cloudflare's "Authentication error" instead, which must stay unreadable,
+ * or zones protected at account level would fail the WAF checks.
+ */
+const notEntitled = (status: number, message: string) => status === 403 && !/authentication error/i.test(message);
+
 export async function collectInventory(
   cf: CloudflareClient,
   onProgress: ProgressFn = () => {},
@@ -68,9 +75,9 @@ export async function collectInventory(
     workers: cf.get<Api[]>("workers", A("workers/scripts")),
     workerDomains: cf.list<CF.WorkerDomain>("workerDomains", A("workers/domains")),
     pages: cf.list<CF.PagesProject>("pages", A("pages/projects"), { perPage: 10, max: 500 }),
-    r2: cf.getOptional<{ buckets?: Api[] }>("r2", A("r2/buckets"), [/enable R2/i]),
+    r2Buckets: cf.listCursor<Api>("r2", A("r2/buckets"), { key: "buckets", absent: [/enable R2/i] }),
     subscriptions: cf.get<Api[]>("subscriptions", A("subscriptions")),
-    audit: cf.get<CF.AuditEntry[]>("auditLogs", A(`audit_logs?since=${isoSeconds(now - 7 * DAY_MS)}&per_page=1000&direction=desc`)),
+    audit: cf.list<CF.AuditEntry>("auditLogs", A(`audit_logs?since=${isoSeconds(now - 7 * DAY_MS)}&direction=desc`), { perPage: 1000, max: 20_000 }),
     devices: cf.list("devices", A("devices"), { max: 200 }),
     deviceProfiles: cf.get<CF.DeviceProfile[]>("deviceProfiles", A("devices/policies")),
     devicePosture: cf.get<Api[]>("devicePosture", A("devices/posture")),
@@ -80,7 +87,7 @@ export async function collectInventory(
     mtlsCertificates: cf.get<CF.ExpiringCertificate[]>("mtlsCertificates", A("mtls_certificates")),
     lbPools: cf.get<CF.LbPool[]>("lbPools", A("load_balancers/pools")),
     accountRulesets: collect(
-      Object.fromEntries(ACCOUNT_PHASES.map((ph) => [ph, cf.getOptional<CF.Ruleset>("accountRulesets", A(`rulesets/phases/${ph}/entrypoint`), [403])])),
+      Object.fromEntries(ACCOUNT_PHASES.map((ph) => [ph, cf.getOptional<CF.Ruleset>("accountRulesets", A(`rulesets/phases/${ph}/entrypoint`), [notEntitled])])),
     ),
     insights: securityCenter(cf),
   });
@@ -95,7 +102,7 @@ export async function collectInventory(
     return { name, modified: w.modified_on, subdomain: s.subdomain, bindings: s.settings?.bindings ?? null };
   });
   const workersSubdomain = a.workers?.length ? await cf.get<{ subdomain?: string }>("workers", A("workers/subdomain")) : null;
-  const r2List = await pool((a.r2?.buckets || []) as Api[], 5, async (b) => {
+  const r2List = await pool(a.r2Buckets || [], 5, async (b) => {
     const name = String(b.name),
       path = `r2/buckets/${encodeURIComponent(name)}`;
     const r = await collect({
@@ -141,10 +148,13 @@ export async function collectInventory(
   const logins = await accessLogins(cf, now, (a.accessApps || []).length > 0);
 
   onProgress({ phase: "Resolving DNS targets" });
+  dohStats.lookups = dohStats.failed = 0;
   const resolved = await resolveCnames(zones);
   const spfLookups = await spfLookupCounts(zones);
   const deep = await deepDns(zones);
-  cf.note("doh", true);
+  // A failed lookup reads as "no record", so when many fail (blocked egress, a proxy) the checks built on them are skipped.
+  const dohBroken = dohStats.failed > 0 && dohStats.failed >= dohStats.lookups / 5;
+  cf.note("doh", !dohBroken, dohBroken ? new Error(`${dohStats.failed} of ${dohStats.lookups} lookups to cloudflare-dns.com failed`) : undefined);
 
   let takeover: Inventory["takeover"] = null;
   if (opts.probeTakeovers) {
@@ -157,6 +167,7 @@ export async function collectInventory(
   return {
     accountId: acc,
     accountName: a.account?.name ?? null,
+    unreadable: [...cf.coverage.values()].filter((c) => !c.ok).map((c) => c.key),
     now,
     zones,
     members: a.members,
@@ -334,7 +345,8 @@ async function spfLookupCounts(zones: ZoneInventory[]): Promise<Record<string, n
     if (depth > 10) return 99;
     let n = 0;
     for (const term of record.split(/\s+/).slice(1)) {
-      const m = term.match(/^[+~?-]?(include|a|mx|ptr|exists|redirect)(?:[:=](.+))?$/i);
+      // "a/24" and "mx:host/24" count as well: a CIDR suffix doesn't make the lookup free.
+      const m = term.match(/^[+~?-]?(include|a|mx|ptr|exists|redirect)(?:[:=]([^/]+))?(?:\/\/?\d+){0,2}$/i);
       if (!m) continue;
       n++;
       const mech = m[1].toLowerCase();
@@ -345,12 +357,12 @@ async function spfLookupCounts(zones: ZoneInventory[]): Promise<Record<string, n
     }
     return n;
   }
-  const out: Record<string, number> = {};
-  for (const z of zones)
-    for (const r of z.dns) {
-      if (r.type !== "TXT") continue;
-      const v = unquote(r.content);
-      if (v.toLowerCase().startsWith("v=spf1")) out[String(r.name).toLowerCase()] = await count(v, 0);
-    }
-  return out;
+  const spf = zones.flatMap((z) =>
+    z.dns
+      .filter((r) => r.type === "TXT" && unquote(r.content).toLowerCase().startsWith("v=spf1"))
+      .map((r) => ({ name: String(r.name).toLowerCase(), v: unquote(r.content) })),
+  );
+  // In parallel: one lookup at a time would take minutes on accounts with hundreds of zones.
+  const counts = await pool(spf, 8, (r) => count(r.v, 0));
+  return Object.fromEntries(spf.map((r, i) => [r.name, counts[i]]));
 }

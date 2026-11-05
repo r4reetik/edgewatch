@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 // Edgewatch entry point: `npx edgewatch` starts the server and opens the browser.
 
+// node:sqlite and the rest need Node.js 22.13; say so plainly instead of failing on an import.
+const [major, minor] = process.versions.node.split(".").map(Number);
+if (major < 22 || (major === 22 && minor < 13)) {
+  console.error(`edgewatch: Node.js 22.13 or newer is required; this is ${process.versions.node}.`);
+  process.exit(1);
+}
+
 import "./warnings.ts";
-import { parseArgs } from "node:util";
+import { parseArgs, type ParseArgsConfig } from "node:util";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { spawn } from "node:child_process";
@@ -24,12 +31,20 @@ Options:
   -v, --version         Print the version
   -h, --help            Show this help
 
-Cloudflare accounts are added in the browser, one token or several. Tokens are stored in
-<data-dir>/credentials.json, readable by your user only.
-Binding to a non-loopback address requires a password, unless EDGEWATCH_AUTH=none is set
-because an authenticating proxy (for example Cloudflare Access) sits in front.`;
+Environment only:
+  EDGEWATCH_AUTH=none          No password on a network address, because an authenticating proxy
+                               (for example Cloudflare Access) sits in front
+  EDGEWATCH_ALLOWED_HOSTS=a,b  Extra hostnames accepted in local mode
+  EDGEWATCH_LOG=json           Log one JSON object per line
+  EDGEWATCH_UPDATE_CHECK=off   Never check GitHub for new releases
 
-const { values: args } = parseArgs({
+Cloudflare accounts are added in the browser, one token or several. Tokens are stored in
+<data-dir>/credentials.json, readable by your user only. Binding to a non-loopback address
+requires a password unless EDGEWATCH_AUTH=none is set.
+
+Docs: https://github.com/r4reetik/edgewatch#readme`;
+
+const { values: args } = parseOptions({
   options: {
     port: { type: "string" },
     host: { type: "string" },
@@ -43,6 +58,15 @@ const { values: args } = parseArgs({
   strict: true,
 });
 
+/** parseArgs, with a one-line message instead of a stack trace for a mistyped flag. */
+function parseOptions<T extends ParseArgsConfig>(config: T): ReturnType<typeof parseArgs<T>> {
+  try {
+    return parseArgs(config);
+  } catch (e) {
+    fail(`${(e as Error).message.replace(/\. To specify.*/s, "")}. Run edgewatch --help for the options.`);
+  }
+}
+
 if (args.help) {
   console.log(HELP);
   process.exit(0);
@@ -53,13 +77,14 @@ if (args.version) {
 }
 
 const host = args.host || process.env.EDGEWATCH_HOST || "127.0.0.1";
-const port = Number(args.port || process.env.EDGEWATCH_PORT || process.env.PORT || 4317);
+const portText = String(args.port || process.env.EDGEWATCH_PORT || process.env.PORT || 4317);
+const port = Number(portText);
 const dataDir = resolve(args["data-dir"] || defaultDataDir());
 const loopback = isLoopback(host);
-const password = args["password-file"] ? readFileSync(args["password-file"], "utf8").trim() : process.env.EDGEWATCH_PASSWORD || null;
+const password = args["password-file"] ? readPassword(String(args["password-file"])) : process.env.EDGEWATCH_PASSWORD || null;
 const insecureNoAuth = process.env.EDGEWATCH_AUTH === "none";
 
-if (!Number.isInteger(port) || port < 1 || port > 65535) fail(`Invalid port: ${args.port}`);
+if (!Number.isInteger(port) || port < 1 || port > 65535) fail(`Invalid port: ${portText}`);
 if (!loopback && !password && !insecureNoAuth) {
   fail(`Refusing to listen on ${host} without a password.
 Set EDGEWATCH_PASSWORD (or --password-file), or set EDGEWATCH_AUTH=none if an authenticating proxy protects this instance.`);
@@ -77,7 +102,9 @@ const running = await start({
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean),
-}).catch((e: Error) => fail(e.message));
+}).catch((e: NodeJS.ErrnoException) =>
+  fail(e.code === "EACCES" || e.code === "EROFS" || e.code === "EPERM" ? `${e.message}. Choose a writable directory with --data-dir.` : e.message),
+);
 
 const accounts = running.repo.accounts.list(),
   entities = running.repo.entities.list();
@@ -109,6 +136,14 @@ function openBrowser(url: string) {
       .unref();
   } catch {
     /* no browser available */
+  }
+}
+
+function readPassword(file: string): string {
+  try {
+    return readFileSync(file, "utf8").trim();
+  } catch (e) {
+    fail(`Can't read the password file ${file}: ${(e as NodeJS.ErrnoException).code ?? (e as Error).message}`);
   }
 }
 

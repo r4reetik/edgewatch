@@ -23,6 +23,17 @@ type Joined = FindingRecord & { account_id: string; first_seen: string | null; r
 const TRIAGE_COLUMNS =
   "t.status AS t_status, t.owner AS t_owner, t.note AS t_note, t.due_date AS t_due_date, t.accept_until AS t_accept_until, t.updated_at AS t_updated_at, t.updated_by AS t_updated_by";
 
+/**
+ * Deletes triage and history of findings that no stored scan reports any more: those whose scans were
+ * pruned by retention, or whose account was removed. Retention then covers triage too, and removing an
+ * account leaves nothing of it behind (apart from upgrade backups).
+ */
+export function deleteOrphans(store: Store): void {
+  for (const table of ["triage_events", "triage", "finding_history"]) {
+    store.run(`DELETE FROM ${table} WHERE fingerprint NOT IN (SELECT DISTINCT fingerprint FROM findings)`);
+  }
+}
+
 export const byImportance = (a: Pick<Finding, "severity" | "category" | "resource">, b: Pick<Finding, "severity" | "category" | "resource">) =>
   SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity] || a.category.localeCompare(b.category) || a.resource.localeCompare(b.resource);
 

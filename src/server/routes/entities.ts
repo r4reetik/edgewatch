@@ -24,8 +24,13 @@ export function entityRoutes(r: Routes, { repo }: AppContext) {
   r.patch("/api/entities/:id", async (c) => {
     const e = entity(param(c, "id"));
     const body = await requireJson(c);
-    repo.entities.update(e.id, mergeEntity(e, body));
-    if (body.move !== undefined) repo.entities.move(e.id, direction(body.move));
+    // Validate everything first, so a rejected request changes nothing.
+    const next = mergeEntity(e, body);
+    const move = body.move === undefined ? undefined : direction(body.move);
+    repo.store.tx(() => {
+      repo.entities.update(e.id, next);
+      if (move) repo.entities.move(e.id, move);
+    });
     return c.json({ ok: true, entity: publicEntity(repo.entities.get(e.id)!) });
   });
 

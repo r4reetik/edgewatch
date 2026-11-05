@@ -142,7 +142,7 @@ export default defineChecks(
 
       // TRF-001: managed rules overridden to log, and logging real matches.
       const overrides = logOverrides(z);
-      if (overrides.length) {
+      if (overrides.length && a.logOnly) {
         const logged = a.logOnly.find((x) => x.source === "firewallManaged")?.count || 0;
         report("TRF-001", {
           zone,
@@ -176,7 +176,7 @@ export default defineChecks(
       }
 
       // TRF-003: leaked-credential logins that succeeded, with nothing acting on the detection.
-      if (a.leakedLogins.length || (z.leaked?.enabled && z.wafCustom !== undefined)) {
+      if (a.leakedLogins && (a.leakedLogins.length || (z.leaked?.enabled && z.wafCustom !== undefined))) {
         const acted =
           usesCredentialCheck(z.wafCustom?.rules) ||
           usesCredentialCheck(z.rateLimit?.rules) ||
@@ -193,7 +193,7 @@ export default defineChecks(
       }
 
       // TRF-004: sensitive paths answered with a body that could be the file (see LEAK_CONTENT).
-      const leaks = a.sensitive.filter((x) => LEAK_CONTENT.has(x.contentType.toLowerCase()) && !BENIGN_SENSITIVE.test(x.path));
+      const leaks = (a.sensitive ?? []).filter((x) => LEAK_CONTENT.has(x.contentType.toLowerCase()) && !BENIGN_SENSITIVE.test(x.path));
       for (const [key, rows] of groupBy(leaks, (x) => `${x.host}${x.path}`)) {
         const n = rows.reduce((s, x) => s + x.count, 0);
         report("TRF-004", {
@@ -212,7 +212,7 @@ export default defineChecks(
           },
         });
       }
-      if (!leaks.length) report("TRF-004", { zone, resource: zone, pass: true });
+      if (a.sensitive && !leaks.length) report("TRF-004", { zone, resource: zone, pass: true });
 
       if (a.plainHttp) {
         const busy = a.plainHttp.filter((x) => x.count >= PLAIN_HTTP_MIN);
@@ -229,7 +229,7 @@ export default defineChecks(
         if (!busy.length) report("TRF-005", { zone, resource: zone, pass: true });
       }
 
-      if (z.settings) {
+      if (z.settings && a.oldTls) {
         const old = a.oldTls.filter((x) => x.count >= OLD_TLS_MIN);
         report("TRF-006", {
           zone,
@@ -251,7 +251,8 @@ export default defineChecks(
             if (r.enabled === false || !r.id || !["block", "challenge", "managed_challenge", "js_challenge"].includes(String(r.action))) continue;
             report("TRF-007", {
               zone,
-              resource: `${r.description || String(r.expression).slice(0, 60)}`,
+              // The ID keeps two rules with the same description apart.
+              resource: `${r.description || String(r.expression).slice(0, 60)} (${r.id.slice(0, 8)})`,
               pass: (a.ruleHits[r.id] || 0) > 0,
               confidence: "likely",
               link: d.zone(zone, phase === "Custom rules" ? "security/waf/custom-rules" : "security/waf/rate-limiting-rules"),
@@ -274,7 +275,7 @@ export default defineChecks(
       }
 
       // TRF-009: busy hostnames under the zone that no DNS record, Worker domain or Pages domain serves.
-      if (z.dnsReadable) {
+      if (z.dnsReadable && a.hosts) {
         const names = new Set(z.dns.map((r) => r.name.toLowerCase()));
         const wild = z.dns.filter((r) => r.name.startsWith("*.")).map((r) => r.name.toLowerCase().slice(1));
         const zl = zone.toLowerCase();

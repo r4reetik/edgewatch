@@ -1,0 +1,77 @@
+# Releasing
+
+For maintainers. Users' side of this is in [upgrading.md](upgrading.md).
+
+## While working
+
+Every user-visible change adds a line under `## Unreleased` at the top of `CHANGELOG.md`, in the pull request
+that makes it. Write it for someone running Edgewatch, not for a reviewer.
+
+Mark anything that may need users to act with `**Breaking:**` and say what to do:
+
+```markdown
+- **Breaking:** the `--password-file` flag is gone; set `EDGEWATCH_PASSWORD` instead.
+```
+
+That marker matters: the release script refuses to ship it as a compatible update, and running installations
+read it from the GitHub release to warn before upgrading.
+
+## Cutting a release
+
+Go to **Actions → Release → Run workflow** on `main`, and pick:
+
+| Bump | When | Example |
+|---|---|---|
+| `patch` | fixes only | 0.4.1 → 0.4.2 |
+| `minor` | new checks or features; before 1.0, also breaking changes | 0.4.2 → 0.5.0 |
+| `major` | breaking changes, from 1.0 | 1.6.0 → 2.0.0 |
+| `rc` | a release candidate of the next line, to try a breaking release first | 0.4.2 → 0.5.0-rc.1, then rc.2… |
+
+To finalise a candidate, release `minor` before 1.0 (0.5.0-rc.2 → 0.5.0) or `major` from 1.0 (2.0.0-rc.1 → 2.0.0). `patch` finalises too; `major` on a 0.x candidate jumps to 1.0.0.
+
+The workflow then:
+
+1. bumps `package.json` and `package-lock.json`, renames `## Unreleased` to the new version and opens a new
+   `## Unreleased` (`scripts/release.ts`). It stops if there are no notes, or if the bump stays on the current
+   release line while the notes mark a breaking change or a database migration was added;
+2. commits `Release vX.Y.Z` to `main` and pushes the tag;
+3. runs `npm run check` on the tag;
+4. publishes to npm (`latest`, or `next` for a candidate) with provenance, and pushes the multi-arch image to
+   `ghcr.io/r4reetik/edgewatch` with the tags in [upgrading.md](upgrading.md#docker);
+5. creates the GitHub release with that version's notes (a prerelease for candidates). Running installations
+   see it within a day.
+
+You can also release by pushing a tag `vX.Y.Z` yourself, when `package.json` already has that version and
+`CHANGELOG.md` has a `## X.Y.Z` section. The first release, 0.4.0, is done this way.
+
+Releases are cut from `main`, so the newest line is the only one that gets updates; there are no backports
+to older lines.
+
+## Setup, once
+
+- **npm:** add an `NPM_TOKEN` repository secret: a granular access token with read and write access to
+  `edgewatch` (or to all packages, for the very first publish, before the package exists). Once it's
+  published, you can switch to npm trusted publishing for this repository and `release.yml` instead.
+- **Labels:** create `checks` and `false-positive` (the issue forms apply them; GitHub has `bug` and
+  `enhancement` already).
+- **Protected `main`:** the workflow pushes the release commit to `main`. If branch protection blocks
+  that, add a `RELEASE_TOKEN` secret (a fine-grained token, or a GitHub App token, allowed to bypass the rule
+  with Contents: read and write).
+- **GHCR:** after the first release, make the `edgewatch` package public under the repository's Packages.
+
+If a release fails halfway (npm down, a flaky Docker build), re-run the failed jobs: each publishing step skips
+what's already done. A `RELEASE_TOKEN` also makes the tag push start a second run; it finds the release done
+and stops.
+
+## Breaking changes
+
+Before shipping one:
+
+- Can it be avoided? Accept the old name and the new one for a release line, logging a warning for the
+  old one, and remove it in the next line.
+- Database changes are new migrations appended to `MIGRATIONS` in `src/store/db.ts`, and they ship only in a
+  new release line: an older version refuses a database with migrations it doesn't know, so a patch with one
+  would break rolling back within the line (the release script refuses it). Never edit a shipped migration
+  (`test/migrations.test.ts` fails if you do), and add its fingerprint to the list in that test.
+- Publish an `rc` first, and say in the notes what to test.
+- In the notes, say what breaks, who's affected, and the exact steps to take.

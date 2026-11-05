@@ -153,6 +153,7 @@ export function mergeSettings(cur: Settings, b: Body): Settings {
       if (b.slaDays[k] !== undefined) next.slaDays[k] = int(b.slaDays[k], 1, 3650, "SLA days must be between 1 and 3650");
     }
   }
+  if (b.updates !== undefined) next.updates = { check: bool(b.updates?.check, "updates.check") };
   if (b.probes !== undefined) next.probes = { takeover: bool(b.probes?.takeover, "probes.takeover") };
   if (b.baseUrl !== undefined) {
     const u = String(b.baseUrl).trim().replace(/\/$/, "");

@@ -427,7 +427,8 @@ export default defineChecks(
     }
 
     // ---- ATS-007: confirmed takeovers
-    for (const p of inv.takeover || []) {
+    // A host that didn't answer proves nothing either way, so it isn't counted as a pass.
+    for (const p of (inv.takeover || []).filter((x) => x.status != null)) {
       const z = inv.zones.find((zz) => p.host === zz.name || p.host.endsWith(`.${zz.name}`));
       report("ATS-007", {
         zone: z?.name ?? null,

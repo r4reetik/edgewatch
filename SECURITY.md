@@ -29,15 +29,17 @@ including member email addresses. It is designed to:
   as POST, as Cloudflare requires, and only ever queries). Use a token with read permissions;
   Edgewatch never needs anything else.
 - **Contact only what it needs.** Besides Cloudflare's API and public DNS, the optional takeover check
-  sends one GET to your own hostnames that point at known cloud providers. Turn it off in Settings.
+  sends one GET to your own hostnames that point at known cloud providers, and the update check reads
+  GitHub's public list of releases once a day, sending nothing about the installation. Both can be turned off in Settings.
   Secrets found in rules, such as hard-coded header values, and in plain-text Worker or Pages variables are
   never stored or shown; only their name (and, for headers, length) is.
 - **Keep secrets local.**
   - Tokens are stored in `<data-dir>/credentials.json` with mode 0600, keyed by a random ID. The database
     only holds that ID. Each account is scanned only with the token it was added with, and a token no
     account uses any more is deleted.
-  - Removing an account deletes its scans, findings and triage.
-  - It is never returned by the API or written to logs.
+  - Tokens are never returned by the API or written to logs.
+  - Removing an account deletes its scans, findings and triage. Copies of the database made before
+    upgrades (`<data-dir>/backups/`, the newest three) keep older data until they're replaced.
   - Webhook URLs are treated as secrets as well.
 - **Resist browser-based attacks.**
   - Host-header allowlisting stops DNS rebinding in local mode.

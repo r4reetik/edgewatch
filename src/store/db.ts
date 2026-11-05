@@ -1,9 +1,40 @@
 // SQLite storage (node:sqlite, no native dependencies). Migrations are applied
 // in order on open and recorded in `schema_migrations`.
+//
+// Upgrades are safe to skip versions: every migration since the database's
+// version runs in order. Before any run, the database is copied to
+// <data-dir>/backups/, so an upgrade can be undone by restoring that copy.
+// A database from a newer Edgewatch is refused rather than misread.
+//
+// Shipped migrations are never edited, only appended to: test/migrations.test.ts
+// fails if one changes.
 
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync, existsSync, chmodSync } from "node:fs";
-import { dirname } from "node:path";
+import { mkdirSync, existsSync, chmodSync, readdirSync, rmSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
+
+/** Backups kept in <data-dir>/backups; older ones are deleted. */
+const BACKUPS_KEPT = 3;
+
+/** The database was written by a newer Edgewatch than this one. */
+export class NewerDatabaseError extends Error {
+  constructor(path: string, found: number, known: number) {
+    const dir = join(dirname(path), "backups");
+    // The newest backup at or below this version's schema is the one from before that upgrade.
+    const backup = existsSync(dir)
+      ? readdirSync(dir)
+          .filter((f) => Number(/-schema(\d+)\.db$/.exec(f)?.[1] ?? Number.NaN) <= known)
+          .sort()
+          .at(-1)
+      : undefined;
+    super(
+      `${path} was last opened by a newer Edgewatch (database schema ${found}; this version knows up to ${known}). ` +
+        (backup
+          ? `Run that version or newer, or stop Edgewatch and restore ${join(dir, backup)} over ${path} (see docs/upgrading.md).`
+          : "Run that version or newer."),
+    );
+  }
+}
 
 export const MIGRATIONS: string[] = [
   `
@@ -116,7 +147,12 @@ export const MIGRATIONS: string[] = [
 export class Store {
   readonly db: DatabaseSync;
 
-  constructor(path: string) {
+  readonly #path: string;
+  readonly #log: (msg: string) => void;
+
+  constructor(path: string, opts: { log?: (msg: string) => void } = {}) {
+    this.#path = path;
+    this.#log = opts.log ?? (() => {});
     // The database holds member emails and account configuration: owner-only access.
     if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(path);
@@ -128,12 +164,36 @@ export class Store {
   #migrate(): void {
     this.db.exec("CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
     const row = this.db.prepare("SELECT MAX(version) AS v FROM schema_migrations").get() as { v: number | null };
-    for (let v = (row.v ?? 0) + 1; v <= MIGRATIONS.length; v++) {
+    const current = row.v ?? 0;
+    if (current > MIGRATIONS.length) {
+      this.db.close();
+      throw new NewerDatabaseError(this.#path, current, MIGRATIONS.length);
+    }
+    // A brand-new database has nothing to lose; an existing one is copied before it changes.
+    if (current > 0 && current < MIGRATIONS.length) this.#backup(current);
+    for (let v = current + 1; v <= MIGRATIONS.length; v++) {
       this.tx(() => {
         this.db.exec(MIGRATIONS[v - 1]);
         this.db.prepare("INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)").run(v, new Date().toISOString());
       });
     }
+  }
+
+  /** Copies the database to <dir>/backups before migrating it, keeping the newest few copies. */
+  #backup(schema: number): void {
+    if (this.#path === ":memory:") return;
+    const dir = join(dirname(this.#path), "backups");
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..+/, "");
+    const file = join(dir, `${basename(this.#path, ".db")}-${stamp}-schema${schema}.db`);
+    this.db.prepare("VACUUM INTO ?").run(file);
+    chmodSync(file, 0o600);
+    for (const old of readdirSync(dir)
+      .filter((f) => f.endsWith(".db"))
+      .sort()
+      .slice(0, -BACKUPS_KEPT))
+      rmSync(join(dir, old));
+    this.#log(`Database schema ${schema} → ${MIGRATIONS.length}; backed up to ${file}`);
   }
 
   all<T>(sql: string, ...params: (string | number | null)[]): T[] {
@@ -148,7 +208,27 @@ export class Store {
     return this.db.prepare(sql).run(...params);
   }
 
+  #depth = 0;
+
+  /** Runs `fn` in a transaction. A call inside another transaction joins it, so repositories can compose. */
   tx<T>(fn: () => T): T {
+    if (this.#depth > 0) {
+      this.#depth++;
+      try {
+        return fn();
+      } finally {
+        this.#depth--;
+      }
+    }
+    this.#depth = 1;
+    try {
+      return this.#outerTx(fn);
+    } finally {
+      this.#depth = 0;
+    }
+  }
+
+  #outerTx<T>(fn: () => T): T {
     this.db.exec("BEGIN IMMEDIATE");
     try {
       const out = fn();

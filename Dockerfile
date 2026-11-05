@@ -16,15 +16,16 @@ LABEL org.opencontainers.image.source="https://github.com/r4reetik/edgewatch" \
 ENV NODE_ENV=production \
     EDGEWATCH_HOST=0.0.0.0 \
     EDGEWATCH_PORT=4317 \
-    EDGEWATCH_DATA_DIR=/data
+    EDGEWATCH_DATA_DIR=/data \
+    EDGEWATCH_INSTALL=docker
 WORKDIR /app
 COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
-RUN mkdir -p /data && chown node:node /data
+RUN mkdir -p /data && chown node:node /data && chmod 700 /data
 USER node
 VOLUME ["/data"]
 EXPOSE 4317
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD ["node", "-e", "fetch('http://127.0.0.1:4317/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+  CMD ["node", "-e", "fetch('http://127.0.0.1:' + (process.env.EDGEWATCH_PORT || 4317) + '/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
 CMD ["node", "dist/cli.js", "--no-open"]

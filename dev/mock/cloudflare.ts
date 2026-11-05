@@ -8,6 +8,8 @@
 // publishing SSH, a DNS-only load balancer, a .env file served in traffic, and so on.
 // Dates are relative to now, so findings don't drift as time passes.
 
+import { rateLimit } from "../../src/core/cloudflare.ts";
+
 const DAY = 86_400_000;
 const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString();
 const ahead = (days: number) => new Date(Date.now() + days * DAY).toISOString();
@@ -425,6 +427,9 @@ export interface MockOptions {
 
 export function installMockCloudflare(o: MockOptions = {}): () => void {
   const real = globalThis.fetch;
+  // The mock has no rate limit; tests and the mock server make far more calls than one real scan.
+  const limit = rateLimit.perWindow;
+  rateLimit.perWindow = Number.POSITIVE_INFINITY;
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = new URL(typeof input === "string" || input instanceof URL ? input : input.url);
     o.onRequest?.(url, init);
@@ -447,5 +452,6 @@ export function installMockCloudflare(o: MockOptions = {}): () => void {
   }) as typeof fetch;
   return () => {
     globalThis.fetch = real;
+    rateLimit.perWindow = limit;
   };
 }

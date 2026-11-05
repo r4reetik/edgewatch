@@ -26,7 +26,7 @@ Maintainers may edit or remove comments, close threads, and block anyone who bre
 or for good, depending on how serious it is and whether it repeats.
 
 To report something, contact the maintainer privately through the email on [their GitHub profile](https://github.com/r4reetik).
-Reports are kept confidential. If the report is about a maintainer, say so, and it will be handled by someone else.
+Reports are kept confidential. If the report is about the maintainer, contact GitHub through [Report abuse](https://docs.github.com/en/communities/maintaining-your-safety-on-github/reporting-abuse-or-spam) instead.
 
 This code applies in every project space, and when someone represents the project in public.
 
