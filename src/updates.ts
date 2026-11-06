@@ -9,7 +9,6 @@
 // installation pinned to its current line never receives one automatically.
 
 import type { InstallKind, UpdateStatus } from "./shared/api.ts";
-import { checkNode, RECOMMENDED_NODE_MAJOR, upgradeCommand } from "./node-check.ts";
 
 const DAY_MS = 86_400_000;
 const FIRST_CHECK_MS = 30_000;
@@ -85,13 +84,6 @@ export interface UpdateCheckerOptions {
   log?: (msg: string) => void;
 }
 
-/** The Node.js running this process, with an upgrade command when it's older than the recommended line. */
-export function nodeStatus(): UpdateStatus["node"] {
-  const { versions, env, execPath, platform } = process;
-  const ok = checkNode(versions.node, env, execPath, platform).level === "ok";
-  return { version: versions.node, recommended: RECOMMENDED_NODE_MAJOR, upgrade: ok ? null : upgradeCommand(env, execPath, platform) };
-}
-
 export class UpdateChecker {
   readonly #o: UpdateCheckerOptions;
   #status: UpdateStatus;
@@ -110,7 +102,6 @@ export class UpdateChecker {
       newerCount: 0,
       checkedAt: null,
       error: null,
-      node: nodeStatus(),
     };
   }
 
@@ -119,7 +110,7 @@ export class UpdateChecker {
   }
 
   status(): UpdateStatus {
-    return { ...this.#status, enabled: this.#on(), node: nodeStatus() };
+    return { ...this.#status, enabled: this.#on() };
   }
 
   async check(): Promise<UpdateStatus> {

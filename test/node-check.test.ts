@@ -1,5 +1,5 @@
-// The Node.js version check that runs before anything else: too old stops with
-// upgrade steps, Node 24 warns, Node 26 and later run quietly.
+// The Node.js version check that runs before anything else: older than the first
+// Node.js 26 LTS stops with upgrade steps; 26 LTS and later run.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -14,25 +14,24 @@ describe("Node.js version check", () => {
     assert.equal(older("24.22.0", "24.22.1"), true);
     assert.equal(older("24.22.1", "24.22.1"), false);
     assert.equal(older("24.100.0", "24.22.1"), false, "numerically, not as text");
-    assert.equal(older("v26.0.0", "24.22.1"), false);
+    assert.equal(older("v26.13.0", MIN_NODE), false);
+    assert.equal(older("26.12.1", MIN_NODE), true, "Node 26 before it became LTS");
   });
 
   test("too old stops with upgrade steps and the latest Edgewatch", () => {
-    const c = checkNode("22.13.0", ...linux({ NVM_DIR: "/home/me/.nvm" }));
-    assert.equal(c.level, "error");
-    assert.match(c.message, /this is Node\.js 22\.13\.0/);
-    assert.match(c.message, /nvm install 26 && nvm alias default 26/);
-    assert.match(c.message, /npx edgewatch@latest/);
-    assert.equal(checkNode("18.0.0", ...linux()).level, "error");
+    for (const v of ["24.22.1", "22.13.0", "18.0.0", "26.12.1"]) {
+      const c = checkNode(v, ...linux({ NVM_DIR: "/home/me/.nvm" }));
+      assert.equal(c.ok, false, v);
+      assert.match(c.message, new RegExp(`this is Node\\.js ${v.replaceAll(".", "\\.")}`));
+      assert.match(c.message, /Node\.js 26 LTS \(26\.13\.0 or newer\)/);
+      assert.match(c.message, /nvm install 26 && nvm alias default 26/);
+      assert.match(c.message, /npx edgewatch@latest/);
+    }
   });
 
-  test("Node 24 runs with a recommendation, Node 26 and later quietly", () => {
-    const warn = checkNode("24.22.1", ...linux());
-    assert.equal(warn.level, "warn");
-    assert.match(warn.message, /Node\.js 26 LTS is recommended/);
-    assert.equal(checkNode("25.9.0", ...linux()).level, "warn");
-    assert.deepEqual(checkNode("26.13.0", ...linux()), { level: "ok", message: "" });
-    assert.equal(checkNode("28.1.0", ...linux()).level, "ok");
+  test("Node.js 26 LTS and later run without a message", () => {
+    assert.deepEqual(checkNode("26.13.0", ...linux()), { ok: true, message: "" });
+    assert.equal(checkNode("28.1.0", ...linux()).ok, true);
   });
 
   test("suggests the Node.js manager in use", () => {

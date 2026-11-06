@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node: [24, 26]
+        node: [26]
     steps:
       - uses: actions/checkout@v7
         with:
@@ -40,7 +40,7 @@ jobs:
           curl -fsS http://127.0.0.1:4999/api/health
           curl -fsS http://127.0.0.1:4999/ | grep -q Edgewatch
 
-  # The oldest Node.js that runs Edgewatch is 24.22.1 (MIN_NODE in src/node-check.ts): build it, then run it on
+  # The oldest Node.js that runs Edgewatch is 26.13.0 (MIN_NODE in src/node-check.ts): build it, then run it on
   # exactly that, and check that an older one is refused with upgrade steps.
   minimum-node:
     runs-on: ubuntu-latest
@@ -54,8 +54,8 @@ jobs:
       - run: npm pack
       - uses: actions/setup-node@v7
         with:
-          node-version: 24.22.1
-      - name: Smoke-test the packed CLI on Node 24.22.1
+          node-version: 26.13.0
+      - name: Smoke-test the packed CLI on Node 26.13.0
         run: |
           npm install -g ./edgewatch-*.tgz
           edgewatch --version
@@ -64,11 +64,11 @@ jobs:
           curl -fsS http://127.0.0.1:4998/ | grep -q Edgewatch
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - name: An older Node.js installs this version and gets upgrade steps
         run: |
           npm install -g ./edgewatch-*.tgz
-          if edgewatch --version > out.txt 2>&1; then cat out.txt; echo "expected Node 22 to be refused"; exit 1; fi
+          if edgewatch --version > out.txt 2>&1; then cat out.txt; echo "expected Node 24 to be refused"; exit 1; fi
           cat out.txt
           grep -q "npx edgewatch@latest" out.txt
 

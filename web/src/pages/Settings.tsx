@@ -300,18 +300,6 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
                   </span>
                 </div>
               )}
-              {u.node.upgrade && (
-                <p className="text-sm text-kumo-default">
-                  Edgewatch is running on Node.js {u.node.version}; Node.js {u.node.recommended} LTS is recommended.{" "}
-                  {u.node.upgrade.startsWith("Download") ? (
-                    <Link href="https://nodejs.org/en/download" target="_blank" rel="noreferrer">
-                      Download Node.js {u.node.recommended} LTS
-                    </Link>
-                  ) : (
-                    <code className="rounded bg-kumo-recessed px-1.5 py-0.5 font-mono text-xs">{u.node.upgrade}</code>
-                  )}
-                </p>
-              )}
               {u.inLine && (
                 <p className="text-sm text-kumo-default">
                   Not ready for {u.latest?.version}? {u.inLine.version} is the newest compatible update on {u.line}:{" "}

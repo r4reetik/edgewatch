@@ -177,8 +177,6 @@ export interface UpdateStatus {
   checkedAt: string | null;
   /** Why the last check failed; the previous result is kept. */
   error: string | null;
-  /** The Node.js running Edgewatch, and the command to upgrade it when it's older than the recommended line. */
-  node: { version: string; recommended: number; upgrade: string | null };
 }
 
 export interface EntityNotificationsView {

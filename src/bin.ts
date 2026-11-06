@@ -9,10 +9,9 @@
 import { checkNode } from "./node-check.ts";
 
 const check = checkNode(process.versions.node, process.env, process.execPath, process.platform);
-if (check.level === "error") {
+if (!check.ok) {
   console.error(check.message);
   process.exit(1);
 }
-if (check.level === "warn") console.warn(check.message);
 
 await import("./cli.ts");
