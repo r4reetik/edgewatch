@@ -8,7 +8,7 @@ Settings: your own hostnames that point at cloud providers (the takeover check, 
 ## On your own machine
 
 ```bash
-npx edgewatch
+npx edgewatch@latest
 ```
 
 It listens on `127.0.0.1:4317`, opens a browser tab, and keeps its data in `~/.edgewatch`. No password is
@@ -29,7 +29,7 @@ edgewatch
 services:
   edgewatch:
     # The release line: compatible updates only. See upgrading.md.
-    image: ghcr.io/r4reetik/edgewatch:0.4
+    image: ghcr.io/r4reetik/edgewatch:0.5
     restart: unless-stopped
     ports:
       - "4317:4317"

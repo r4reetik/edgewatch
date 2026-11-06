@@ -13,6 +13,7 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { releaseLine } from "../src/updates.ts";
 
 export type Bump = "patch" | "minor" | "major" | "rc";
 export const BUMPS: readonly Bump[] = ["patch", "minor", "major", "rc"];
@@ -128,6 +129,17 @@ function checkReleasedNotes(changelog: string) {
   }
 }
 
+/** Install instructions that name a release line, so new installs start on the newest one. */
+export const LINE_DOCS = ["README.md", "docs/deployment.md"];
+
+/**
+ * Points install commands at release line `line`: the Docker tag (`edgewatch:0.5`, "Docker tag `:0.5`")
+ * and the npm range (`edgewatch@0.5`). Exact versions (`edgewatch@0.5.1`) and `@latest` are left alone.
+ */
+export function pinLine(text: string, line: string): string {
+  return text.replace(/(ghcr\.io\/[\w.-]+\/edgewatch:|\bedgewatch@|Docker tag `:)(\d+(?:\.\d+)?)(?![\w.-])/g, (_m, prefix: string) => `${prefix}${line}`);
+}
+
 /** Fingerprints added to the shipped-migrations list since a git ref (test/migrations.test.ts). */
 export function migrationsAddedSince(diff: string): number {
   return (
@@ -160,6 +172,8 @@ function bump(kind: string) {
   checkReleasedNotes(read("CHANGELOG.md"));
   checkMigrations(pkg.version, next);
   writeFileSync("CHANGELOG.md", rollChangelog(read("CHANGELOG.md"), pkg.version, next));
+  // A new stable line: install instructions move to it (release candidates never do).
+  if (!next.includes("-") && newLine(pkg.version, next)) for (const f of LINE_DOCS) writeFileSync(f, pinLine(read(f), releaseLine(next)));
   pkg.version = lock.version = lock.packages[""].version = next;
   writeFileSync("package.json", `${JSON.stringify(pkg, null, 2)}\n`);
   writeFileSync("package-lock.json", `${JSON.stringify(lock, null, 2)}\n`);

@@ -74,8 +74,9 @@ export async function start(o: StartOptions): Promise<Running> {
       : new UpdateChecker({
           version: VERSION,
           repository: REPOSITORY,
-          // The Docker image sets EDGEWATCH_INSTALL=docker, so upgrade instructions match.
-          install: process.env.EDGEWATCH_INSTALL === "docker" ? "docker" : "npm",
+          // The Docker image sets EDGEWATCH_INSTALL=docker; npx runs packages from its cache
+          // (…/_npx/…), so upgrade instructions match how this copy started.
+          install: process.env.EDGEWATCH_INSTALL === "docker" ? "docker" : /[\\/]_npx[\\/]/.test(process.argv[1] ?? "") ? "npx" : "npm",
           lockedOff: process.env.EDGEWATCH_UPDATE_CHECK === "off",
           enabled: () => repo.settings.get().updates.check,
           log: log.info,

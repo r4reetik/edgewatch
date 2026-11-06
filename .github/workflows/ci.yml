@@ -40,7 +40,8 @@ jobs:
           curl -fsS http://127.0.0.1:4999/api/health
           curl -fsS http://127.0.0.1:4999/ | grep -q Edgewatch
 
-  # The published package promises Node 24.22.1 (package.json engines): build it, then run it on exactly that.
+  # The oldest Node.js that runs Edgewatch is 24.22.1 (MIN_NODE in src/node-check.ts): build it, then run it on
+  # exactly that, and check that an older one is refused with upgrade steps.
   minimum-node:
     runs-on: ubuntu-latest
     steps:
@@ -61,6 +62,15 @@ jobs:
           (edgewatch --no-open --port 4998 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
           curl -fsS http://127.0.0.1:4998/api/health
           curl -fsS http://127.0.0.1:4998/ | grep -q Edgewatch
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: An older Node.js installs this version and gets upgrade steps
+        run: |
+          npm install -g ./edgewatch-*.tgz
+          if edgewatch --version > out.txt 2>&1; then cat out.txt; echo "expected Node 22 to be refused"; exit 1; fi
+          cat out.txt
+          grep -q "npx edgewatch@latest" out.txt
 
   docker:
     runs-on: ubuntu-latest

@@ -5,7 +5,17 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { changelogAtTag, migrationsAddedSince, newLine, nextVersion, releasedNotesChanged, releaseNotes, rollChangelog, section } from "../scripts/release.ts";
+import {
+  changelogAtTag,
+  migrationsAddedSince,
+  newLine,
+  nextVersion,
+  pinLine,
+  releasedNotesChanged,
+  releaseNotes,
+  rollChangelog,
+  section,
+} from "../scripts/release.ts";
 
 const LOG = `# Changelog
 
@@ -98,5 +108,17 @@ describe("released notes", () => {
   test("CHANGELOG.md still has the notes each tagged release shipped with", () => {
     const changed = releasedNotesChanged(readFileSync(new URL("../CHANGELOG.md", import.meta.url), "utf8"), changelogAtTag);
     assert.deepEqual(changed, [], `move notes added after ${changed.join(", ")} under "## Unreleased"`);
+  });
+});
+
+describe("install instructions", () => {
+  test("follow the newest release line, leaving exact versions and @latest alone", () => {
+    const docs =
+      "image: ghcr.io/r4reetik/edgewatch:0.4\nThe Docker tag `:0.4` above; `npm install -g\nedgewatch@0.4`, edgewatch@0.4.1, edgewatch@latest, http://edgewatch:4317";
+    assert.equal(
+      pinLine(docs, "0.6"),
+      "image: ghcr.io/r4reetik/edgewatch:0.6\nThe Docker tag `:0.6` above; `npm install -g\nedgewatch@0.6`, edgewatch@0.4.1, edgewatch@latest, http://edgewatch:4317",
+    );
+    assert.equal(pinLine("ghcr.io/r4reetik/edgewatch:0.9", "1"), "ghcr.io/r4reetik/edgewatch:1");
   });
 });

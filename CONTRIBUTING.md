@@ -6,7 +6,7 @@ Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
-You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). CI also tests on Node 24.22.1, the oldest version the package supports, so avoid APIs Node 24 lacks. Development runs TypeScript directly, with no build step for the server.
+You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). CI also tests on Node 24.22.1, the oldest version the package supports, so avoid APIs Node 24 lacks. The real minimum is `MIN_NODE` in `src/node-check.ts`; `engines` in package.json is deliberately wide, because npm treats it as a filter and would hand users of an older Node.js an older Edgewatch instead of the one that explains how to upgrade. Development runs TypeScript directly, with no build step for the server.
 
 ```bash
 npm install
@@ -27,7 +27,8 @@ npm run format          # fix formatting
 
 ```
 src/
-  cli.ts, main.ts       command line, and start() which wires everything up
+  bin.ts, cli.ts        the edgewatch command: Node.js version check, then the command line
+  main.ts               start(), which wires everything up
   core/                 everything that talks to Cloudflare or judges what it found (no HTTP server, no database)
     sources.ts          every data source: coverage label, token permission, setup-screen probe
     cloudflare.ts       read-only API client (GET only, plus read-only GraphQL), retries, rate limits, coverage

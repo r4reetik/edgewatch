@@ -73,7 +73,12 @@ npm install -g edgewatch@0.4     # newest 0.4.x: compatible updates only
 npm install -g edgewatch@latest  # newest stable release
 ```
 
-Restart Edgewatch after installing. With `npx`, run `npx edgewatch@latest` once to fetch the newest version.
+Restart Edgewatch after installing. With npx, `npx edgewatch@latest` always starts the newest release. Plain
+`npx edgewatch` also looks for a newer one, except when Edgewatch is installed globally (`npm install -g`):
+then it runs that copy, whatever its version.
+
+On a Node.js older than Edgewatch needs, the `edgewatch` command stops and says how to upgrade Node.js
+rather than falling back to an older Edgewatch.
 
 ## What happens on upgrade
 

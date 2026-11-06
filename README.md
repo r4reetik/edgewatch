@@ -41,11 +41,11 @@ and which risks were accepted and until when. It runs on your machine or your se
 ## Quick start
 
 ```bash
-npx edgewatch
+npx edgewatch@latest
 ```
 
 That's the whole install. A browser tab opens, you paste a read-only token, pick the accounts it should
-scan, and the first scans run. It needs Node.js 26 LTS (recommended) or 24.22.1 or newer. To run it for a team, use
+scan, and the first scans run. It needs Node.js 26 LTS (recommended) or 24.22.1 or newer; on an older one it says how to upgrade. To run it for a team, use
 [Docker](#run-it-for-a-team-docker).
 
 ## What it checks
@@ -144,7 +144,7 @@ from analytics instead.
 docker run -d --name edgewatch -p 4317:4317 \
   -v edgewatch-data:/data \
   -e EDGEWATCH_PASSWORD='a-long-admin-password' \
-  ghcr.io/r4reetik/edgewatch:0.4
+  ghcr.io/r4reetik/edgewatch:0.5
 ```
 
 Open it, sign in with the password, and add accounts in the browser. Tokens are stored in the volume.
@@ -160,8 +160,8 @@ Compose, Cloudflare Access, reverse proxies, systemd and backups.
 Edgewatch tells you when a new version is out (in the sidebar and under **Settings → Updates**), with the
 exact upgrade command and a warning when it has breaking changes. Releases follow semantic versioning in
 **release lines** (`0.4`, `0.5`…; `1`, `2`… from 1.0): updates within a line never break anything, so it's
-safe to take them automatically. The Docker tag `:0.4` above does exactly that; `npm install -g
-edgewatch@0.4` is the npm equivalent. The database is backed up before every upgrade that changes it.
+safe to take them automatically. The Docker tag `:0.5` above does exactly that; `npm install -g
+edgewatch@0.5` is the npm equivalent. The database is backed up before every upgrade that changes it.
 [docs/upgrading.md](docs/upgrading.md) has automatic updates, release candidates and rolling back.
 
 ## Configuration

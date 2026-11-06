@@ -155,7 +155,7 @@ export interface Session {
 }
 
 /** How this copy was installed, which decides the upgrade instructions. */
-export type InstallKind = "docker" | "npm";
+export type InstallKind = "docker" | "npm" | "npx";
 
 export interface UpdateStatus {
   /** Checking is on (Settings) and not switched off with EDGEWATCH_UPDATE_CHECK=off. */
@@ -177,6 +177,8 @@ export interface UpdateStatus {
   checkedAt: string | null;
   /** Why the last check failed; the previous result is kept. */
   error: string | null;
+  /** The Node.js running Edgewatch, and the command to upgrade it when it's older than the recommended line. */
+  node: { version: string; recommended: number; upgrade: string | null };
 }
 
 export interface EntityNotificationsView {

@@ -60,7 +60,8 @@ reads as open again after its expiry date.
 
 ```
 src/
-  cli.ts, main.ts       command line, and start() which wires everything up
+  bin.ts, cli.ts        the edgewatch command: Node.js version check, then the command line
+  main.ts               start(), which wires everything up
   core/                 everything that talks to Cloudflare or judges what it found
     sources.ts          every data source: label, token permission, setup-screen probe
     cloudflare.ts       read-only API client: retries, rate limits, pagination, coverage

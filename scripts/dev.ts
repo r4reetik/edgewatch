@@ -6,7 +6,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 
 const mock = process.argv.includes("--mock");
-const server = mock ? ["--watch", "dev/mock/server.ts"] : ["--watch", "src/cli.ts", "--no-open", "--data-dir", ".edgewatch"];
+const server = mock ? ["--watch", "dev/mock/server.ts"] : ["--watch", "src/bin.ts", "--no-open", "--data-dir", ".edgewatch"];
 const children: ChildProcess[] = [
   spawn(process.execPath, server, { stdio: "inherit" }),
   spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--config", "web/vite.config.ts"], { stdio: "inherit" }),

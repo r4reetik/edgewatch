@@ -217,7 +217,9 @@ function upgradeSteps(u: UpdateStatus, version: string): { text: string; command
       command: "docker compose pull && docker compose up -d",
     };
   }
-  return { text: "Install the new version and restart Edgewatch. With npx, run it with @latest once.", command: `npm install -g edgewatch@${version}` };
+  if (u.install === "npx")
+    return { text: "Stop Edgewatch, then start the newest version with npx. Your data stays where it is.", command: "npx edgewatch@latest" };
+  return { text: "Install the new version and restart Edgewatch.", command: `npm install -g edgewatch@${version}` };
 }
 
 function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
@@ -298,11 +300,27 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
                   </span>
                 </div>
               )}
+              {u.node.upgrade && (
+                <p className="text-sm text-kumo-default">
+                  Edgewatch is running on Node.js {u.node.version}; Node.js {u.node.recommended} LTS is recommended.{" "}
+                  {u.node.upgrade.startsWith("Download") ? (
+                    <Link href="https://nodejs.org/en/download" target="_blank" rel="noreferrer">
+                      Download Node.js {u.node.recommended} LTS
+                    </Link>
+                  ) : (
+                    <code className="rounded bg-kumo-recessed px-1.5 py-0.5 font-mono text-xs">{u.node.upgrade}</code>
+                  )}
+                </p>
+              )}
               {u.inLine && (
                 <p className="text-sm text-kumo-default">
                   Not ready for {u.latest?.version}? {u.inLine.version} is the newest compatible update on {u.line}:{" "}
                   <code className="rounded bg-kumo-recessed px-1.5 py-0.5 font-mono text-xs">
-                    {u.install === "docker" ? `ghcr.io/r4reetik/edgewatch:${u.line}` : `npm install -g edgewatch@${u.line}`}
+                    {u.install === "docker"
+                      ? `ghcr.io/r4reetik/edgewatch:${u.line}`
+                      : u.install === "npx"
+                        ? `npx edgewatch@${u.line}`
+                        : `npm install -g edgewatch@${u.line}`}
                   </code>{" "}
                   <Link href={u.inLine.url} target="_blank" rel="noreferrer">
                     Notes

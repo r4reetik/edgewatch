@@ -1,15 +1,5 @@
-#!/usr/bin/env node
-// Edgewatch entry point: `npx edgewatch` starts the server and opens the browser.
-
-// Edgewatch is built on Node.js 26 LTS and still runs on Node 24 from its 24.22.1 security release;
-// say so plainly instead of failing on an import.
-const MIN_NODE = [24, 22, 1];
-const nodeVersion = process.versions.node.split(".").map(Number);
-const differs = MIN_NODE.findIndex((n, i) => nodeVersion[i] !== n);
-if (differs >= 0 && nodeVersion[differs] < MIN_NODE[differs]) {
-  console.error(`edgewatch: Node.js ${MIN_NODE.join(".")} or newer is required (Node 26 LTS recommended); this is ${process.versions.node}.`);
-  process.exit(1);
-}
+// The command line: `npx edgewatch` starts the server and opens the browser.
+// Started by bin.ts once it has checked the Node.js version.
 
 import "./warnings.ts";
 import { parseArgs, type ParseArgsConfig } from "node:util";
