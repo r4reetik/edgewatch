@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.7.0
+
 - **Breaking:** Edgewatch now needs Node.js 26 LTS (26.13.0 or newer); Node.js 24 is no longer supported. On an older Node.js, `edgewatch` stops and gives the command to upgrade. Docker users have nothing to do: the image already runs Node.js 26.
 - **`npx edgewatch` always gets the newest release.** On a Node.js older than Edgewatch needs, npm used to fall back to an older Edgewatch without saying so; now the newest one runs and says how to upgrade Node.js (with nvm, fnm, Volta, Homebrew or winget, whichever you use).
 - Settings → Updates gives the right upgrade command when Edgewatch was started with npx (`npx edgewatch@latest`).

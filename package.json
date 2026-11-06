@@ -1,6 +1,6 @@
 {
   "name": "edgewatch",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Security posture and best-practice tracker for Cloudflare accounts. Read-only, runs locally.",
   "license": "MIT",
   "type": "module",
