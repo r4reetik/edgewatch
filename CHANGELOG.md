@@ -6,6 +6,9 @@
 - **`npx edgewatch` always gets the newest release.** On a Node.js older than Edgewatch needs, npm used to fall back to an older Edgewatch without saying so; now the newest one runs and says how to upgrade Node.js (with nvm, fnm, Volta, Homebrew or winget, whichever you use).
 - Settings → Updates gives the right upgrade command when Edgewatch was started with npx (`npx edgewatch@latest`).
 - The README and deployment guide point at the current release line for Docker and npm, and each new release line updates them.
+
+## 0.6.0
+
 - **Run scan** scans the account you have selected (or the entity, or All accounts, when that's what you're viewing). The menu beside it scans the whole entity, or every account in every entity, including entities kept out of All accounts.
 - Buttons with tooltips are one tab stop instead of two.
 

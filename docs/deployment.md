@@ -29,7 +29,7 @@ edgewatch
 services:
   edgewatch:
     # The release line: compatible updates only. See upgrading.md.
-    image: ghcr.io/r4reetik/edgewatch:0.5
+    image: ghcr.io/r4reetik/edgewatch:0.6
     restart: unless-stopped
     ports:
       - "4317:4317"
