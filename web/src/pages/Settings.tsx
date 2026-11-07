@@ -174,6 +174,9 @@ function LinksCard({ s, save }: { s: Settings; save: Save }) {
   const commit = () => {
     if (baseUrl.trim().replace(/\/$/, "") !== (s.baseUrl || "")) void save({ baseUrl }, "Link URL");
   };
+  // The address this page was opened at is almost always the answer, unless it's this machine only.
+  const here = location.origin;
+  const offerHere = !baseUrl.trim() && !/^https?:\/\/(localhost|127\.|\[::1\])/.test(here);
   return (
     <Card
       title="Notifications"
@@ -196,6 +199,21 @@ function LinksCard({ s, save }: { s: Settings; save: Save }) {
             onKeyDown={(e) => {
               if (e.key === "Enter") commit();
             }}
+            description={
+              offerHere ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setBaseUrl(here);
+                    void save({ baseUrl: here }, "Link URL");
+                  }}
+                >
+                  Use {here}
+                </Button>
+              ) : undefined
+            }
           />
         </SettingRow>
       </SettingRows>

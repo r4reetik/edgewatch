@@ -7,7 +7,7 @@ import { CHECKS, CHECK_BY_ID } from "../../core/catalog.ts";
 import { checkStats, latestScans, scanMeta } from "../scope.ts";
 import { fingerprints, mergeSettings, param, requireJson, severityOrNull, triagePatch } from "../validate.ts";
 import { notFound } from "../errors.ts";
-import type { CheckRow, ChecksResponse, Settings, UpdateStatus } from "../../shared/api.ts";
+import type { CheckRow, ChecksResponse, OwnersResponse, Settings, UpdateStatus } from "../../shared/api.ts";
 import { UpdateChecker } from "../../updates.ts";
 
 export function settingsRoutes(r: Routes, { repo, auth, version, updates }: AppContext) {
@@ -59,6 +59,16 @@ export function settingsRoutes(r: Routes, { repo, auth, version, updates }: AppC
     const body = await requireJson(c);
     repo.settings.setOverride(id, !!body.disabled, severityOrNull(body.severity));
     return c.json({ ok: true });
+  });
+
+  // Owners to suggest when triaging findings in these accounts (comma-separated ids). An entity is one
+  // company, so suggestions come from every account in the same entities and never from other companies.
+  r.get("/api/owners", (c) => {
+    const all = repo.accounts.list();
+    const asked = new Set((c.req.query("accounts") || "").split(",").filter(Boolean));
+    const entities = new Set(all.filter((a) => asked.has(a.id)).map((a) => a.entityId));
+    const ids = all.filter((a) => entities.has(a.entityId)).map((a) => a.id);
+    return c.json({ owners: repo.findings.owners(ids) } satisfies OwnersResponse);
   });
 
   // PUT /api/triage/:fp for one finding; POST /api/triage with { fingerprints } for many.

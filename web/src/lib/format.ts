@@ -33,3 +33,6 @@ export const plural = (n: number, one: string, many = `${one}s`) => `${num(n)} $
 
 /** A page number that still exists after the list shrank (a triaged row left the tab, the view changed). */
 export const clampPage = (page: number, total: number, perPage: number) => Math.min(page, Math.max(1, Math.ceil(total / perPage)));
+
+/** Names that differ only in case or surrounding spaces are the same name. */
+export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();

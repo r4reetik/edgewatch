@@ -87,6 +87,25 @@ export class FindingRepo {
     });
   }
 
+  /**
+   * Owners already assigned to findings in these accounts, most recently assigned first.
+   * Spellings that differ only in case count as one, written as last used.
+   */
+  owners(accountIds: string[]): string[] {
+    if (!accountIds.length) return [];
+    const marks = accountIds.map(() => "?").join(", ");
+    const rows = this.#s.all<{ owner: string }>(
+      `SELECT t.owner FROM triage t
+       WHERE t.owner IS NOT NULL AND t.owner <> ''
+         AND EXISTS (SELECT 1 FROM findings f JOIN scans s ON s.id = f.scan_id WHERE f.fingerprint = t.fingerprint AND s.account_id IN (${marks}))
+       ORDER BY t.updated_at DESC`,
+      ...accountIds,
+    );
+    const seen = new Map<string, string>();
+    for (const { owner } of rows) if (!seen.has(owner.toLowerCase())) seen.set(owner.toLowerCase(), owner);
+    return [...seen.values()];
+  }
+
   /** Fingerprints whose triage takes them out of the score (accepted and unexpired, or false positive). */
   settled(): Set<string> {
     const today = isoDate();

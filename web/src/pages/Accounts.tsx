@@ -19,7 +19,7 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react";
 import { useShell } from "../shell.tsx";
-import { api, ago, navigate, plural, score, useApi, type AccountRow, type AccountsResponse, type Severity } from "../lib.ts";
+import { api, ago, navigate, plural, sameName, score, useApi, type AccountRow, type AccountsResponse, type Severity } from "../lib.ts";
 import { DialogHeader, ListCard, Page, PageState } from "../components/ui.tsx";
 import { ConnectForm, TokenHelp } from "../components/connect.tsx";
 
@@ -129,6 +129,7 @@ export function AccountsPage() {
           label="Name"
           placeholder="Acme Ltd"
           submit="Create entity"
+          taken={entities.map((e) => e.name)}
           description="An entity is a company, legal entity or team. Accounts in different entities can be kept apart: each entity has its own email domains and alerts, and can be left out of All accounts."
           onClose={close}
           onSave={(name) => act(() => api("/api/entities", { method: "POST", body: { name } }), `${name} created`)}
@@ -140,6 +141,7 @@ export function AccountsPage() {
           label="Name"
           initial={modal.entity.name}
           submit="Save"
+          taken={entities.filter((e) => e.id !== modal.entity.id).map((e) => e.name)}
           onClose={close}
           onSave={(name) => patchEntity(modal.entity, { name }, "Entity renamed")}
         />
@@ -416,6 +418,7 @@ function NameDialog({
   placeholder,
   submit,
   allowEmpty,
+  taken = [],
   onClose,
   onSave,
 }: {
@@ -426,12 +429,15 @@ function NameDialog({
   placeholder?: string;
   submit: string;
   allowEmpty?: boolean;
+  /** Names already in use: typing one is caught here instead of creating a look-alike. */
+  taken?: string[];
   onClose: () => void;
   onSave: (name: string) => Promise<boolean>;
 }) {
   const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const ok = allowEmpty || name.trim().length > 0;
+  const clash = name.trim() ? taken.find((t) => sameName(t, name)) : undefined;
+  const ok = (allowEmpty || name.trim().length > 0) && !clash;
   return (
     <Dialog.Root open onOpenChange={(o: boolean) => !o && onClose()}>
       <Dialog size="base" className="p-6">
@@ -445,7 +451,17 @@ function NameDialog({
             else setBusy(false);
           }}
         >
-          <Input autoFocus className="w-full" label={label} placeholder={placeholder} value={name} maxLength={80} onChange={(ev) => setName(ev.target.value)} />
+          <Input
+            autoFocus
+            className="w-full"
+            label={label}
+            placeholder={placeholder}
+            value={name}
+            maxLength={80}
+            onChange={(ev) => setName(ev.target.value)}
+            variant={clash ? "error" : "default"}
+            error={clash ? `${clash} already exists. Pick another name.` : undefined}
+          />
           <div className="mt-6 flex justify-end gap-2">
             <Dialog.Close
               render={(p) => (

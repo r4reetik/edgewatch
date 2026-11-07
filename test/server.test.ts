@@ -232,6 +232,25 @@ describe("several accounts and entities", () => {
     cleanup();
   });
 
+  test("owner suggestions come from the same entity, newest first, one per spelling", async () => {
+    const { json, cleanup } = await twoEntities();
+    const fps = async (account: string) => (await json(`/api/findings?scope=a:${account}`)).findings.map((f: { fingerprint: string }) => f.fingerprint);
+    const [a1, a2, a3] = await fps(MOCK_ACCOUNT);
+    const [b1] = await fps(MOCK_ACCOUNT_2);
+    const tick = () => new Promise((r) => setTimeout(r, 5));
+    await json(`/api/triage/${a1}`, "PUT", { status: "open", owner: "Sam@mock.example" });
+    await tick();
+    await json(`/api/triage/${a2}`, "PUT", { status: "open", owner: "ana@mock.example" });
+    await tick();
+    await json(`/api/triage/${a3}`, "PUT", { status: "open", owner: "sam@mock.example" });
+    await json(`/api/triage/${b1}`, "PUT", { status: "open", owner: "lee@other.example" });
+    assert.deepEqual((await json(`/api/owners?accounts=${MOCK_ACCOUNT}`)).owners, ["sam@mock.example", "ana@mock.example"]);
+    assert.deepEqual((await json(`/api/owners?accounts=${MOCK_ACCOUNT_2}`)).owners, ["lee@other.example"], "never another company's people");
+    assert.equal((await json(`/api/owners?accounts=${MOCK_ACCOUNT},${MOCK_ACCOUNT_2}`)).owners.length, 3);
+    assert.deepEqual((await json("/api/owners")).owners, []);
+    cleanup();
+  });
+
   test("accounts can be renamed, moved, paused and removed with their data", async () => {
     const { call, json, repo, vault, scanner, other, mock, cleanup } = await twoEntities();
     await json(`/api/accounts/${MOCK_ACCOUNT}`, "PATCH", { alias: "Production", scheduled: false });

@@ -361,6 +361,11 @@ export interface TriagedResponse {
   findings: TriagedFinding[];
 }
 
+/** Owners already used in the entities of the requested accounts, most recently assigned first. */
+export interface OwnersResponse {
+  owners: string[];
+}
+
 /** One finding wherever it lives, with its history. 404 when it never existed. */
 export interface FindingDetail {
   finding: Finding | null;

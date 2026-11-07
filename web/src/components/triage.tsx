@@ -2,9 +2,9 @@
 // finding page, the single-finding triage form, and bulk triage.
 
 import { useEffect, useState, type ReactNode } from "react";
-import { Button, Checkbox, Dialog, Input, InputArea, Link, Select, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
+import { Autocomplete, Button, Checkbox, Dialog, Input, InputArea, Link, Select, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import { ArrowSquareOutIcon, BookOpenIcon, CaretDownIcon, CaretUpIcon, LinkSimpleIcon, XIcon } from "@phosphor-icons/react";
-import { api, dateOnly, dateTime, link, plural, STATUS_LABEL, type Finding, type Triage, type TriageStatus } from "../lib.ts";
+import { api, dateOnly, dateTime, link, plural, STATUS_LABEL, useApi, type Finding, type OwnersResponse, type Triage, type TriageStatus } from "../lib.ts";
 import { isoDate } from "../../../src/shared/time.ts";
 import { ConfidenceBadge, FormGrid, ReopenedBadge, SeverityBadge, StatusBadge } from "./ui.tsx";
 import { useShell } from "../shell.tsx";
@@ -165,6 +165,53 @@ function Section({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** Owner names are capped at this length on the server too. */
+const OWNER_MAX = 120;
+
+/**
+ * The owner field: free text that suggests owners already assigned in the same entities, so a
+ * name is picked instead of retyped (and spelled the same way every time). Suggestions open on
+ * click and narrow as you type.
+ */
+function OwnerInput({
+  accountIds,
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  accountIds: string[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const ids = [...new Set(accountIds)].sort().join(",");
+  const { data } = useApi<OwnersResponse>(ids ? `/api/owners?accounts=${encodeURIComponent(ids)}` : null);
+  return (
+    <Autocomplete
+      label="Owner"
+      items={data?.owners ?? []}
+      value={value}
+      onValueChange={(v: string) => onChange(v.slice(0, OWNER_MAX))}
+      openOnInputClick
+      disabled={disabled}
+      limit={8}
+    >
+      <Autocomplete.InputGroup placeholder={placeholder} />
+      <Autocomplete.Content>
+        <Autocomplete.List>
+          {(owner: string) => (
+            <Autocomplete.Item key={owner} value={owner}>
+              {owner}
+            </Autocomplete.Item>
+          )}
+        </Autocomplete.List>
+      </Autocomplete.Content>
+    </Autocomplete>
+  );
+}
+
 /** Saves triage for one finding; `onSaved` gets the new triage. */
 export function TriagePanel({ f, onSaved, onSaveNext }: { f: Finding; onSaved: (t: Triage) => void; onSaveNext?: () => void }) {
   const toasts = useKumoToastManager();
@@ -188,6 +235,7 @@ export function TriagePanel({ f, onSaved, onSaveNext }: { f: Finding; onSaved: (
       <div className="mb-3 font-medium text-kumo-default">Triage</div>
       <TriageForm
         key={f.fingerprint}
+        accountId={f.accountId}
         initial={f.triage}
         busy={busy}
         onSubmit={(t) => save(t, false)}
@@ -204,11 +252,13 @@ export function TriagePanel({ f, onSaved, onSaveNext }: { f: Finding; onSaved: (
 }
 
 function TriageForm({
+  accountId,
   initial,
   onSubmit,
   onSubmitNext,
   busy,
 }: {
+  accountId: string;
   initial: Triage | null;
   onSubmit: (t: Editable) => void;
   onSubmitNext?: (t: Editable) => void;
@@ -237,7 +287,7 @@ function TriageForm({
     >
       <div className="grid grid-cols-1 items-start gap-4 @sm:grid-cols-2 [&>*]:min-w-0 [&_input]:min-w-0">
         <Select className="w-full" label="Status" hideLabel={false} value={status} onValueChange={(v) => setStatus(v as TriageStatus)} items={STATUS_LABEL} />
-        <Input className="w-full" label="Owner" placeholder="name@company.com" value={owner} onChange={(e) => setOwner(e.target.value)} maxLength={120} />
+        <OwnerInput accountIds={[accountId]} placeholder="name@company.com" value={owner} onChange={setOwner} />
         {!NO_DUE.has(status) && (
           <Input
             className="w-full"
@@ -475,15 +525,7 @@ export function BulkTriageDialog({ findings, onClose, onSaved }: { findings: Fin
               items={{ [KEEP]: "Leave unchanged", ...STATUS_LABEL }}
             />
             <div className="flex flex-col gap-2">
-              <Input
-                className="w-full"
-                label="Owner"
-                placeholder="Leave unchanged"
-                value={owner}
-                disabled={clearOwner}
-                onChange={(e) => setOwner(e.target.value)}
-                maxLength={120}
-              />
+              <OwnerInput accountIds={findings.map((f) => f.accountId)} placeholder="Leave unchanged" value={owner} disabled={clearOwner} onChange={setOwner} />
               <Checkbox label="Remove the owner" checked={clearOwner} onCheckedChange={(v: boolean) => setClearOwner(v)} />
             </div>
             {!NO_DUE.has(status as TriageStatus) && (

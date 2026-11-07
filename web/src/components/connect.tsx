@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Banner, Button, Input, Link, Select, SensitiveInput, Table, LayerCard } from "@cloudflare/kumo";
 import { ArrowSquareOutIcon, CheckCircleIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react";
-import { api, plural, type SessionEntity } from "../lib.ts";
+import { api, plural, sameName, type SessionEntity } from "../lib.ts";
 import { FormGrid } from "./ui.tsx";
 import type { PermissionProbe, VisibleAccount, VerifyResponse, AddAccountsResponse } from "../lib.ts";
 type Probe = PermissionProbe;
@@ -125,6 +125,8 @@ export function ConnectForm({
       return n;
     });
   const entityOf = (id: number | null) => entities.find((e) => e.id === id)?.name;
+  // Typing the name of an entity that already exists most likely means that entity, not a second one.
+  const existing = entity === NEW ? entities.find((e) => sameName(e.name, entityName || suggestedName)) : undefined;
 
   return (
     <div className="flex flex-col gap-4">
@@ -234,9 +236,16 @@ export function ConnectForm({
               maxLength={80}
               onChange={(e) => setEntityName(e.target.value)}
               description={
-                entities.length
-                  ? undefined
-                  : "The company or team that owns these accounts. Later you can add accounts from other companies as separate entities, and keep them out of combined views."
+                existing ? (
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {existing.name} already exists.
+                    <Button type="button" size="sm" variant="secondary" onClick={() => setEntity(String(existing.id))}>
+                      Add to {existing.name}
+                    </Button>
+                  </span>
+                ) : entities.length ? undefined : (
+                  "The company or team that owns these accounts. Later you can add accounts from other companies as separate entities, and keep them out of combined views."
+                )
               }
             />
           )}
