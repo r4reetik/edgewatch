@@ -45,6 +45,8 @@ dev/mock/               mocked Cloudflare API and seeding, for tests and the moc
 test/                   node:test suites; fixtures/ and checks/cases.ts for check tests
 ```
 
+The decisions behind the project, and the rules that follow from them, are in [AGENTS.md](AGENTS.md). Coding agents read it, and so should you. A change that makes or reverses a decision updates it in the same pull request.
+
 Rules worth knowing:
 
 - **The scanner only reads.** REST calls are GET; GraphQL is POST but query-only. `test/integration.test.ts` fails on any other method.

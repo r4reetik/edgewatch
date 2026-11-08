@@ -13,3 +13,4 @@
 - [ ] The scanner still only reads (GET, or GraphQL queries)
 - [ ] No secrets, account IDs or real hostnames in code, tests or screenshots
 - [ ] User-facing changes are under `## Unreleased` in `CHANGELOG.md`, marked `**Breaking:**` if users must act
+- [ ] Decisions made or reversed are recorded in `AGENTS.md` (the section it affects, and a line in its decision log)
