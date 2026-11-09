@@ -181,7 +181,7 @@ What each team role can read is in [docs/permissions.md](docs/permissions.md#ver
 docker run -d --name edgewatch -p 4317:4317 \
   -v edgewatch-data:/data \
   -e EDGEWATCH_PASSWORD='a-long-admin-password' \
-  ghcr.io/r4reetik/edgewatch:0.6
+  ghcr.io/r4reetik/edgewatch:0.7
 ```
 
 Open it, sign in with the password, and add accounts in the browser. Tokens are stored in the volume.
@@ -197,8 +197,8 @@ Compose, Cloudflare Access, reverse proxies, systemd and backups.
 Edgewatch tells you when a new version is out (in the sidebar and under **Settings → Updates**), with the
 exact upgrade command and a warning when it has breaking changes. Releases follow semantic versioning in
 **release lines** (`0.4`, `0.5`…; `1`, `2`… from 1.0): updates within a line never break anything, so it's
-safe to take them automatically. The Docker tag `:0.6` above does exactly that; `npm install -g
-edgewatch@0.6` is the npm equivalent. The database is backed up before every upgrade that changes it.
+safe to take them automatically. The Docker tag `:0.7` above does exactly that; `npm install -g
+edgewatch@0.7` is the npm equivalent. The database is backed up before every upgrade that changes it.
 [docs/upgrading.md](docs/upgrading.md) has automatic updates, release candidates and rolling back.
 
 ## Configuration
