@@ -2,12 +2,6 @@
 
 ## Unreleased
 
-## 0.7.0
-
-- **Breaking:** Edgewatch now needs Node.js 26 LTS (26.13.0 or newer); Node.js 24 is no longer supported. On an older Node.js, `edgewatch` stops and gives the command to upgrade. Docker users have nothing to do: the image already runs Node.js 26.
-- **`npx edgewatch` always gets the newest release.** On a Node.js older than Edgewatch needs, npm used to fall back to an older Edgewatch without saying so; now the newest one runs and says how to upgrade Node.js (with nvm, fnm, Volta, Homebrew or winget, whichever you use).
-- Settings → Updates gives the right upgrade command when Edgewatch was started with npx (`npx edgewatch@latest`).
-- The README and deployment guide point at the current release line for Docker and npm, and each new release line updates them.
 - **Owner suggestions when triaging.** The Owner field, in a finding's triage and in bulk triage, lists the owners already assigned in the same entity as soon as you click it, and narrows them as you type, so a name is picked instead of retyped (and spelled the same way every time). Owners from other entities are never suggested.
 - Creating or renaming an entity to a name that's already taken is caught in the dialog. When adding accounts, typing the name of an existing entity offers to add them to it instead of making a second one.
 - Settings → Notifications offers the address you opened Edgewatch at as the Link URL, in one click.
@@ -17,6 +11,13 @@
 - Setup and Accounts → Add accounts start by asking for the platform, so someone who only uses Vercel, or only Cloudflare, only sees that one's steps.
 - Alerts name the account's platform, finding exports add a `provider` column (at the end), and findings, checks and data coverage show which platform each row is from.
 - The audit report listed unreadable sources as "[object Object]" when several accounts were in view; it names the accounts now.
+
+## 0.7.0
+
+- **Breaking:** Edgewatch now needs Node.js 26 LTS (26.13.0 or newer); Node.js 24 is no longer supported. On an older Node.js, `edgewatch` stops and gives the command to upgrade. Docker users have nothing to do: the image already runs Node.js 26.
+- **`npx edgewatch` always gets the newest release.** On a Node.js older than Edgewatch needs, npm used to fall back to an older Edgewatch without saying so; now the newest one runs and says how to upgrade Node.js (with nvm, fnm, Volta, Homebrew or winget, whichever you use).
+- Settings → Updates gives the right upgrade command when Edgewatch was started with npx (`npx edgewatch@latest`).
+- The README and deployment guide point at the current release line for Docker and npm, and each new release line updates them.
 
 ## 0.6.0
 
