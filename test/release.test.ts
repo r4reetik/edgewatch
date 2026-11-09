@@ -146,7 +146,9 @@ describe("cutting a release from the maintainer's machine", () => {
     for (const k of ["GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM"]) if (saved[k] === undefined) delete process.env[k];
     rmSync(root, { recursive: true, force: true });
   });
-  const git = (cwd: string, ...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", env: { ...env } }).trim();
+  // stderr is captured, so git's chatter ("cloned an empty repository") stays out of the test output.
+  const git = (cwd: string, ...args: string[]) =>
+    execFileSync("git", args, { cwd, encoding: "utf8", env: { ...env }, stdio: ["ignore", "pipe", "pipe"] }).trim();
   const write = (dir: string, f: string, text: string) => {
     mkdirSync(dirname(join(dir, f)), { recursive: true });
     writeFileSync(join(dir, f), text);

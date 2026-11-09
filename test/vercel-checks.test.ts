@@ -90,7 +90,8 @@ test("members waiting for approval are open requests, not members with access", 
 test("credentials in commands are found by kind, variable references aren't, and the value is never reported", () => {
   for (const ok of [
     "npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN",
-    "curl -H 'Authorization: Bearer ${API_TOKEN}' x",
+    // A shell variable written as ${NAME}: a plain string here, not a template.
+    "curl -H 'Authorization: Bearer $" + "{API_TOKEN}' x",
     "git clone https://$GH_USER:$GH_TOKEN@github.com/a/b",
   ])
     assert.equal(secretKindIn(ok), null, ok);

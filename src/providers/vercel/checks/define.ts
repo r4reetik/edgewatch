@@ -69,6 +69,6 @@ export const SECRET_IN_TEXT: [string, RegExp][] = [
   ["a Stripe secret key", /\b[sr]k_live_[A-Za-z0-9]{16,}/],
   ["a password in a URL", new RegExp(String.raw`[a-z][a-z0-9+.-]*://[^/\s:@]+:${LITERAL}[^@\s/]{3,}@`, "i")],
   ["a bearer token", new RegExp(String.raw`Bearer\s+${LITERAL}[A-Za-z0-9._~+/-]{20,}`)],
-  ["a token passed on the command line", new RegExp(String.raw`--(token|password|api-key)[ =]${LITERAL}[A-Za-z0-9._-]{16,}`)],
+  ["a token passed on the command line", new RegExp(`--(token|password|api-key)[ =]${LITERAL}[A-Za-z0-9._-]{16,}`)],
 ];
 export const secretKindIn = (text: string): string | null => SECRET_IN_TEXT.find(([, re]) => re.test(text))?.[0] ?? null;
