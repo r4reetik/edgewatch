@@ -326,6 +326,26 @@ const routes: [RegExp, Handler][] = [
                 modified_on: ago(300),
               },
               { id: "r6", name: "www.mock.example", type: "CNAME", content: "site-mock.pages.dev", proxied: true, created_on: ago(300), modified_on: ago(300) },
+              // Served by the mock Vercel team's "web" project, proxied through Cloudflare (dev/mock/vercel.ts).
+              {
+                id: "r7",
+                name: "app.mock.example",
+                type: "CNAME",
+                content: "cname.vercel-dns.com",
+                proxied: true,
+                created_on: ago(200),
+                modified_on: ago(200),
+              },
+              // No Vercel project serves this one any more.
+              {
+                id: "r8",
+                name: "launch.mock.example",
+                type: "CNAME",
+                content: "cname.vercel-dns.com",
+                proxied: false,
+                created_on: ago(400),
+                modified_on: ago(400),
+              },
             ]
           : []),
       ]),

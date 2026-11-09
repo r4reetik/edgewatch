@@ -4,9 +4,22 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Autocomplete, Button, Checkbox, Dialog, Input, InputArea, Link, Select, Tooltip, useKumoToastManager } from "@cloudflare/kumo";
 import { ArrowSquareOutIcon, BookOpenIcon, CaretDownIcon, CaretUpIcon, LinkSimpleIcon, XIcon } from "@phosphor-icons/react";
-import { api, dateOnly, dateTime, link, plural, STATUS_LABEL, useApi, type Finding, type OwnersResponse, type Triage, type TriageStatus } from "../lib.ts";
+import {
+  api,
+  dateOnly,
+  dateTime,
+  link,
+  plural,
+  siteName,
+  STATUS_LABEL,
+  useApi,
+  type Finding,
+  type OwnersResponse,
+  type Triage,
+  type TriageStatus,
+} from "../lib.ts";
 import { isoDate } from "../../../src/shared/time.ts";
-import { ConfidenceBadge, FormGrid, ReopenedBadge, SeverityBadge, StatusBadge } from "./ui.tsx";
+import { AccountName, ConfidenceBadge, FormGrid, ReopenedBadge, SeverityBadge, StatusBadge } from "./ui.tsx";
 import { useShell } from "../shell.tsx";
 
 type Editable = Pick<Triage, "status" | "owner" | "note" | "dueDate" | "acceptUntil">;
@@ -63,7 +76,7 @@ export function FindingHeader({ f, actions, hideTitle }: { f: Finding; actions?:
         </p>
         {(session.accounts?.length || 0) > 1 && (
           <p className="mt-0.5 text-sm text-kumo-subtle">
-            {f.account}
+            <AccountName name={f.account} provider={f.provider} />
             {f.entity ? ` · ${f.entity}` : ""}
           </p>
         )}
@@ -127,12 +140,12 @@ export function FindingBody({ f }: { f: Finding }) {
       <div className="flex flex-wrap gap-x-5 gap-y-1">
         {f.link && (
           <Link href={f.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
-            Open in the Cloudflare dashboard <ArrowSquareOutIcon />
+            Open in the {siteName(f.link)} dashboard <ArrowSquareOutIcon />
           </Link>
         )}
         {f.docs && (
           <Link href={f.docs} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
-            <BookOpenIcon /> Cloudflare docs
+            <BookOpenIcon /> {siteName(f.docs)} docs
           </Link>
         )}
       </div>

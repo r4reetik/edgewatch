@@ -1,6 +1,7 @@
 // Every page in one table: the sidebar, breadcrumbs and router all read it.
 
 import { lazy, type ComponentType } from "react";
+import type { ProviderId } from "../../src/shared/providers.ts";
 import {
   ArrowsClockwiseIcon,
   BuildingsIcon,
@@ -10,6 +11,7 @@ import {
   GearIcon,
   GlobeIcon,
   ListChecksIcon,
+  StackIcon,
   ShieldWarningIcon,
   WalletIcon,
 } from "@phosphor-icons/react";
@@ -30,6 +32,8 @@ export interface RouteDef {
   global?: boolean;
   /** The sidebar item to highlight, when it isn't this route. */
   parent?: string;
+  /** Only for these providers: hidden from the sidebar when no account in view is on one of them. */
+  providers?: ProviderId[];
 }
 
 // Pages load on demand so the first paint doesn't wait for the chart library.
@@ -49,15 +53,38 @@ export const ROUTES: RouteDef[] = [
     page: page(() => import("./pages/Finding.tsx"), "FindingPage"),
   },
   { path: "/triaged", label: "Triaged", group: "Posture", icon: ClipboardTextIcon, page: page(() => import("./pages/Triaged.tsx"), "TriagedPage") },
-  { path: "/zones", label: "Zones", group: "Posture", icon: GlobeIcon, page: page(() => import("./pages/Zones.tsx"), "ZonesPage") },
+  {
+    path: "/zones",
+    label: "Zones",
+    group: "Posture",
+    icon: GlobeIcon,
+    providers: ["cloudflare"],
+    page: page(() => import("./pages/Zones.tsx"), "ZonesPage"),
+  },
+  {
+    path: "/projects",
+    label: "Projects",
+    group: "Posture",
+    icon: StackIcon,
+    providers: ["vercel"],
+    page: page(() => import("./pages/Projects.tsx"), "ProjectsPage"),
+  },
   {
     path: "/activity",
     label: "Activity",
     group: "Monitoring",
     icon: ClockCounterClockwiseIcon,
+    providers: ["cloudflare"],
     page: page(() => import("./pages/Activity.tsx"), "ActivityPage"),
   },
-  { path: "/value", label: "Value", group: "Spend", icon: WalletIcon, page: page(() => import("./pages/Value.tsx"), "ValuePage") },
+  {
+    path: "/value",
+    label: "Value",
+    group: "Spend",
+    icon: WalletIcon,
+    providers: ["cloudflare"],
+    page: page(() => import("./pages/Value.tsx"), "ValuePage"),
+  },
   { path: "/accounts", label: "Accounts", group: "Admin", icon: BuildingsIcon, global: true, page: page(() => import("./pages/Accounts.tsx"), "AccountsPage") },
   { path: "/checks", label: "Checks", group: "Admin", icon: ListChecksIcon, page: page(() => import("./pages/Checks.tsx"), "ChecksPage") },
   { path: "/scans", label: "Scans", group: "Admin", icon: ArrowsClockwiseIcon, page: page(() => import("./pages/Scans.tsx"), "ScansPage") },

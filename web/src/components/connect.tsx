@@ -1,11 +1,12 @@
-// Token entry, verification, account selection and permission check. Used by
-// first-run setup and by Accounts → Add accounts.
+// Choosing a provider, then token entry, verification, account selection and
+// permission check for it. Used by first-run setup and by Accounts → Add accounts.
+// Each provider has its own token steps (TokenHelp); the rest of the flow is shared.
 
 import { useEffect, useMemo, useState } from "react";
-import { Badge, Banner, Button, Input, Link, Select, SensitiveInput, Table, LayerCard } from "@cloudflare/kumo";
+import { Badge, Banner, Button, Input, Link, Radio, Select, SensitiveInput, Table, LayerCard } from "@cloudflare/kumo";
 import { ArrowSquareOutIcon, CheckCircleIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react";
-import { api, plural, sameName, type SessionEntity } from "../lib.ts";
-import { FormGrid } from "./ui.tsx";
+import { api, plural, PROVIDER_INFO, PROVIDERS, sameName, type ProviderId, type SessionEntity, type TemplateResponse } from "../lib.ts";
+import { FormGrid, ProviderIcon } from "./ui.tsx";
 import type { PermissionProbe, VisibleAccount, VerifyResponse, AddAccountsResponse } from "../lib.ts";
 type Probe = PermissionProbe;
 type Verify = VerifyResponse;
@@ -13,10 +14,41 @@ export type Connected = AddAccountsResponse;
 
 const NEW = "new";
 
-export function TokenHelp() {
+/** What each provider is for, on the provider choice. */
+const PROVIDER_BLURB: Record<ProviderId, string> = {
+  cloudflare: "Zones, DNS, WAF, Zero Trust, Workers and more",
+  vercel: "Projects, deployment protection, secrets, firewall and domains",
+};
+
+/** Which platform the accounts are on. Someone on one platform only ever sees that one's steps. */
+export function ProviderPicker({ value, onChange }: { value: ProviderId; onChange: (p: ProviderId) => void }) {
+  return (
+    <Radio.Group legend="Platform" appearance="card" orientation="horizontal" value={value} onValueChange={(v) => onChange(v as ProviderId)}>
+      {PROVIDERS.map((p) => (
+        <Radio.Item
+          key={p}
+          value={p}
+          label={
+            <span className="inline-flex items-center gap-2">
+              <ProviderIcon provider={p} className="h-4 w-4 text-kumo-default" />
+              {PROVIDER_INFO[p].label}
+            </span>
+          }
+          description={PROVIDER_BLURB[p]}
+        />
+      ))}
+    </Radio.Group>
+  );
+}
+
+export function TokenHelp({ provider = "cloudflare" }: { provider?: ProviderId }) {
+  return provider === "vercel" ? <VercelTokenHelp /> : <CloudflareTokenHelp />;
+}
+
+function CloudflareTokenHelp() {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    api<{ url: string }>("/api/accounts/template")
+    api<TemplateResponse>("/api/accounts/template?provider=cloudflare")
       .then((r) => setUrl(r.url))
       .catch(() => {});
   }, []);
@@ -48,17 +80,41 @@ export function TokenHelp() {
   );
 }
 
+function VercelTokenHelp() {
+  return (
+    <ol className="ml-5 list-decimal space-y-2 text-base text-kumo-default marker:text-kumo-subtle">
+      <li>
+        In Vercel, go to <span className="font-medium">Account Settings → Tokens</span> and create a token named Edgewatch.{" "}
+        <Link href="https://vercel.com/account/settings/tokens" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
+          Open Tokens <ArrowSquareOutIcon />
+        </Link>
+      </li>
+      <li>
+        Set <span className="font-medium">Scope</span> to the team you want to scan, or <span className="font-medium">Full Account</span> for every team you
+        belong to and your personal projects. Choose an expiration date.
+      </li>
+      <li>Edgewatch only reads from Vercel. Teams that belong to another company usually need their own token, created by one of their members.</li>
+    </ol>
+  );
+}
+
+/** Remount it (key={provider}) when the provider changes: a token belongs to one provider. */
 export function ConnectForm({
+  provider = "cloudflare",
   entities,
   defaultEntityId,
   onConnected,
   submitLabel,
 }: {
+  provider?: ProviderId;
   entities: SessionEntity[];
   defaultEntityId?: number;
   onConnected: (r: Connected) => void;
   submitLabel?: (n: number) => string;
 }) {
+  const info = PROVIDER_INFO[provider];
+  const unit = info.account;
+  const Unit = unit[0].toUpperCase() + unit.slice(1);
   const [token, setToken] = useState("");
   const [result, setResult] = useState<Verify | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -77,7 +133,7 @@ export function ConnectForm({
     setBusy("verify");
     setErr(null);
     try {
-      const r = await api<Verify>("/api/accounts/verify", { method: "POST", body: { token, accountIds } });
+      const r = await api<Verify>("/api/accounts/verify", { method: "POST", body: { provider, token, accountIds } });
       setResult(r);
       setProbedKey(accountIds.slice(0, r.probeLimit).join(","));
       // First check of a token: select every account it can see that isn't added yet, then check those.
@@ -104,7 +160,7 @@ export function ConnectForm({
     setErr(null);
     try {
       const target = entity === NEW ? { entityName: entityName.trim() || suggestedName } : { entityId: Number(entity) };
-      onConnected(await api<Connected>("/api/accounts", { method: "POST", body: { token, accountIds: ids, ...target } }));
+      onConnected(await api<Connected>("/api/accounts", { method: "POST", body: { provider, token, accountIds: ids, ...target } }));
     } catch (e) {
       setErr((e as Error).message);
       setBusy(null);
@@ -131,7 +187,7 @@ export function ConnectForm({
   return (
     <div className="flex flex-col gap-4">
       <SensitiveInput
-        label="API token"
+        label={provider === "vercel" ? "Access token" : "API token"}
         value={token}
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
           setToken(e.target.value.trim());
@@ -142,7 +198,7 @@ export function ConnectForm({
           // Enter verifies a pasted token, like submitting a form.
           if (e.key === "Enter" && token && !result && !busy) void verify([]);
         }}
-        description="Stored only on this machine, readable by your user only. It is never shown again or sent anywhere except api.cloudflare.com."
+        description={`Stored only on this machine, readable by your user only. It is never shown again or sent anywhere except ${provider === "vercel" ? "api.vercel.com" : "api.cloudflare.com"}.`}
       />
 
       {err && <Banner variant="error" icon={<XCircleIcon weight="fill" />} title="Something went wrong" description={err} />}
@@ -150,7 +206,7 @@ export function ConnectForm({
         <Banner
           variant="error"
           icon={<XCircleIcon weight="fill" />}
-          title="Cloudflare rejected this token"
+          title={`${info.label} rejected this token`}
           description={result.token.message || "Check that it was copied completely and hasn't expired."}
         />
       )}
@@ -158,14 +214,18 @@ export function ConnectForm({
         <Banner
           variant="alert"
           icon={<WarningIcon weight="fill" />}
-          title="This token can't see any account"
-          description="Edit the token in Cloudflare and include at least one account."
+          title={`This token can't see any ${unit}`}
+          description={
+            provider === "vercel"
+              ? "Create a token scoped to the team you want to scan, or to Full Account."
+              : "Edit the token in Cloudflare and include at least one account."
+          }
         />
       )}
 
       {valid && accounts.length > 0 && (
         <div className="flex flex-col gap-2">
-          <div className="text-sm font-medium text-kumo-default">Accounts to scan</div>
+          <div className="text-sm font-medium text-kumo-default">{Unit}s to scan</div>
           <LayerCard className="max-h-64 overflow-auto bg-kumo-base p-0">
             <Table layout="auto">
               <Table.Header variant="compact">
@@ -176,8 +236,8 @@ export function ConnectForm({
                     indeterminate={ids.length > 0 && ids.length < accounts.length}
                     onCheckedChange={() => setSelected(new Set(ids.length === accounts.length ? [] : accounts.map((a) => a.id)))}
                   />
-                  <Table.Head>Account</Table.Head>
-                  <Table.Head>Account ID</Table.Head>
+                  <Table.Head>{Unit}</Table.Head>
+                  <Table.Head>{Unit} ID</Table.Head>
                   <Table.Head>
                     <span className="sr-only">State</span>
                   </Table.Head>
@@ -223,7 +283,7 @@ export function ConnectForm({
               hideLabel={false}
               value={entity}
               onValueChange={(v) => setEntity(String(v))}
-              description="The company or team that owns these accounts. Accounts already added stay where they are."
+              description={`The company or team that owns these ${info.accounts}. An entity can hold accounts from every platform. Ones already added stay where they are.`}
               items={{ ...Object.fromEntries(entities.map((e) => [String(e.id), e.name])), [NEW]: "New entity…" }}
             />
           )}
@@ -244,7 +304,7 @@ export function ConnectForm({
                     </Button>
                   </span>
                 ) : entities.length ? undefined : (
-                  "The company or team that owns these accounts. Later you can add accounts from other companies as separate entities, and keep them out of combined views."
+                  `The company or team that owns these ${info.accounts}. Later you can add its accounts on other platforms to the same entity, and other companies as separate entities.`
                 )
               }
             />
@@ -261,13 +321,13 @@ export function ConnectForm({
             variant="alert"
             icon={<WarningIcon weight="fill" />}
             title={`${plural(gaps.length, "data source")} not readable`}
-            description="You can add the accounts now; the checks below are skipped until the token gets the permissions."
+            description={`You can add the ${info.accounts} now; the checks below are skipped until the token ${provider === "vercel" ? "belongs to someone whose role can read them" : "gets the permissions"}.`}
           />
         ) : (
           <Banner
             icon={<CheckCircleIcon weight="fill" />}
             title="Token verified"
-            description={`A ${result!.token.kind}-owned token with read access to everything Edgewatch checks${ids.length > probeLimit ? ` (checked on the first ${probeLimit} accounts)` : ""}.`}
+            description={`${provider === "vercel" ? "The token" : `A ${result!.token.kind}-owned token`} can read everything Edgewatch checks${ids.length > probeLimit ? ` (checked on the first ${probeLimit} ${info.accounts})` : ""}.`}
           />
         ))}
 
@@ -312,7 +372,7 @@ export function ConnectForm({
       )}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {valid && ids.length === 0 && accounts.length > 0 && <span className="mr-auto text-sm text-kumo-subtle">Select at least one account.</span>}
+        {valid && ids.length === 0 && accounts.length > 0 && <span className="mr-auto text-sm text-kumo-subtle">Select at least one {unit}.</span>}
         {(!valid || stale) && (
           <Button variant={valid ? "secondary" : "primary"} disabled={!token} loading={busy === "verify"} onClick={() => verify(valid ? ids : [])}>
             {valid ? "Check permissions" : "Verify token"}
@@ -320,7 +380,7 @@ export function ConnectForm({
         )}
         {valid && ids.length > 0 && (
           <Button variant="primary" loading={busy === "save"} disabled={busy === "verify"} onClick={save}>
-            {submitLabel ? submitLabel(ids.length) : `Add ${plural(ids.length, "account")} and scan`}
+            {submitLabel ? submitLabel(ids.length) : `Add ${plural(ids.length, unit)} and scan`}
           </Button>
         )}
       </div>

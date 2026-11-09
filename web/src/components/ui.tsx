@@ -15,6 +15,8 @@ import { Badge, Banner, Button, Dialog, Empty, LayerCard, Loader, Meter, Tooltip
 import {
   XIcon,
   CheckCircleIcon,
+  CloudIcon,
+  TriangleIcon,
   InfoIcon,
   MinusCircleIcon,
   WarningCircleIcon,
@@ -23,7 +25,7 @@ import {
   WarningOctagonIcon,
   XCircleIcon,
 } from "@phosphor-icons/react";
-import { SEVERITY_LABEL, STATUS_LABEL, type Severity, type TriageStatus } from "../lib.ts";
+import { PROVIDER_INFO, SEVERITY_LABEL, STATUS_LABEL, type ProviderId, type Severity, type TriageStatus } from "../lib.ts";
 
 export function Page({ title, description, actions, children }: { title: string; description?: ReactNode; actions?: ReactNode; children: ReactNode }) {
   return (
@@ -263,7 +265,7 @@ export function StatusBadge({ status, overdue }: { status: TriageStatus; overdue
 export function ConfidenceBadge({ confidence }: { confidence: "confirmed" | "likely" | null | undefined }) {
   if (confidence === "confirmed")
     return (
-      <Tooltip content="Confirmed by a live check of the hostname, or reported by Cloudflare">
+      <Tooltip content="Confirmed by a live check of the hostname, or reported by the provider itself">
         <Badge variant="teal-subtle" icon={<CheckCircleIcon weight="fill" />}>
           Confirmed
         </Badge>
@@ -276,6 +278,34 @@ export function ConfidenceBadge({ confidence }: { confidence: "confirmed" | "lik
       </Tooltip>
     );
   return null;
+}
+
+/**
+ * Which platform an account is on. Neutral glyphs, not the providers' logos: Edgewatch
+ * isn't affiliated with them. Add one per provider in src/shared/providers.ts.
+ */
+const PROVIDER_GLYPH: Record<ProviderId, typeof CloudIcon> = { cloudflare: CloudIcon, vercel: TriangleIcon };
+
+export function ProviderIcon({ provider, className = "h-4 w-4" }: { provider: ProviderId; className?: string }) {
+  const Glyph = PROVIDER_GLYPH[provider];
+  return (
+    <Glyph
+      className={`shrink-0 text-kumo-subtle ${className}`}
+      weight={provider === "vercel" ? "fill" : "regular"}
+      aria-label={PROVIDER_INFO[provider].label}
+    />
+  );
+}
+
+/** An account name with its provider's glyph, for tables that mix providers. */
+export function AccountName({ name, provider, showProvider = true }: { name: ReactNode; provider: ProviderId; showProvider?: boolean }) {
+  if (!showProvider) return <>{name}</>;
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5" title={`${PROVIDER_INFO[provider].label} ${PROVIDER_INFO[provider].account}`}>
+      <ProviderIcon provider={provider} className="h-3.5 w-3.5" />
+      <span className="truncate">{name}</span>
+    </span>
+  );
 }
 
 export function ReopenedBadge() {

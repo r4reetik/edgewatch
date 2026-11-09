@@ -1,7 +1,7 @@
 {
   "name": "edgewatch",
   "version": "0.6.0",
-  "description": "Security posture and best-practice tracker for Cloudflare accounts. Read-only, runs locally.",
+  "description": "Security posture and best-practice tracker for Cloudflare and Vercel. Read-only, runs locally.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -19,6 +19,7 @@
   },
   "keywords": [
     "cloudflare",
+    "vercel",
     "security",
     "posture",
     "cspm",
@@ -41,6 +42,8 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "docs": "node scripts/docs.ts",
+    "release": "node scripts/release.ts release",
+    "sync": "node scripts/release.ts sync",
     "test": "node --test --test-reporter=spec 'test/**/*.test.ts'",
     "check": "npm run typecheck && npm run lint && npm test",
     "start": "node dist/bin.js",

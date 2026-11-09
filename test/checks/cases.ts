@@ -4,7 +4,7 @@
 // fixture and change only what the check looks at.
 
 import type { CheckId } from "../../src/core/catalog.ts";
-import type { Inventory, ZoneInventory } from "../../src/core/types.ts";
+import type { EngineOptions, Inventory, ZoneInventory } from "../../src/core/types.ts";
 import { analytics, goodSettings, inventory, record, zone } from "../fixtures/inventory.ts";
 
 const NOW = Date.parse("2026-06-01T00:00:00Z");
@@ -312,4 +312,12 @@ export const CASES: Record<CheckId, () => Inventory> = {
   "CHG-003": () => inventory({ audit: [audit("change_setting", { metadata: { zone_name: Z, name: "SSL", value: "off" } })] }),
 
   "COST-001": () => inventory({ traffic: { [`zone-${Z}`]: { requests: 10, cachedRequests: 0, threats: 0, bytes: 0 } } }),
+
+  "XP-001": () => withDns(record(`old-site.${Z}`, "CNAME", "cname.vercel-dns.com")),
+  "XP-002": () => withDns(record(`www.${Z}`, "CNAME", "cname.vercel-dns.com", { proxied: true })),
+};
+
+/** Engine options a case needs beyond the defaults: checks that span providers read the entity's other accounts. */
+export const CASE_OPTS: Partial<Record<CheckId, Partial<EngineOptions>>> = {
+  "XP-001": { related: { toVercel: null, vercelDomains: [{ host: `app.${Z}`, project: "web", projectId: "prj_1", protectsDeploymentUrls: true }] } },
 };

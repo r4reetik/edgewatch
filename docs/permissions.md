@@ -2,7 +2,11 @@
 
 # Token permissions
 
-Edgewatch only reads. The simplest token is Cloudflare's **Read all resources** template, which covers almost everything below.
+Edgewatch only reads, on every provider. Each provider's section lists the data a scan reads and what grants it.
+
+## Cloudflare
+
+The simplest token is Cloudflare's **Read all resources** template, which covers almost everything below.
 Two sources need more:
 
 - **Account API tokens** need *Account API Tokens Read*, which the template doesn't include.
@@ -47,7 +51,7 @@ skipped rather than passed. The setup screen tests a token against each source b
 | mTLS certificates | Account · SSL and Certificates · Read | TLS-014 |
 | Load balancer pools | Account · Load Balancing: Monitors and Pools · Read | DNS-009 |
 | Zone settings | Zone · Zone Settings · Read | TLS-001, TLS-002, TLS-003, TLS-004, TLS-005, TLS-006, TLS-007, TLS-009, TLS-012, WAF-006, WAF-007, WAF-011, TRF-006 |
-| DNS records | Zone · DNS · Read | ZT-008, TLS-010, WAF-015, DNS-001, DNS-002, DNS-003, DNS-004, DNS-005, DNS-007, DNS-008, EML-001, EML-002, EML-003, EML-004, EML-005, EML-006, EML-007, EML-008, EML-009, EML-011, ATS-001, ATS-002, ATS-003, ATS-006, ATS-007, ATS-008, TRF-009 |
+| DNS records | Zone · DNS · Read | ZT-008, TLS-010, WAF-015, DNS-001, DNS-002, DNS-003, DNS-004, DNS-005, DNS-007, DNS-008, EML-001, EML-002, EML-003, EML-004, EML-005, EML-006, EML-007, EML-008, EML-009, EML-011, ATS-001, ATS-002, ATS-003, ATS-006, ATS-007, ATS-008, TRF-009, XP-001, XP-002 |
 | DNSSEC | Zone · DNS · Read | DNS-006 |
 | Edge certificates | Zone · SSL and Certificates · Read | TLS-008, TLS-010, TLS-015 |
 | Origin certificates | Zone · SSL and Certificates · Read | TLS-011, TLS-014, ATS-002 |
@@ -80,3 +84,27 @@ These sources aren't Cloudflare API reads and need no permission:
 
 - Public DNS lookups
 - Takeover probes
+
+## Vercel
+
+Vercel access tokens can't be limited to reading: a token can do whatever its user's role allows on each team it reaches.
+Edgewatch only ever sends GET requests to Vercel (`test/vercel.test.ts` fails on anything else), and never asks for environment
+variable values. A token created by a member with the **Viewer** role reads almost everything below; environment variable names,
+the firewall configuration, drains and webhooks need a role that can see them. Create the token under **Account Settings → Tokens**,
+scoped to the team you want to scan (or Full Account for every team), with an expiration date.
+
+| Source | Who can read it | Checks that read it |
+|---|---|---|
+| Team settings | Any team role (Viewer or higher) | VID-001, VID-008, VDP-007, VEN-006 |
+| Team members and invitations | Any team role (Viewer or higher) | VID-002, VID-003, VID-004 |
+| Your access tokens | A Full Account token (a token scoped to one team can't list tokens) | VID-005, VID-006, VID-007 |
+| Projects | Any team role (Viewer or higher) | VDP-001, VDP-002, VDP-003, VDP-004, VDP-005, VDP-006, VDP-008, VEN-008, VFW-002, VPL-001, VPL-002, VPL-003, VPL-004, VPL-006, VPL-005, XP-003 |
+| Environment variable names and types | Developer, Member or Owner | VDP-008, VEN-001, VEN-002, VEN-003, VEN-004, VEN-005, VEN-007 |
+| Project domains | Any team role (Viewer or higher) | VDP-002, VFW-002, VDM-002, XP-003 |
+| Firewall configuration | Developer, Member, Security or Owner | VFW-001, VFW-002, VFW-003, VFW-004, VFW-005, VFW-006, VFW-007 |
+| Domains | Any team role (Viewer or higher) | VDM-001 |
+| Custom certificates | Any team role (Viewer or higher) | VDM-003 |
+| Drains | Member or Owner | VMN-001, VMN-002, VMN-003, VMN-004 |
+| Webhooks | Member or Owner | VMN-003 |
+| Installed integrations | Any team role (Viewer or higher) | VID-009 |
+| Shared environment variable names and types | Developer, Member or Owner | Supporting data for other checks |

@@ -22,13 +22,16 @@ A false positive or missed finding in a check is not a vulnerability; use the
 
 ## Threat model
 
-Edgewatch holds Cloudflare API tokens and a database describing accounts' configuration,
-including member email addresses. It is designed to:
+Edgewatch holds Cloudflare API tokens and Vercel access tokens, and a database describing accounts'
+configuration, including member email addresses. It is designed to:
 
-- **Only read.** The scanner issues GET requests and GraphQL analytics queries only (GraphQL is sent
-  as POST, as Cloudflare requires, and only ever queries). Use a token with read permissions;
-  Edgewatch never needs anything else.
-- **Contact only what it needs.** Besides Cloudflare's API and public DNS, the optional takeover check
+- **Only read.** The scanner issues GET requests, plus Cloudflare GraphQL analytics queries (GraphQL is sent
+  as POST, as Cloudflare requires, and only ever queries). Use a Cloudflare token with read permissions;
+  Edgewatch never needs anything else. Vercel can't issue read-only tokens, so a Vercel token can do what its
+  user's role allows: Edgewatch still only sends GET requests to Vercel, and tests fail on anything else.
+- **Never read secret values.** Vercel environment variables are listed without their values; drain and
+  webhook URLs are stored without their paths, query strings or headers.
+- **Contact only what it needs.** Besides the Cloudflare and Vercel APIs and public DNS, the optional takeover check
   sends one GET to your own hostnames that point at known cloud providers, and the update check reads
   GitHub's public list of releases once a day, sending nothing about the installation. Both can be turned off in Settings.
   Secrets found in rules, such as hard-coded header values, and in plain-text Worker or Pages variables are

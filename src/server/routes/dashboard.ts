@@ -1,9 +1,9 @@
-// Scoped dashboard data (?scope=all | e:<id> | a:<id>) and scans.
+// Scoped dashboard data (?scope=all | e:<id> | a:<id>, with @<provider> to narrow it) and scans.
 
 import type { AppContext } from "../env.ts";
 import type { Routes } from "../router.ts";
 import { displayName, type Repo, type Scope } from "../../store/repo.ts";
-import { CHECK_BY_ID } from "../../core/catalog.ts";
+import { CHECK_BY_ID } from "../../providers/catalog.ts";
 import { countBySeverity, emptyCounts, type SeverityCounts } from "../../shared/severity.ts";
 import { badRequest, notFound } from "../errors.ts";
 import { FINGERPRINT, param, readJson } from "../validate.ts";
@@ -15,6 +15,8 @@ import {
   fixFirst,
   latestScans,
   scanMeta,
+  projects,
+  providerScores,
   scopeFindings,
   scores,
   securityCenter,
@@ -32,6 +34,7 @@ import type {
   FindingDetail,
   FindingsResponse,
   Overview,
+  ProjectsResponse,
   Report,
   ScanRow,
   ScansResponse,
@@ -76,6 +79,7 @@ function sinceLastScan(repo: Repo, scans: AccountScan[], findings: Finding[]) {
             zone: r.zone,
             category: r.category,
             accountId: account.id,
+            provider: account.provider,
             account: displayName(account),
             confidence: (r.confidence as FindingBrief["confidence"]) || null,
           }),
@@ -150,6 +154,7 @@ export function dashboardRoutes(r: Routes, { repo, scanner, version }: AppContex
       categoryScores: score.byCategory,
       categoryCounts,
       accounts: score.accounts,
+      byProvider: providerScores(score.accounts, open),
       counts: countBySeverity(open),
       triage: {
         open: findings.filter((f) => f.status === "open").length,
@@ -203,6 +208,10 @@ export function dashboardRoutes(r: Routes, { repo, scanner, version }: AppContex
   r.get("/api/zones", (c) => {
     const s = latestScans(repo, c.get("scope"));
     return c.json({ scan: scanMeta(s), zones: zones(s), coverage: coverage(s) } satisfies ZonesResponse);
+  });
+  r.get("/api/projects", (c) => {
+    const s = latestScans(repo, c.get("scope"));
+    return c.json({ scan: scanMeta(s), projects: projects(s), coverage: coverage(s) } satisfies ProjectsResponse);
   });
   r.get("/api/value", (c) => {
     const s = latestScans(repo, c.get("scope"));
@@ -259,6 +268,7 @@ export function dashboardRoutes(r: Routes, { repo, scanner, version }: AppContex
       findings,
       coverage: coverage(scans),
       zones: zones(scans),
+      projects: projects(scans),
       valueCounts: value(scans)?.counts,
       checks: checkStats(scans),
     } satisfies Report);

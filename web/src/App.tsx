@@ -14,6 +14,7 @@ import {
   GlobeIcon,
   MoonIcon,
   SquaresFourIcon,
+  StackIcon,
   SunIcon,
   WarningIcon,
 } from "@phosphor-icons/react";
@@ -29,6 +30,10 @@ import {
   plural,
   resolveView,
   scopeKeyFor,
+  splitScopeKey,
+  PROVIDER_INFO,
+  type ProviderId,
+  withProvider,
   useLocation,
   useMode,
   useScopeKey,
@@ -39,7 +44,7 @@ import {
 } from "./lib.ts";
 import { ShellContext, useShell, type Shell } from "./shell.tsx";
 import { NAV_GROUPS, ROUTES, ReportPage, matchRoute } from "./routes.tsx";
-import { Loading, NoRows, Page } from "./components/ui.tsx";
+import { Loading, NoRows, Page, ProviderIcon } from "./components/ui.tsx";
 import { Wordmark } from "./components/brand.tsx";
 import { SetupPage } from "./pages/Setup.tsx";
 import { LoginPage } from "./pages/Login.tsx";
@@ -199,8 +204,11 @@ const isActive = (path: string, to: string) => (to === "/" ? path === "/" : path
 
 function Nav() {
   const { path } = useLocation();
-  const { session } = useShell();
+  const { session, view } = useShell();
   const current = matchRoute(path)?.route;
+  // Pages for one provider only show when the view has an account on it (all accounts before any are connected).
+  const inView = new Set(view.accounts.map((a) => a.provider));
+  const shown = (r: (typeof ROUTES)[number]) => !r.hidden && (!r.providers || !inView.size || r.providers.some((p) => inView.has(p)));
   return (
     <Sidebar>
       <Sidebar.Header className="flex h-14 items-center border-b border-kumo-hairline">
@@ -209,11 +217,11 @@ function Nav() {
         </a>
       </Sidebar.Header>
       <Sidebar.Content>
-        {NAV_GROUPS.map((g) => (
+        {NAV_GROUPS.filter((g) => ROUTES.some((r) => r.group === g && shown(r))).map((g) => (
           <Sidebar.Group key={g}>
             <Sidebar.GroupLabel>{g}</Sidebar.GroupLabel>
             <Sidebar.Menu>
-              {ROUTES.filter((r) => r.group === g && !r.hidden).map((r) => (
+              {ROUTES.filter((r) => r.group === g && shown(r)).map((r) => (
                 <Sidebar.MenuButton
                   key={r.path}
                   icon={r.icon}
@@ -243,7 +251,7 @@ function Nav() {
               </a>
             )}
           </span>
-          Not affiliated with Cloudflare.
+          Not affiliated with any provider.
         </div>
       </Sidebar.Footer>
     </Sidebar>
@@ -268,7 +276,14 @@ function TopBar() {
       <div className="flex h-14 items-center gap-3 px-4">
         <Sidebar.Trigger />
         <Breadcrumbs size="sm" className="min-w-0">
-          {route?.global ? <span className="shrink-0 text-kumo-subtle">Applies to every account</span> : <ScopeSwitcher />}
+          {route?.global ? (
+            <span className="shrink-0 text-kumo-subtle">Applies to every account</span>
+          ) : (
+            <>
+              <ScopeSwitcher />
+              <ProviderSwitch />
+            </>
+          )}
           {/* On phones the sidebar names the page; the scope gets the room. */}
           {route && (
             <span className="hidden sm:contents">
@@ -382,7 +397,7 @@ function ScopeSwitcher() {
   // One icon per level, matching the menu: all accounts, an entity, a single account.
   const icon =
     view.kind === "account" || accounts.length < 2 ? (
-      <GlobeIcon className="shrink-0" />
+      <ProviderIcon provider={view.accounts[0]?.provider ?? "cloudflare"} className="h-4 w-4 text-kumo-default" />
     ) : view.kind === "entity" ? (
       <BuildingsIcon className="shrink-0" />
     ) : (
@@ -398,8 +413,11 @@ function ScopeSwitcher() {
   }
   const all = resolveView(session, "all")!;
   const excluded = entities.filter((e) => !e.includeInAll && accounts.some((a) => a.entityId === e.id));
-  const pick = (k: string) => () => setScope(k);
-  const mark = (k: string) => (view.key === k ? <CheckIcon className="text-kumo-brand" /> : <span className="inline-block w-4" />);
+  const providerCount = new Set(accounts.map((a) => a.provider)).size;
+  // Picking another view keeps the provider filter; the new view drops it if it has no account on that provider.
+  const pick = (k: string) => () => setScope(withProvider(k, view.provider));
+  const base = splitScopeKey(view.key).base;
+  const mark = (k: string) => (base === k ? <CheckIcon className="text-kumo-brand" /> : <span className="inline-block w-4" />);
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger
@@ -453,8 +471,9 @@ function ScopeSwitcher() {
                 )}
                 {mine.map((a) => (
                   <DropdownMenu.Item key={a.id} className="pl-6" icon={mark(`a:${a.id}`)} onClick={pick(`a:${a.id}`)}>
-                    <GlobeIcon className="h-4 w-4 shrink-0 text-kumo-subtle" />
-                    <span className="truncate">{a.display}</span>
+                    <ProviderIcon provider={a.provider} />
+                    <span className="flex-1 truncate">{a.display}</span>
+                    {providerCount > 1 && <span className="text-kumo-subtle">{PROVIDER_INFO[a.provider].label}</span>}
                   </DropdownMenu.Item>
                 ))}
               </DropdownMenu.Group>
@@ -466,5 +485,49 @@ function ScopeSwitcher() {
         </DropdownMenu.Item>
       </DropdownMenu.Content>
     </DropdownMenu>
+  );
+}
+
+/**
+ * Narrows the view to one provider, or shows every provider. Only shown when the view
+ * has accounts on more than one; it scales to any number of providers.
+ */
+function ProviderSwitch() {
+  const { view, setScope } = useShell();
+  if (view.providers.length < 2) return null;
+  const pick = (p: ProviderId | null) => () => setScope(withProvider(view.key, p));
+  const mark = (p: ProviderId | null) => (view.provider === p ? <CheckIcon className="text-kumo-brand" /> : <span className="inline-block w-4" />);
+  return (
+    <>
+      <Breadcrumbs.Separator />
+      <DropdownMenu>
+        <DropdownMenu.Trigger
+          render={
+            <button
+              type="button"
+              aria-label="Choose a provider"
+              className="-mx-1.5 inline-flex min-w-0 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-kumo-default hover:bg-kumo-tint"
+            >
+              {view.provider ? <ProviderIcon provider={view.provider} className="h-4 w-4 text-kumo-default" /> : <StackIcon className="shrink-0" />}
+              <span className="font-medium">{view.provider ? PROVIDER_INFO[view.provider].label : "All providers"}</span>
+              <CaretUpDownIcon className="shrink-0 text-kumo-subtle" />
+            </button>
+          }
+        />
+        <DropdownMenu.Content align="start" className="min-w-56">
+          <DropdownMenu.Item icon={mark(null)} onClick={pick(null)}>
+            <StackIcon className="h-4 w-4 shrink-0 text-kumo-subtle" />
+            <span className="flex-1">All providers</span>
+          </DropdownMenu.Item>
+          <DropdownMenu.Separator />
+          {view.providers.map((p) => (
+            <DropdownMenu.Item key={p} icon={mark(p)} onClick={pick(p)}>
+              <ProviderIcon provider={p} />
+              <span className="flex-1">{PROVIDER_INFO[p].label}</span>
+            </DropdownMenu.Item>
+          ))}
+        </DropdownMenu.Content>
+      </DropdownMenu>
+    </>
   );
 }

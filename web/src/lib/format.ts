@@ -36,3 +36,20 @@ export const clampPage = (page: number, total: number, perPage: number) => Math.
 
 /** Names that differ only in case or surrounding spaces are the same name. */
 export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+/** What a finding's `zone` is called for the providers in view: a Cloudflare zone, a Vercel project. */
+export function zoneWord(providers: readonly string[]): string {
+  const v = providers.includes("vercel"),
+    c = providers.includes("cloudflare") || !providers.length;
+  return v && c ? "Zone or project" : v ? "Project" : "Zone";
+}
+
+/** The site a link goes to, by its address: findings and checks can link Cloudflare's or Vercel's dashboard and docs. */
+export function siteName(url: string): string {
+  try {
+    const h = new URL(url).hostname;
+    return h.endsWith("vercel.com") ? "Vercel" : h.endsWith("cloudflare.com") ? "Cloudflare" : h;
+  } catch {
+    return "the provider";
+  }
+}

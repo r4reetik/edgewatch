@@ -146,5 +146,5 @@ migrating it. Release lines, automatic updates and rolling back are covered in [
 - **Removing an account** (Accounts → the account's menu → Remove) deletes its scans, findings and triage.
   Older copies remain in `backups/` until newer upgrades replace them.
 - **Uninstalling:** stop Edgewatch and delete the data directory (`~/.edgewatch` by default) or the Docker
-  volume. Nothing is stored anywhere else. Revoke the API tokens in Cloudflare too.
+  volume. Nothing is stored anywhere else. Revoke the tokens in Cloudflare and Vercel too.
 - `PORT` is read when `EDGEWATCH_PORT` isn't set, for platforms that assign one.

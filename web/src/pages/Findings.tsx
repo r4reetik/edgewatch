@@ -38,8 +38,9 @@ import {
   type Severity,
   type StatusView,
   type Triage,
+  zoneWord,
 } from "../lib.ts";
-import { ConfidenceBadge, ListCard, Page, PageState, ReopenedBadge, SeverityBadge, StatusBadge, Tag } from "../components/ui.tsx";
+import { AccountName, ConfidenceBadge, ListCard, Page, PageState, ReopenedBadge, SeverityBadge, StatusBadge, Tag } from "../components/ui.tsx";
 import { BulkTriageDialog, FindingDialog } from "../components/triage.tsx";
 import { isSettled, effectiveStatus } from "../../../src/shared/triage.ts";
 import { groupBy } from "../../../src/shared/collections.ts";
@@ -47,11 +48,17 @@ import { groupBy } from "../../../src/shared/collections.ts";
 const PER_PAGE = 50;
 const ALL = "all";
 const TITLE = "Findings";
-const DESCRIPTION = "Every open problem from Edgewatch's checks and Cloudflare Security Center. Assign owners, set due dates, or accept a risk until a date.";
+const DESCRIPTION =
+  "Every open problem from Edgewatch's checks, and from Cloudflare Security Center. Assign owners, set due dates, or accept a risk until a date.";
 
 type GroupBy = "check" | "zone" | "account" | "none";
 type SortKey = "severity" | "age" | "due";
-const GROUP_LABEL: Record<GroupBy, string> = { check: "Group by check", zone: "Group by zone", account: "Group by account", none: "No grouping" };
+const groupLabels = (zone: string): Record<GroupBy, string> => ({
+  check: "Group by check",
+  zone: `Group by ${zone.toLowerCase()}`,
+  account: "Group by account",
+  none: "No grouping",
+});
 
 const SEVERITY_FILTERS: Record<string, string> = {
   [ALL]: "All severities",
@@ -72,6 +79,7 @@ const sorters: Record<SortKey, (a: Finding, b: Finding) => number> = {
 
 export function FindingsPage() {
   const { multi, view } = useShell();
+  const zoneLabel = zoneWord(view.accounts.map((a) => a.provider));
   const { data, error, loading, reload, setData } = useScopedApi<FindingsResponse>("/api/findings");
   const { params } = useLocation();
   const toasts = useKumoToastManager();
@@ -297,7 +305,7 @@ export function FindingsPage() {
                 onPick={(v) => setFilter("category", v)}
               />
               <FilterMenu
-                label="Zone"
+                label={zoneLabel}
                 value={filters.zone}
                 options={Object.fromEntries(zones.map((z) => [z, z === "account" ? "Account-wide" : z]))}
                 onPick={(v) => setFilter("zone", v)}
@@ -311,7 +319,7 @@ export function FindingsPage() {
             className="min-w-36 flex-1 sm:w-44 sm:flex-none"
             value={groupBy}
             onValueChange={(v) => setParams({ group: v === "check" ? null : String(v) })}
-            items={GROUP_LABEL}
+            items={groupLabels(zoneLabel)}
           />
         </div>
         {(chips.length > 0 || anyFilter) && (
@@ -477,6 +485,9 @@ function SortHead({ k, label, sort, desc, className }: { k: SortKey; label: stri
 }
 
 function FindingsTable({ rows, selected, toggle, onOpen, nested, multi, sort, desc }: TableProps & { nested?: boolean }) {
+  const { view } = useShell();
+  const providers = view.accounts.map((a) => a.provider);
+  const mixed = new Set(providers).size > 1;
   const all = rows.every((r) => selected.has(r.fingerprint));
   const some = rows.some((r) => selected.has(r.fingerprint));
   return (
@@ -532,7 +543,7 @@ function FindingsTable({ rows, selected, toggle, onOpen, nested, multi, sort, de
               )}
               <Table.Head>Finding</Table.Head>
               {multi && <Table.Head>Account</Table.Head>}
-              <Table.Head>Zone</Table.Head>
+              <Table.Head>{zoneWord(providers)}</Table.Head>
               {nested ? <Table.Head className="whitespace-nowrap">Open for</Table.Head> : <SortHead k="age" label="Open for" sort={sort} desc={desc} />}
               {nested ? <Table.Head>Due</Table.Head> : <SortHead k="due" label="Due" sort={sort} desc={desc} />}
               <Table.Head>Owner</Table.Head>
@@ -564,7 +575,11 @@ function FindingsTable({ rows, selected, toggle, onOpen, nested, multi, sort, de
                   </div>
                   <div className="truncate text-sm text-kumo-subtle">{x.resource}</div>
                 </Table.Cell>
-                {multi && <Table.Cell className="max-w-40 truncate whitespace-nowrap text-kumo-subtle">{x.account}</Table.Cell>}
+                {multi && (
+                  <Table.Cell className="max-w-40 truncate whitespace-nowrap text-kumo-subtle">
+                    <AccountName name={x.account} provider={x.provider} showProvider={mixed} />
+                  </Table.Cell>
+                )}
                 <Table.Cell className="max-w-48 truncate whitespace-nowrap text-kumo-subtle">{x.zone || "Account-wide"}</Table.Cell>
                 <Table.Cell className="whitespace-nowrap tabular-nums text-kumo-subtle">{openFor(x.firstSeen)}</Table.Cell>
                 <Table.Cell className={`whitespace-nowrap tabular-nums ${x.overdue ? "text-kumo-danger" : "text-kumo-subtle"}`}>
@@ -632,6 +647,7 @@ function GroupedTable({
   ...rest
 }: TableProps & { groupBy: Exclude<GroupBy, "none">; expanded: Set<string>; setExpanded: (s: Set<string>) => void }) {
   const { selected, toggle, multi } = rest;
+  const { view } = useShell();
   const groups = useMemo(() => groupRows(rows, groupBy, multi), [rows, groupBy, multi]);
   return (
     <Table layout="auto">
@@ -644,7 +660,7 @@ function GroupedTable({
             <span className="sr-only">Select</span>
           </Table.Head>
           <Table.Head className="w-28">Severity</Table.Head>
-          <Table.Head>{groupBy === "check" ? "Check" : groupBy === "zone" ? "Zone" : "Account"}</Table.Head>
+          <Table.Head>{groupBy === "check" ? "Check" : groupBy === "zone" ? zoneWord(view.accounts.map((a) => a.provider)) : "Account"}</Table.Head>
           <Table.Head className="text-right">Findings</Table.Head>
           <Table.Head className="hidden md:table-cell">Owned</Table.Head>
         </Table.Row>

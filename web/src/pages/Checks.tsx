@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { Input, Link, Select, Switch, Table, useKumoToastManager } from "@cloudflare/kumo";
 import { BookOpenIcon } from "@phosphor-icons/react";
 import { useScopedApi, useShell } from "../shell.tsx";
-import { api, link, num, pct, plural, SEVERITY_LABEL, type CheckRow, type ChecksResponse, type Severity } from "../lib.ts";
-import { ListCard, NoRows, Page, PageState, Tag } from "../components/ui.tsx";
+import { api, link, num, pct, plural, PROVIDER_INFO, SEVERITY_LABEL, siteName, type CheckRow, type ChecksResponse, type Severity } from "../lib.ts";
+import { ListCard, NoRows, Page, PageState, ProviderIcon, Tag } from "../components/ui.tsx";
 type Check = CheckRow;
 
 const ALL = "all";
@@ -40,6 +40,8 @@ export function ChecksPage() {
   const categories = [...new Set(data.checks.map((c) => c.category))];
   const evaluations = data.checks.reduce((s, c) => s + c.evaluated, 0);
   const off = data.checks.filter((c) => c.disabled).length;
+  // The server lists checks for the providers in view; with more than one, each row names its provider.
+  const providers = new Set(data.checks.map((c) => c.provider));
 
   return (
     <Page title={TITLE} description={DESCRIPTION}>
@@ -68,7 +70,11 @@ export function ChecksPage() {
               {plural(checks.length, "check")}
               {off ? ` · ${off} turned off` : ""}
             </span>
-            {data.scan && <span>{num(evaluations)} evaluations in the latest scan, plus every Security Center insight</span>}
+            {data.scan && (
+              <span>
+                {num(evaluations)} evaluations in the latest scan{providers.has("cloudflare") ? ", plus every Security Center insight" : ""}
+              </span>
+            )}
           </>
         }
       >
@@ -90,13 +96,18 @@ export function ChecksPage() {
                 <Table.Row key={c.id} className={c.disabled ? "[&_td]:text-kumo-subtle" : undefined}>
                   <Table.Cell className="max-w-xl">
                     <div className="flex min-w-0 items-center gap-2">
+                      {providers.size > 1 && (
+                        <span title={PROVIDER_INFO[c.provider].label} className="inline-flex">
+                          <ProviderIcon provider={c.provider} />
+                        </span>
+                      )}
                       <Tag>{c.id}</Tag>
                       <span className="truncate text-kumo-default">{c.title}</span>
                     </div>
                     <div className="mt-0.5 line-clamp-2 text-sm text-kumo-subtle">{c.why}</div>
                     {c.docs && (
                       <Link href={c.docs} target="_blank" rel="noopener noreferrer" className="mt-0.5 inline-flex items-center gap-1 text-sm">
-                        <BookOpenIcon /> Cloudflare docs
+                        <BookOpenIcon /> {siteName(c.docs)} docs
                       </Link>
                     )}
                   </Table.Cell>

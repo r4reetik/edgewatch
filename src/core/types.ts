@@ -6,7 +6,7 @@ import type * as CF from "./cf-types.ts";
 import type { Category } from "./categories.ts";
 import type { SourceKey } from "./sources.ts";
 import type { Severity } from "../shared/severity.ts";
-import type { Confidence, Evidence, EvidenceStep } from "../shared/api.ts";
+import type { Confidence, Evidence, EvidenceStep, ProviderLinks } from "../shared/api.ts";
 
 export type Api = any;
 export type { Severity, Confidence, Evidence, EvidenceStep, Category };
@@ -224,7 +224,19 @@ export interface EngineOptions {
   orgDomains: string[];
   disabledChecks: Set<string>;
   severityOverrides: Record<string, Severity>;
+  /** What the entity's other accounts, on other providers, share with this one. Absent: no checks that span providers. */
+  related?: Related;
 }
+
+/** What checks that span providers know about the entity's other accounts, from their latest scans. */
+export interface Related {
+  /** Cloudflare DNS records in the entity that point at Vercel; null when the entity has no scanned Cloudflare account. */
+  toVercel: NonNullable<ProviderLinks["toVercel"]> | null;
+  /** Domains served by the entity's Vercel projects; null when the entity has no scanned Vercel account that could read them. */
+  vercelDomains: NonNullable<ProviderLinks["vercelDomains"]> | null;
+}
+
+export const NO_RELATED: Related = { toVercel: null, vercelDomains: null };
 
 export interface CollectOptions {
   /** Send HTTP probes to hostnames that point at takeover-prone providers. */

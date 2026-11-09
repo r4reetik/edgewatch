@@ -29,27 +29,31 @@ npm run format          # fix formatting
 src/
   bin.ts, cli.ts        the edgewatch command: Node.js version check, then the command line
   main.ts               start(), which wires everything up
-  core/                 everything that talks to Cloudflare or judges what it found (no HTTP server, no database)
-    sources.ts          every data source: coverage label, token permission, setup-screen probe
+  core/                 Cloudflare's client, inventory and checks, and the engine every provider shares (no HTTP server, no database)
+    sources.ts          every Cloudflare data source: coverage label, token permission, setup-screen probe
     cloudflare.ts       read-only API client (GET only, plus read-only GraphQL), retries, rate limits, coverage
     inventory.ts        collects one scan's data; analytics.ts holds the GraphQL reads
     cf-types.ts         shapes of the Cloudflare payloads we read
     checks/             check modules (one file per area), registered in checks/index.ts
     engine.ts           runs the modules, de-duplicates, scores
-    catalog.ts          the check catalog, derived from the modules
+    catalog.ts          the Cloudflare check catalog, derived from the modules
+  providers/            the Provider interface (types.ts), the registry (index.ts), every provider's checks (catalog.ts)
+    cloudflare.ts       Cloudflare as a provider: an adapter over core/
+    vercel/             Vercel: client.ts (GET only), sources.ts, inventory.ts, checks/, views.ts, permissions.ts
   store/                SQLite: migrations (db.ts) and one repository per concern behind Repo
   server/               Hono app: routes/, guards in middleware.ts, validation, presentation
   shared/               code shared with the web app: API types, severities, triage, scope, filters
 web/src/                React app: routes.tsx lists every page, shell.tsx holds shared state
-dev/mock/               mocked Cloudflare API and seeding, for tests and the mock dev server
-test/                   node:test suites; fixtures/ and checks/cases.ts for check tests
+dev/mock/               mocked Cloudflare and Vercel APIs and seeding, for tests and the mock dev server
+test/                   node:test suites; fixtures/ and checks/cases.ts for Cloudflare checks, vercel-cases.ts for Vercel's
 ```
 
 The decisions behind the project, and the rules that follow from them, are in [AGENTS.md](AGENTS.md). Coding agents read it, and so should you. A change that makes or reverses a decision updates it in the same pull request.
 
 Rules worth knowing:
 
-- **The scanner only reads.** REST calls are GET; GraphQL is POST but query-only. `test/integration.test.ts` fails on any other method.
+- **The scanner only reads.** REST calls are GET; Cloudflare's GraphQL is POST but query-only. `test/integration.test.ts` and `test/vercel.test.ts` fail on any other method.
+- **Secret values are never read.** Vercel environment variables are listed without `decrypt`, and values, drain headers and URL paths are dropped as the inventory is built.
 - **`src/shared` is portable**: no `node:` imports, no DOM. The server returns its DTOs (`satisfies`), the web imports them as types.
 - **Routes carry their guards** (`router.ts`): `routes(app).with(requireSession(auth))`. Moving a route never changes who can reach it.
 
@@ -62,6 +66,24 @@ Rules worth knowing:
 5. Add a failing case to `test/checks/cases.ts`. It's typed by check ID, so it won't compile until you do. `test/contract.test.ts` checks that the case fails, that the baseline fixture passes, and that the metadata is complete.
 6. Run `npm run docs` to regenerate `docs/checks.md` and `docs/permissions.md`. A test fails if you forget.
 
+### A Vercel check
+
+The same steps, in `src/providers/vercel/`: a module in `checks/` written with that folder's `defineChecks`, a `docs` link to vercel.com,
+`requires` from `sources.ts`, the read in `inventory.ts` (GET only, values dropped), a mock route in `dev/mock/vercel.ts`, and a failing
+case in `test/vercel-cases.ts`, which `test/vercel-checks.test.ts` checks the same way. Checks that compare providers in an entity get an
+`XP-` ID and read `related` (see [docs/architecture.md](docs/architecture.md#checks-that-span-providers)).
+
+## Adding a provider
+
+AWS, Google Cloud, Google Workspace and others fit the same shape:
+
+1. Add its ID, label and account words to `src/shared/providers.ts`, with the shape of its account IDs, and a glyph in `ProviderIcon` (`web/src/components/ui.tsx`). Use a neutral icon, not the provider's logo.
+2. Create `src/providers/<id>/` with a read-only client (GET or the provider's read-only equivalent, recording coverage), a sources registry, an inventory, check modules written with `checksFor<YourContext, YourSourceKey>()`, a catalog and an engine that ends in `summarize` from `src/core/engine.ts`.
+3. Implement `Provider` (`src/providers/types.ts`) in its `index.ts` and list it in `src/providers/index.ts`. The scanner, account routes, setup screen, provider switch, scores, exports and docs pick it up from there.
+4. Add a fictional mock API in `dev/mock/<id>.ts`, seed it in `dev/mock/server.ts`, and tests like `test/vercel.test.ts` (only reads, no secret stored) and `test/vercel-checks.test.ts` (every check fails on its case).
+5. Give its inventory page a route limited to the provider (`providers` in `web/src/routes.tsx`), write its token steps in `web/src/components/connect.tsx`, and add its sources to `scripts/docs.ts`.
+6. Record the decision in `AGENTS.md`.
+
 Severity guide: **critical** means it's exploitable now (a takeover, a leaked credential). **High** means a direct path in or a missing core protection. **Medium** is a weakness that needs another failure to matter. **Low** is hardening.
 
 ## Pull requests
@@ -72,6 +94,7 @@ Severity guide: **critical** means it's exploitable now (a takeover, a leaked cr
 
 ## Releases
 
-Releases are cut from GitHub: **Actions → Release → Run workflow**. The workflow versions, tags and publishes
-to npm, GHCR and GitHub releases. [docs/releasing.md](docs/releasing.md) covers the steps, release candidates,
+Releases are cut from the maintainer's clone with `npm run release -- <patch|minor|major|rc>`, which versions,
+commits, tags and pushes `main` and the tag together; the Release workflow then publishes to npm, GHCR and GitHub
+releases. Use `npm run sync` to catch up with GitHub. [docs/releasing.md](docs/releasing.md) covers the steps, release candidates,
 breaking changes and the one-time setup; [docs/upgrading.md](docs/upgrading.md) is what users see.

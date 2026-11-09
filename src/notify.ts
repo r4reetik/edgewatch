@@ -9,6 +9,8 @@ import type { Severity } from "./core/types.ts";
 export interface ScanSummary {
   accountId: string;
   accountName: string;
+  /** The account's platform ("Cloudflare", "Vercel"). */
+  provider?: string;
   entityName: string;
   scanId: number;
   finishedAt: string;
@@ -85,6 +87,7 @@ async function send(
         event: "scan.new_findings",
         account: s.accountName,
         accountId: s.accountId || null,
+        provider: s.provider ?? null,
         entity: s.entityName,
         scanId: s.scanId,
         finishedAt: s.finishedAt,
@@ -137,7 +140,7 @@ function slackPayload(s: ScanSummary, link: string | null, findingUrl: (fp?: str
   }
   if (s.newFindings.length > lines.length) lines.push(`…and ${s.newFindings.length - lines.length} more`);
   const back = s.newFindings.filter((f) => f.reopened).length;
-  const headline = `${s.newFindings.length} new finding${s.newFindings.length === 1 ? "" : "s"} in ${esc(s.accountName)}${back ? ` (${back} came back after being fixed)` : ""}`;
+  const headline = `${s.newFindings.length} new finding${s.newFindings.length === 1 ? "" : "s"} in ${esc(s.accountName)}${s.provider ? ` (${esc(s.provider)})` : ""}${back ? ` (${back} came back after being fixed)` : ""}`;
   return {
     text: headline,
     blocks: [

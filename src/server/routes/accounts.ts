@@ -1,11 +1,14 @@
-// Connecting Cloudflare accounts: verify a token, add accounts, rename, move,
-// replace a token, remove. Available before any account is connected.
+// Connecting accounts from any provider: verify a token, add accounts, rename,
+// move, replace a token, remove. Available before any account is connected. The
+// request names its provider (`provider`, Cloudflare when absent).
 
 import type { AppContext } from "../env.ts";
+import type { Provider } from "../../providers/types.ts";
 import type { Routes } from "../router.ts";
-import { listAccounts, probePermissions, tokenTemplateUrl, verifyToken } from "../../core/permissions.ts";
+import { PROVIDER } from "../../providers/index.ts";
 import { publicAccount, publicEntity } from "../present.ts";
-import { ACCOUNT_ID, accountIds, bool, cleanName, direction, param, readJson, requireJson, token } from "../validate.ts";
+import { ACCOUNT_ID_PATTERN } from "../../shared/providers.ts";
+import { accountIds, bool, cleanName, direction, param, providerId, readJson, requireJson, token } from "../validate.ts";
 import { badRequest, conflict, notFound } from "../errors.ts";
 import type { AccountRow, AccountsResponse, AddAccountsResponse, TemplateResponse, VerifyResponse } from "../../shared/api.ts";
 
@@ -20,43 +23,46 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
     })();
   /** Drops tokens that no account references any more. */
   const pruneTokens = () => vault.retain(new Set(repo.accounts.list().map((a) => a.tokenId)));
-  const visibleAccounts = (t: string) => listAccounts(t).catch(() => [] as { id: string; name: string }[]);
+  const visibleAccounts = (p: Provider, t: string) => p.listAccounts(t).catch(() => [] as { id: string; name: string }[]);
 
   r.get("/api/accounts/template", (c) => {
+    const p = PROVIDER[providerId(c.req.query("provider"))];
     const acc = c.req.query("accountId");
-    return c.json({
-      url: tokenTemplateUrl(acc && ACCOUNT_ID.test(acc) ? acc : null),
-      readAllUrl: "https://dash.cloudflare.com/profile/api-tokens",
-    } satisfies TemplateResponse);
+    const help = p.tokenHelp(acc && ACCOUNT_ID_PATTERN[p.info.id].test(acc) ? acc : null);
+    return c.json({ url: help.templateUrl ?? help.url, readAllUrl: help.url, template: !!help.templateUrl } satisfies TemplateResponse);
   });
 
   r.post("/api/accounts/verify", async (c) => {
     const body = await requireJson(c);
+    const p = PROVIDER[providerId(body.provider)];
     const t = token(body.token);
-    const ids = accountIds(body.accountIds ?? (body.accountId ? [body.accountId] : []));
-    const [info, visible] = await Promise.all([verifyToken(t, ids[0] || null), visibleAccounts(t)]);
+    const ids = accountIds(body.accountIds ?? (body.accountId ? [body.accountId] : []), p.info.id);
+    const [info, visible] = await Promise.all([p.verify(t, ids), visibleAccounts(p, t)]);
     if (!info.valid) return c.json({ token: info, accounts: [], probes: {}, probeLimit: PROBE_LIMIT } satisfies VerifyResponse);
     const known = new Map(repo.accounts.list().map((a) => [a.id, a]));
-    const probes = Object.fromEntries(await Promise.all(ids.slice(0, PROBE_LIMIT).map(async (id) => [id, await probePermissions(t, id)] as const)));
+    const probes = Object.fromEntries(await Promise.all(ids.slice(0, PROBE_LIMIT).map(async (id) => [id, await p.probe(t, id)] as const)));
     return c.json({
       token: info,
       probes,
       probeLimit: PROBE_LIMIT,
-      templateUrl: tokenTemplateUrl(ids[0] || null),
+      templateUrl: p.tokenHelp(ids[0] || null).templateUrl ?? undefined,
       accounts: visible.map((a) => ({ ...a, added: known.has(a.id), entityId: known.get(a.id)?.entityId ?? null })),
     } satisfies VerifyResponse);
   });
 
   r.post("/api/accounts", async (c) => {
     const body = await requireJson(c);
+    const p = PROVIDER[providerId(body.provider)];
     const t = token(body.token);
-    const ids = accountIds(body.accountIds);
-    if (!ids.length) throw badRequest("Choose at least one account.");
-    const info = await verifyToken(t, ids[0]);
+    const ids = accountIds(body.accountIds, p.info.id);
+    if (!ids.length) throw badRequest(`Choose at least one ${p.info.account}.`);
+    const info = await p.verify(t, ids);
     if (!info.valid) throw badRequest(info.message || "The token is not valid.");
-    const visible = new Map((await visibleAccounts(t)).map((a) => [a.id, a.name]));
+    const visible = new Map((await visibleAccounts(p, t)).map((a) => [a.id, a.name]));
     const unseen = ids.find((id) => !visible.has(id));
-    if (unseen) throw badRequest(`This token can't read account ${unseen}.`);
+    if (unseen) throw badRequest(`This token can't read ${p.info.account} ${unseen}.`);
+    const other = ids.map((id) => repo.accounts.get(id)).find((a) => a && a.provider !== p.info.id);
+    if (other) throw badRequest(`${other.id} is already connected as a ${PROVIDER[other.provider].info.label} account.`);
 
     // Accounts already here only get the new token and stay in their entity, so a new entity is
     // created only when at least one account is new; otherwise it would be left empty.
@@ -82,7 +88,7 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
         repo.accounts.update(id, { tokenId, tokenKind: info.kind, name: visible.get(id) ?? null });
         updated.push(id);
       } else {
-        repo.accounts.add({ id, name: visible.get(id) ?? null, entityId, tokenId, tokenKind: info.kind });
+        repo.accounts.add({ id, provider: p.info.id, name: visible.get(id) ?? null, entityId, tokenId, tokenKind: info.kind });
         added.push(id);
       }
     }
@@ -133,9 +139,10 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
   r.put("/api/accounts/:id/token", async (c) => {
     const a = account(param(c, "id"));
     const t = token((await readJson(c))?.token);
-    const info = await verifyToken(t, a.id);
+    const p = PROVIDER[a.provider];
+    const info = await p.verify(t, [a.id]);
     if (!info.valid) throw badRequest(info.message || "The token is not valid.");
-    if (!(await visibleAccounts(t)).some((v) => v.id === a.id)) throw badRequest("This token can't read this account.");
+    if (!(await visibleAccounts(p, t)).some((v) => v.id === a.id)) throw badRequest(`This token can't read this ${p.info.account}.`);
     repo.accounts.update(a.id, { tokenId: vault.put(t, info.kind), tokenKind: info.kind });
     pruneTokens();
     scanner.start("token", [a.id]);

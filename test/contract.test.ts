@@ -7,7 +7,7 @@ import { evaluate } from "../src/core/engine.ts";
 import { CATEGORIES, CHECKS } from "../src/core/catalog.ts";
 import { MODULES } from "../src/core/checks/index.ts";
 import { SOURCES } from "../src/core/sources.ts";
-import { CASES } from "./checks/cases.ts";
+import { CASE_OPTS, CASES } from "./checks/cases.ts";
 import { inventory, opts } from "./fixtures/inventory.ts";
 
 test("every check fails on its case from test/checks/cases.ts", () => {
@@ -15,7 +15,7 @@ test("every check fails on its case from test/checks/cases.ts", () => {
   assert.deepEqual(missing, [], "add a failing case for each new check");
   const silent: string[] = [];
   for (const c of CHECKS) {
-    const failing = evaluate(CASES[c.id](), opts()).findings.filter((f) => f.checkId === c.id);
+    const failing = evaluate(CASES[c.id](), opts(CASE_OPTS[c.id])).findings.filter((f) => f.checkId === c.id);
     if (!failing.length) silent.push(c.id);
   }
   assert.deepEqual(silent, [], "these cases don't make their check fail");
@@ -35,7 +35,11 @@ test("check metadata is complete and consistent", () => {
     assert.match(c.id, /^[A-Z]+-\d{3}$/, c.id);
     assert.ok((CATEGORIES as readonly string[]).includes(c.category), `${c.id} has a known category`);
     assert.ok(c.title && c.why && c.fix, `${c.id} has a title, why and fix`);
-    assert.ok(!c.docs || c.docs.startsWith("https://developers.cloudflare.com/"), `${c.id} links Cloudflare's docs`);
+    // Checks that span providers (XP-) may link the other provider's docs.
+    assert.ok(
+      !c.docs || c.docs.startsWith("https://developers.cloudflare.com/") || (c.id.startsWith("XP-") && c.docs.startsWith("https://vercel.com/")),
+      `${c.id} links Cloudflare's docs`,
+    );
     for (const s of c.requires || []) assert.ok(s in SOURCES, `${c.id} requires a known source: ${s}`);
   }
 });

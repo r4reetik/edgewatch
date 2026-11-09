@@ -22,19 +22,36 @@ import {
   type FindingGroup,
   type Overview,
   withScope,
+  PROVIDER_INFO,
+  type ProviderId,
+  withProvider,
 } from "../lib.ts";
-import { Aside, Card, ConfidenceBadge, ListCard, NoRows, Page, PageState, Row, ScoreMeter, SeverityBadge, Stat } from "../components/ui.tsx";
+import {
+  Aside,
+  Card,
+  ConfidenceBadge,
+  ListCard,
+  NoRows,
+  Page,
+  PageState,
+  AccountName,
+  ProviderIcon,
+  Row,
+  ScoreMeter,
+  SeverityBadge,
+  Stat,
+} from "../components/ui.tsx";
 import { TrendCharts } from "../components/charts.tsx";
 
 const TITLE = "Overview";
 
 export function OverviewPage() {
-  const { startScan, status, multi, view } = useShell();
+  const { startScan, status, multi, view, setScope } = useShell();
   const { data, error, loading, reload } = useScopedApi<Overview>("/api/overview");
   const [since, setSince] = useState<"new" | "resolved">("new");
   const description = multi
     ? `Security posture of ${view.kind === "all" ? "every account in All accounts" : `the ${plural(view.accounts.length, "account")} in ${view.label}`}, from each account's latest scan.`
-    : "Security posture of this Cloudflare account, from its latest scan.";
+    : `Security posture of this ${view.accounts[0] ? `${PROVIDER_INFO[view.accounts[0].provider].label} ${PROVIDER_INFO[view.accounts[0].provider].account}` : "account"}, from its latest scan.`;
 
   if (error || !data?.scan) {
     return (
@@ -138,6 +155,28 @@ export function OverviewPage() {
         />
       </Row>
 
+      {/* With several providers in view, each one's score; clicking narrows the view to it. */}
+      {data.byProvider.length > 0 && (
+        <Row cols={data.byProvider.length >= 4 ? 4 : data.byProvider.length === 3 ? 3 : 2}>
+          {data.byProvider.map((p) => (
+            <Stat
+              key={p.provider}
+              label={`${PROVIDER_INFO[p.provider].label} score`}
+              hint={`Average of the ${PROVIDER_INFO[p.provider].label} ${PROVIDER_INFO[p.provider].accounts}' scores in this view. Click to show only ${PROVIDER_INFO[p.provider].label}.`}
+              value={
+                <span className="inline-flex items-center gap-2">
+                  <ProviderIcon provider={p.provider} className="h-5 w-5" />
+                  {score(p.score)}
+                  <span className="text-base font-normal text-kumo-subtle"> / 100</span>
+                </span>
+              }
+              note={`${plural(p.accounts, PROVIDER_INFO[p.provider].account)} · ${num(p.counts.critical + p.counts.high)} critical and high`}
+              onClick={() => setScope(withProvider(view.key, p.provider))}
+            />
+          ))}
+        </Row>
+      )}
+
       <ListCard
         title="Fix these first"
         actions={
@@ -221,13 +260,20 @@ export function OverviewPage() {
   );
 }
 
+/** What each provider's attack paths are correlated from. */
+const PATH_SOURCES: Record<ProviderId, string> = {
+  cloudflare: "DNS, rules, tunnels, Access, traffic and the audit log",
+  vercel: "deployment protection, secrets, the firewall and domains",
+};
+
 function AttackPaths({ data, multi }: { data: Extract<Overview, { trend: unknown }>; multi: boolean }) {
+  const providers = [...new Set(data.accounts.map((a) => a.provider))];
   return (
     <ListCard
       title="Attack paths"
       actions={
         <>
-          <Aside>Correlated from DNS, rules, tunnels, Access, traffic and the audit log</Aside>
+          <Aside>Correlated from {providers.map((p) => PATH_SOURCES[p]).join("; ")}</Aside>
           {data.attackPathCount > data.attackPaths.length && (
             <Button size="sm" variant="ghost" icon={<ArrowRightIcon />} onClick={() => navigate("/findings?category=Attack%20surface")}>
               All {num(data.attackPathCount)}
@@ -299,7 +345,7 @@ function AccountsCard({ rows, unscanned, showEntity }: { rows: AccountSummary[];
                   className="text-kumo-link hover:underline focus-visible:ring-2 focus-visible:ring-kumo-brand focus-visible:outline-none"
                   onClick={() => setScope(scopeKeyFor.account(a.id))}
                 >
-                  {a.name}
+                  <AccountName name={a.name} provider={a.provider} />
                 </button>
               </Table.Cell>
               {showEntity && <Table.Cell className="max-w-48 truncate text-kumo-subtle">{a.entity}</Table.Cell>}

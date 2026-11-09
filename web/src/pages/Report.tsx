@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Button, Meter, Table } from "@cloudflare/kumo";
 import { ArrowLeftIcon, PrinterIcon } from "@phosphor-icons/react";
 import { useShell } from "../shell.tsx";
-import { useApi, plural, dateOnly, dateTime, num, SCORED_SEVERITIES, SEVERITY_LABEL, STATUS_LABEL, withScope } from "../lib.ts";
+import { useApi, plural, dateOnly, dateTime, num, PROVIDER_INFO, SCORED_SEVERITIES, SEVERITY_LABEL, STATUS_LABEL, withScope } from "../lib.ts";
 import { ErrorState, Loading, SeverityBadge } from "../components/ui.tsx";
 import { Wordmark } from "../components/brand.tsx";
 import type { Report } from "../lib.ts";
@@ -40,12 +40,14 @@ export function ReportPage() {
   const evaluations = Object.values(data.checks || {}).reduce((s, c) => s + c.evaluated, 0);
   const gaps = data.coverage.filter((c) => !c.ok);
   const multi = data.accounts.length > 1;
+  // The platforms in the report, for its title and method ("Cloudflare and Vercel").
+  const platforms = [...new Set(data.accounts.map((a) => PROVIDER_INFO[a.provider].label))].join(" and ") || "Cloudflare";
   const one = data.accounts.length === 1 ? data.accounts[0] : null;
   const subtitle = one
     ? one.entity && one.entity !== one.name
       ? `${one.name} · ${one.entity}`
       : one.name
-    : `${data.scope.label} · ${plural(data.accounts.length, "Cloudflare account")}`;
+    : `${data.scope.label} · ${plural(data.accounts.length, "account")} on ${platforms}`;
 
   return (
     <div className="min-h-full bg-kumo-canvas print:bg-white">
@@ -68,7 +70,7 @@ export function ReportPage() {
       <article className="mx-auto max-w-4xl bg-kumo-base px-10 py-12 text-sm text-kumo-default shadow-sm print:max-w-none print:px-0 print:py-0 print:shadow-none">
         <header className="mb-10 border-b border-kumo-hairline pb-8">
           <Wordmark />
-          <h1 className="mt-8 text-3xl font-semibold">Cloudflare security posture report</h1>
+          <h1 className="mt-8 text-3xl font-semibold">{platforms} security posture report</h1>
           <p className="mt-2 text-base text-kumo-subtle">{subtitle}</p>
           <dl className="mt-6 grid grid-cols-2 gap-y-1 text-xs text-kumo-subtle sm:grid-cols-4">
             <dt>{multi ? "Scans completed" : "Scan completed"}</dt>
@@ -106,7 +108,11 @@ export function ReportPage() {
                 ))}
               </ul>
               <p className="mt-3 text-xs text-kumo-subtle">
-                {num(open.length)} open findings across {num(data.zones?.length ?? 0)} zones. {num(settled.length)} accepted or marked false positive.
+                {num(open.length)} open findings across{" "}
+                {[data.zones ? plural(data.zones.length, "zone") : null, data.projects ? plural(data.projects.length, "project") : null]
+                  .filter(Boolean)
+                  .join(" and ") || "0 zones"}
+                . {num(settled.length)} accepted or marked false positive.
               </p>
             </div>
             <div className="flex flex-col gap-3">
@@ -272,20 +278,22 @@ export function ReportPage() {
           <h2 className="mb-2 text-sm font-semibold text-kumo-default">Method</h2>
           <p>
             Edgewatch {data.version} read {multi ? `the configuration of ${plural(data.accounts.length, "account")}` : "the account's configuration"} through
-            the Cloudflare API with read-only tokens ({num(data.scan.apiCalls)} requests), ran {num(Object.keys(data.checks || {}).length)} checks over{" "}
-            {num(evaluations)} resources, and imported Cloudflare Security Center insights. Each category score is the severity-weighted share of passing
-            evaluations (critical 10, high 6, medium 3, low 1); the posture score is the average of the categories.
+            the {platforms} API{platforms.includes(" and ") ? "s" : ""}, sending only read requests ({num(data.scan.apiCalls)} requests), ran{" "}
+            {num(Object.keys(data.checks || {}).length)} checks over {num(evaluations)} resources
+            {data.zones ? ", and imported Cloudflare Security Center insights" : ""}. Each category score is the severity-weighted share of passing evaluations
+            (critical 10, high 6, medium 3, low 1); the posture score is the average of the categories.
             {multi && " With several accounts, the posture score is the average of the accounts' scores."}
             Accepted risks and false positives don't count against the score.
           </p>
           {gaps.length > 0 && (
             <p className="mt-2">
               Not readable, so related checks were skipped:{" "}
-              {gaps.map((g) => (g.notReadableIn?.length ? `${g.label} (${g.notReadableIn.join(", ")})` : g.label)).join(", ")}.
+              {gaps.map((g) => (g.notReadableIn?.length ? `${g.label} (${g.notReadableIn.map((a) => a.name).join(", ")})` : g.label)).join(", ")}.
             </p>
           )}
           <p className="mt-2">
-            Severity labels: {SCORED_SEVERITIES.map((s) => SEVERITY_LABEL[s]).join(", ")}. Edgewatch is an independent project, not affiliated with Cloudflare.
+            Severity labels: {SCORED_SEVERITIES.map((s) => SEVERITY_LABEL[s]).join(", ")}. Edgewatch is an independent project, not affiliated with Cloudflare
+            or Vercel.
           </p>
         </section>
       </article>

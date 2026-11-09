@@ -18,41 +18,57 @@ read it from the GitHub release to warn before upgrading.
 
 ## Cutting a release
 
-Go to **Actions → Release → Run workflow** on `main`, and pick:
+From your clone, on `main`, with everything committed:
+
+```bash
+npm run release -- minor
+```
+
+Pick the bump:
 
 | Bump | When | Example |
 |---|---|---|
 | `patch` | fixes only | 0.4.1 → 0.4.2 |
-| `minor` | new checks or features; before 1.0, also breaking changes | 0.4.2 → 0.5.0 |
+| `minor` | new checks or features; before 1.0, also breaking changes or a database migration | 0.4.2 → 0.5.0 |
 | `major` | breaking changes, from 1.0 | 1.6.0 → 2.0.0 |
 | `rc` | a release candidate of the next line, to try a breaking release first | 0.4.2 → 0.5.0-rc.1, then rc.2… |
 
 To finalise a candidate, release `minor` before 1.0 (0.5.0-rc.2 → 0.5.0) or `major` from 1.0 (2.0.0-rc.1 → 2.0.0). `patch` finalises too; `major` on a 0.x candidate jumps to 1.0.0.
 
-The workflow then:
+`npm run release -- minor --dry-run` shows the version, what it would merge and push, and the notes, without changing anything.
 
-1. bumps `package.json` and `package-lock.json`, renames `## Unreleased` to the new version and opens a new
-   `## Unreleased` (`scripts/release.ts`). It stops if there are no notes, or if the bump stays on the current
-   release line while the notes mark a breaking change or a database migration was added;
-2. commits `Release vX.Y.Z` to `main` and pushes the tag;
-3. runs `npm run check` on the tag;
-4. publishes to npm (`latest`, or `next` for a candidate) with provenance, and pushes the multi-arch image to
-   `ghcr.io/r4reetik/edgewatch` with the tags in [upgrading.md](upgrading.md#docker);
-5. creates the GitHub release with that version's notes (a prerelease for candidates). Running installations
-   see it within a day.
+The command (`scripts/release.ts`):
 
-You can also release by pushing a tag `vX.Y.Z` yourself, when `package.json` already has that version and
-`CHANGELOG.md` has a `## X.Y.Z` section. The first release, 0.4.0, is done this way.
+1. stops unless you're on `main` with nothing uncommitted, so work in progress can't slip into a release;
+2. syncs with `origin/main` (see below), so the release has both what's on GitHub and everything you haven't pushed;
+3. runs `npm run check`;
+4. bumps `package.json` and `package-lock.json`, renames `## Unreleased` to the new version and opens a new
+   `## Unreleased`, and on a new release line points the README and deployment guide at it. It stops if there
+   are no notes, or if the bump stays on the current release line while the notes mark a breaking change or a
+   database migration was added;
+5. commits `Release vX.Y.Z`, tags it, and pushes `main` and the tag in one atomic push: both land or neither does.
 
-Releases are cut from `main`, so the newest line is the only one that gets updates; there are no backports
-to older lines.
+The tag starts the Release workflow, which runs `npm run check` on it, refuses a tag that isn't on `main`,
+publishes to npm (`latest`, or `next` for a candidate) with provenance, pushes the multi-arch image to
+`ghcr.io/r4reetik/edgewatch` with the tags in [upgrading.md](upgrading.md#docker), and creates the GitHub release
+with that version's notes (a prerelease for candidates). Running installations see it within a day.
 
-**Push before you release, and pull afterwards.** The workflow commits `Release vX.Y.Z` to `main`. If you
-release with commits still unpushed and then `git pull`, git merges the two, and notes your commits added
-under `## Unreleased` can end up under the version just released. The next release then stops with
-"Nothing to release", and the tests fail with the versions whose notes changed: move those lines back under
-`## Unreleased` (`git show vX.Y.Z:CHANGELOG.md` shows what the release had). `git pull --rebase` keeps the
-history straight, but can move the notes the same way.
+**Why from your machine.** The workflow used to commit `Release vX.Y.Z` to `main` on GitHub. That forked `main`
+on every release: commits you hadn't pushed were silently left out, and the next `git pull` merged
+`CHANGELOG.md` across the rename of `## Unreleased`, moving new notes under the version just released. Now the
+release commit is made where your work is, and GitHub only ever receives a `main` that already contains it.
+The workflow never commits, and a test fails if it starts to.
+
+## Keeping up with GitHub
+
+`npm run sync` is a `git pull` that knows about releases: it fetches, merges what's new on `origin/main`
+(merged pull requests, Dependabot), and if a merge left notes under a version that's already released, it moves
+them back under `## Unreleased` (comparing with what that version's tag shipped) and commits the repair. It
+stops on a merge conflict and leaves `main` as it was. `npm run release` runs it first, so you rarely need it on
+its own.
+
+A plain `git pull` is safe now too, since no release commit is ever made on GitHub. If notes ever do end up under
+a released version, the tests fail and say to run `npm run sync`.
 
 ## Setup, once
 
@@ -61,14 +77,14 @@ history straight, but can move the notes the same way.
   published, you can switch to npm trusted publishing for this repository and `release.yml` instead.
 - **Labels:** create `checks` and `false-positive` (the issue forms apply them; GitHub has `bug` and
   `enhancement` already).
-- **Protected `main`:** the workflow pushes the release commit to `main`. If branch protection blocks
-  that, add a `RELEASE_TOKEN` secret (a fine-grained token, or a GitHub App token, allowed to bypass the rule
-  with Contents: read and write).
+- **Protected `main`:** `npm run release` pushes the release commit and tag to `main` as you, so you need to be
+  allowed to push to `main` (or to bypass the rule). The workflow itself needs no extra token.
 - **GHCR:** after the first release, make the `edgewatch` package public under the repository's Packages.
 
 If a release fails halfway (npm down, a flaky Docker build), re-run the failed jobs: each publishing step skips
-what's already done. A `RELEASE_TOKEN` also makes the tag push start a second run; it finds the release done
-and stops.
+what's already done. If the push itself is refused (someone pushed to `main` a moment earlier), nothing was
+published: delete the local tag (`git tag -d vX.Y.Z`), undo the release commit (`git reset --hard HEAD~1`), and run
+`npm run release` again; it merges their commits first.
 
 ## Breaking changes
 

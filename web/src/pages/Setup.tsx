@@ -1,10 +1,17 @@
+// First run: pick the platform, create a token there, then choose the accounts to
+// scan. Someone who only uses Vercel, or only Cloudflare, sees only that one's steps.
+
+import { useState } from "react";
 import { LayerCard } from "@cloudflare/kumo";
 import { EyeIcon, HardDrivesIcon, LockKeyIcon } from "@phosphor-icons/react";
 import { Wordmark } from "../components/brand.tsx";
-import { ConnectForm, TokenHelp } from "../components/connect.tsx";
+import { ConnectForm, ProviderPicker, TokenHelp } from "../components/connect.tsx";
 import { Card } from "../components/ui.tsx";
+import { PROVIDER_INFO, type ProviderId } from "../lib.ts";
 
 export function SetupPage({ onDone }: { onDone: () => void }) {
+  const [provider, setProvider] = useState<ProviderId>("cloudflare");
+  const info = PROVIDER_INFO[provider];
   return (
     <div className="min-h-full bg-kumo-canvas">
       <div className="flex h-14 items-center border-b border-kumo-hairline bg-kumo-base px-6">
@@ -12,32 +19,35 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
       </div>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 p-6 md:p-8 lg:py-9">
         <header>
-          <h1 className="m-0 text-3xl font-semibold text-kumo-default">Connect your Cloudflare accounts</h1>
+          <h1 className="m-0 text-3xl font-semibold text-kumo-default">Connect your accounts</h1>
           <p className="mt-1.5 text-lg leading-normal text-pretty text-kumo-subtle">
-            Edgewatch scans your accounts' configuration for security problems and best-practice gaps, then tracks them until they're fixed.
+            Edgewatch scans your Cloudflare and Vercel configuration for security problems and best-practice gaps, then tracks them until they're fixed.
           </p>
         </header>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Assurance icon={<EyeIcon />} title="Read-only" text="It never changes anything in your account." />
-          <Assurance icon={<HardDrivesIcon />} title="Stays here" text="Results and the token stay on this machine." />
+          <Assurance icon={<EyeIcon />} title="Read-only" text="It never changes anything in your accounts." />
+          <Assurance icon={<HardDrivesIcon />} title="Stays here" text="Results and tokens stay on this machine." />
           <Assurance
             icon={<LockKeyIcon />}
             title="No telemetry"
-            text="It talks to Cloudflare, and checks your own hostnames for takeovers (you can turn that off)."
+            text={`It talks to ${info.label}, and checks your own hostnames for takeovers (you can turn that off).`}
           />
         </div>
 
-        <Card title="1. Create a read-only API token">
-          <TokenHelp />
+        <Card title="1. Choose a platform">
+          <ProviderPicker value={provider} onChange={setProvider} />
         </Card>
-        <Card title="2. Paste it and choose accounts">
-          <ConnectForm entities={[]} onConnected={onDone} />
+        <Card title={provider === "vercel" ? "2. Create an access token" : "2. Create a read-only API token"}>
+          <TokenHelp provider={provider} />
+        </Card>
+        <Card title={`3. Paste it and choose ${info.accounts}`}>
+          <ConnectForm key={provider} provider={provider} entities={[]} onConnected={onDone} />
         </Card>
 
         <p className="text-sm text-kumo-subtle">
-          You can add more accounts later from <span className="font-medium text-kumo-default">Accounts</span>, with this token or others, including accounts
-          that belong to a different company. Group them into entities and decide which ones appear together.
+          You can add more later from <span className="font-medium text-kumo-default">Accounts</span>: other {info.accounts}, accounts on the other platform for
+          the same company, or accounts that belong to a different company. Group them into entities and decide which ones appear together.
         </p>
       </div>
     </div>

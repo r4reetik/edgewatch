@@ -3,7 +3,8 @@
 
 import type { AppContext } from "../env.ts";
 import type { Routes } from "../router.ts";
-import { CHECKS, CHECK_BY_ID } from "../../core/catalog.ts";
+import { CHECKS, CHECK_BY_ID } from "../../providers/catalog.ts";
+import { PROVIDERS } from "../../shared/providers.ts";
 import { checkStats, latestScans, scanMeta } from "../scope.ts";
 import { fingerprints, mergeSettings, param, requireJson, severityOrNull, triagePatch } from "../validate.ts";
 import { notFound } from "../errors.ts";
@@ -33,11 +34,14 @@ export function settingsRoutes(r: Routes, { repo, auth, version, updates }: AppC
     const scans = scope ? latestScans(repo, scope) : [];
     const stats = checkStats(scans);
     const o = repo.settings.overrides();
+    // Only the providers in view: someone on Cloudflare alone doesn't need Vercel's checks listed.
+    const shown = new Set(scope?.provider ? [scope.provider] : scope?.providers.length ? scope.providers : PROVIDERS);
     return c.json({
       scan: scanMeta(scans),
-      checks: CHECKS.map(
+      checks: CHECKS.filter((d) => shown.has(d.provider)).map(
         (d): CheckRow => ({
           id: d.id,
+          provider: d.provider,
           category: d.category,
           severity: d.severity,
           title: d.title,

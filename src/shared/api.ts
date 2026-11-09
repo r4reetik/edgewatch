@@ -4,6 +4,7 @@
 import type { Severity, SeverityCounts } from "./severity.ts";
 import type { Triage, TriageStatus, SlaDays } from "./triage.ts";
 import type { ScopeKind } from "./scope.ts";
+import type { ProviderId } from "./providers.ts";
 
 export type Confidence = "confirmed" | "likely";
 export type FindingSource = "custom" | "security_center";
@@ -25,6 +26,8 @@ export interface Evidence {
 export interface Finding {
   fingerprint: string;
   accountId: string;
+  /** The platform the account is on. */
+  provider: ProviderId;
   /** Display name of the account. */
   account: string;
   entity: string | null;
@@ -36,13 +39,13 @@ export interface Finding {
   resource: string;
   title: string;
   detail: string;
-  /** Where to fix it in the Cloudflare dashboard. */
+  /** Where to fix it in the provider's dashboard. */
   link: string | null;
   evidence: Evidence | null;
   firstSeen: string | null;
   why: string | null;
   fix: string | null;
-  /** Cloudflare documentation for the setting. */
+  /** The provider's documentation for the setting. */
   docs: string | null;
   triage: Triage | null;
   /** "confirmed": verified by a probe. "likely": a heuristic or observed traffic. null: read from configuration. */
@@ -60,7 +63,7 @@ export interface Finding {
 /** A finding in a short list (Overview, notifications). */
 export type FindingBrief = Pick<
   Finding,
-  "fingerprint" | "checkId" | "title" | "resource" | "severity" | "zone" | "category" | "accountId" | "account" | "confidence"
+  "fingerprint" | "checkId" | "title" | "resource" | "severity" | "zone" | "category" | "accountId" | "account" | "confidence" | "provider"
 >;
 
 /** The same check failing in several places, for "Fix these first". */
@@ -91,13 +94,15 @@ export interface ScanMeta {
 }
 
 export interface Coverage {
-  /** Data source key (see src/core/sources.ts). */
+  /** Data source key (src/core/sources.ts for Cloudflare, src/providers/vercel/sources.ts for Vercel). */
   key?: string;
   label: string;
+  /** The provider the source belongs to (set when the API combines accounts). */
+  provider?: ProviderId;
   ok: boolean;
   status?: number;
   message?: string;
-  /** Token permission that grants this source. */
+  /** Token permission (Cloudflare) or team role (Vercel) that grants this source. */
   permission?: string;
   /** Checks that couldn't run because this source wasn't readable. */
   skippedChecks?: string[];
@@ -107,6 +112,7 @@ export interface Coverage {
 
 export interface AccountSummary {
   id: string;
+  provider: ProviderId;
   name: string;
   entity: string | null;
   score: number | null;
@@ -127,6 +133,7 @@ export type TokenKind = "user" | "account";
 
 export interface SessionAccount {
   id: string;
+  provider: ProviderId;
   name: string | null;
   alias: string | null;
   display: string;
@@ -241,8 +248,12 @@ export interface AddAccountsResponse {
   entityId: number;
 }
 export interface TemplateResponse {
+  /** A pre-filled token form when the provider has one, otherwise its token page. */
   url: string;
+  /** The provider's token page. */
   readAllUrl: string;
+  /** Whether `url` is a pre-filled template. */
+  template: boolean;
 }
 
 // ---- settings and checks
@@ -262,6 +273,7 @@ export interface Settings {
 
 export interface CheckRow {
   id: string;
+  provider: ProviderId;
   category: string;
   severity: Severity;
   title: string;
@@ -313,6 +325,8 @@ export interface OverviewData {
   categoryScores: Record<string, number | null>;
   categoryCounts: Record<string, SeverityCounts>;
   accounts: AccountSummary[];
+  /** With accounts from several providers in view: each provider's score, averaged over its accounts. */
+  byProvider: ProviderScore[];
   counts: SeverityCounts;
   triage: TriageCounts;
   trend: TrendPoint[];
@@ -327,6 +341,13 @@ export interface OverviewData {
   coverage: Coverage[];
   securityCenter: { imported: number; corroborated: number; total: number | null };
   valueCounts: ValueCounts | undefined;
+}
+
+export interface ProviderScore {
+  provider: ProviderId;
+  score: number | null;
+  accounts: number;
+  counts: SeverityCounts;
 }
 
 export interface FindingsResponse {
@@ -560,20 +581,67 @@ export interface ReportData {
   findings: Finding[];
   coverage: Coverage[];
   zones: ZoneRow[] | null;
+  projects: ProjectRow[] | null;
   valueCounts: ValueCounts | undefined;
   checks: Record<string, { evaluated: number; failed: number }>;
 }
 
-/** What a finished scan stores besides its findings. */
+/** What a finished scan stores besides its findings. Provider-specific parts are absent for other providers. */
 export interface ScanSnapshot {
   accountName: string | null;
-  zones: ZoneRow[];
-  value: ValueView;
-  activity: ActivityView;
   coverage: Coverage[];
   checks: Record<string, { evaluated: number; failed: number }>;
-  securityCenter: { imported: number; corroborated: number; total: number | null };
-  probes: { takeover: { probed: number; unclaimed: number } | null };
+  /** Cloudflare: zones, plans and costs, the audit log, Security Center and live probes. */
+  zones?: ZoneRow[];
+  value?: ValueView;
+  activity?: ActivityView;
+  securityCenter?: { imported: number; corroborated: number; total: number | null };
+  probes?: { takeover: { probed: number; unclaimed: number } | null };
+  /** Vercel: projects. */
+  projects?: ProjectRow[];
+  /** What other providers' accounts in the same entity need for checks that span providers. */
+  links?: ProviderLinks;
+}
+
+/**
+ * Hostnames one provider shares with another inside an entity. A Cloudflare scan
+ * records its DNS records that point at Vercel; a Vercel scan records the domains
+ * its projects serve. Each scan reads the other side from the latest scans of the
+ * entity's other accounts.
+ */
+export interface ProviderLinks {
+  /** Cloudflare DNS records whose target is Vercel. */
+  toVercel?: { host: string; zone: string; type: string; target: string; proxied: boolean }[];
+  /** Vercel project domains, with the project that serves each. */
+  vercelDomains?: { host: string; project: string; projectId: string; protectsDeploymentUrls: boolean }[];
+}
+
+/** A Vercel project as the Projects page shows it. */
+export interface ProjectRow {
+  id: string;
+  name: string;
+  account?: string;
+  accountId?: string;
+  framework: string | null;
+  nodeVersion: string | null;
+  git: string | null;
+  domains: string[];
+  /** Who can open preview deployments: "Vercel Authentication", "Password", "Trusted IPs" or "Public". */
+  previews: string;
+  /** Whether *.vercel.app production URLs are protected too. */
+  productionUrls: string;
+  firewall: boolean | null;
+  managedRules: string[] | null;
+  envVars: number | null;
+  sensitiveEnvVars: number | null;
+  gitForkProtection: boolean | null;
+  findings: SeverityCounts;
+}
+
+export interface ProjectsResponse {
+  scan: ScanMeta | null;
+  projects: ProjectRow[] | null;
+  coverage: Coverage[];
 }
 
 /** Error bodies: `code` tells the web app what to do about it. */

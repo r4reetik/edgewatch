@@ -8,9 +8,10 @@ import { isSeverity, SCORED_SEVERITIES } from "../shared/severity.ts";
 import { TRIAGE_STATUSES, type TriageStatus } from "../shared/triage.ts";
 import type { Entity, EntityUpdate, TriagePatch } from "../store/repo.ts";
 import type { Settings } from "../shared/api.ts";
+import { ACCOUNT_ID_PATTERN, isProvider, type ProviderId } from "../shared/providers.ts";
 
 export const FINGERPRINT = /^[0-9a-f]{20}$/;
-export const ACCOUNT_ID = /^[0-9a-f]{32}$/;
+export const ACCOUNT_ID = ACCOUNT_ID_PATTERN.cloudflare;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_TOKEN = 200;
 export const MAX_ACCOUNTS_PER_ADD = 50;
@@ -55,11 +56,20 @@ export function requiredName(v: unknown, what = "entity"): string {
   return n;
 }
 
-export function accountIds(v: unknown): string[] {
+/** The provider a request is about. Requests from before providers existed are Cloudflare's. */
+export function providerId(v: unknown): ProviderId {
+  if (v == null || v === "") return "cloudflare";
+  if (!isProvider(v)) throw badRequest("Unknown provider");
+  return v;
+}
+
+export function accountIds(v: unknown, provider: ProviderId = "cloudflare"): string[] {
   if (v == null) return [];
   if (!Array.isArray(v)) throw badRequest("accountIds must be a list");
-  const ids = [...new Set(v.map((x) => String(x).trim().toLowerCase()))];
-  if (ids.some((id) => !ACCOUNT_ID.test(id))) throw badRequest("An account ID is 32 hexadecimal characters.");
+  // Cloudflare IDs are hex and compared lowercase; Vercel IDs are case-sensitive.
+  const ids = [...new Set(v.map((x) => (provider === "cloudflare" ? String(x).trim().toLowerCase() : String(x).trim())))];
+  if (ids.some((id) => !ACCOUNT_ID_PATTERN[provider].test(id)))
+    throw badRequest(provider === "cloudflare" ? "An account ID is 32 hexadecimal characters." : "That isn't a Vercel team or account ID.");
   if (ids.length > MAX_ACCOUNTS_PER_ADD) throw badRequest(`Add at most ${MAX_ACCOUNTS_PER_ADD} accounts at a time.`);
   return ids;
 }

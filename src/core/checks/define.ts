@@ -10,13 +10,15 @@
 //
 // `report` only accepts the module's own check IDs, so a typo is a type error.
 // Register the module in checks/index.ts; the catalog is built from the registry.
+// Other providers write their modules the same way with `checksFor<TheirContext>()`
+// (see src/providers/vercel/checks/define.ts); the Evaluator is shared.
 
 import type { Category } from "../categories.ts";
 import type { SourceKey } from "../sources.ts";
 import type { Confidence, EngineOptions, Evidence, Inventory, Result, Severity } from "../types.ts";
 import { dash, orgDomains, type Dash } from "./helpers.ts";
 
-export interface CheckMeta {
+export interface CheckMeta<S extends string = SourceKey> {
   category: Category;
   severity: Severity;
   title: string;
@@ -27,7 +29,7 @@ export interface CheckMeta {
   /** Cloudflare documentation for the setting. */
   docs?: string;
   /** Data sources the check reads; when one is unreadable the UI says this check was skipped. */
-  requires?: SourceKey[];
+  requires?: S[];
   /** A concrete way in: surfaced first on the Overview. */
   attackPath?: boolean;
 }
@@ -64,18 +66,19 @@ export interface Report<Id extends string> {
   passIfNone(id: Id, resource?: string, zone?: string | null): void;
 }
 
-export interface CheckModule<Id extends string = string> {
-  meta: Record<Id, CheckMeta>;
+export interface CheckModule<Id extends string = string, Ctx = CheckContext, S extends string = SourceKey> {
+  meta: Record<Id, CheckMeta<S>>;
   // A method, so modules with narrower ID unions still fit CheckModule<string>.
-  run(ctx: CheckContext, report: Report<Id>): void;
+  run(ctx: Ctx, report: Report<Id>): void;
 }
 
-export function defineChecks<const M extends Record<string, CheckMeta>>(
-  meta: M,
-  run: (ctx: CheckContext, report: Report<Extract<keyof M, string>>) => void,
-): CheckModule<Extract<keyof M, string>> {
-  return { meta: meta as Record<Extract<keyof M, string>, CheckMeta>, run };
+/** `defineChecks` for a provider's own context and source keys: `const defineChecks = checksFor<VercelContext, VercelSourceKey>();` */
+export function checksFor<Ctx, S extends string>() {
+  return <const M extends Record<string, CheckMeta<S>>>(meta: M, run: (ctx: Ctx, report: Report<Extract<keyof M, string>>) => void) =>
+    ({ meta: meta as Record<Extract<keyof M, string>, CheckMeta<S>>, run }) as CheckModule<Extract<keyof M, string>, Ctx, S>;
 }
+
+export const defineChecks = checksFor<CheckContext, SourceKey>();
 
 /**
  * Collects one pass/fail result per (check, resource). Failures become findings;
@@ -91,12 +94,16 @@ export class Evaluator {
     this.#opts = opts;
   }
 
-  /** Runs a module, giving it a `report` bound to its own metadata. */
+  /** Runs a Cloudflare module, giving it a `report` bound to its own metadata. */
   run<Id extends string>(m: CheckModule<Id>, inv: Inventory): void {
-    const ctx: CheckContext = { inv, opts: this.#opts, d: dash(inv), org: orgDomains(inv, this.#opts) };
+    this.runWith(m, { inv, opts: this.#opts, d: dash(inv), org: orgDomains(inv, this.#opts) }, inv.unreadable ?? []);
+  }
+
+  /** Runs any provider's module against its context. A check that needs a source in `unreadable` is skipped. */
+  runWith<Id extends string, Ctx, S extends string>(m: CheckModule<Id, Ctx, S>, ctx: Ctx, unreadableSources: readonly string[]): void {
     // A check that needs a source the token couldn't read is skipped: no pass, no failure.
-    const unreadable = new Set(inv.unreadable ?? []);
-    const skipped = (meta: CheckMeta | undefined) => !!meta?.requires?.some((k) => unreadable.has(k));
+    const unreadable = new Set(unreadableSources);
+    const skipped = (meta: CheckMeta<S> | undefined) => !!meta?.requires?.some((k) => unreadable.has(k));
     const report = ((id: Id, r: EvalInput) => {
       if (!skipped(m.meta[id])) this.#add(id, m.meta[id], r);
     }) as Report<Id>;
@@ -108,7 +115,7 @@ export class Evaluator {
 
   #add(
     checkId: string,
-    meta: CheckMeta | undefined,
+    meta: CheckMeta<string> | undefined,
     { zone = null, resource, pass, severity, detail = "", evidence = null, link = null, confidence }: EvalInput,
   ): void {
     if (!meta) throw new Error(`Check ${checkId} isn't declared in its module`);

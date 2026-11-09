@@ -29,6 +29,8 @@ const CSV_COLUMNS = [
   "note",
   "docs",
   "link",
+  // Added with Vercel support; last, so scripts that read columns by position keep working.
+  "provider",
 ] as const;
 
 export function exportRoutes(r: Routes, { repo }: AppContext) {
@@ -47,7 +49,7 @@ export function exportRoutes(r: Routes, { repo }: AppContext) {
   r.get("/api/export/findings.json", (c) => {
     const { scope, meta, findings, name } = rows(c);
     c.header("content-disposition", `attachment; filename="${name}.json"`);
-    return c.json({ scope: { kind: scope.kind, label: scope.label }, scan: meta, findings });
+    return c.json({ scope: { kind: scope.kind, label: scope.label, provider: scope.provider }, scan: meta, findings });
   });
 
   r.get("/api/export/findings.csv", (c) => {

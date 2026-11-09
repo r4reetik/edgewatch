@@ -6,6 +6,7 @@ import { deleteOrphans } from "./findings.ts";
 import type { AccountRecord, EntityRecord } from "./rows.ts";
 import type { Severity } from "../shared/severity.ts";
 import type { TokenKind } from "../shared/api.ts";
+import type { ProviderId } from "../shared/providers.ts";
 
 export interface EntityNotifications {
   slackWebhookUrl: string;
@@ -29,6 +30,8 @@ export type EntityUpdate = Pick<Entity, "name" | "includeInAll" | "orgDomains" |
 
 export interface Account {
   id: string;
+  /** The platform the account is on. */
+  provider: ProviderId;
   name: string | null;
   alias: string | null;
   entityId: number;
@@ -119,10 +122,11 @@ export class AccountRepo {
     return r ? toAccount(r) : null;
   }
 
-  add(a: Pick<Account, "id" | "name" | "entityId" | "tokenId" | "tokenKind">): void {
+  add(a: Pick<Account, "id" | "name" | "entityId" | "tokenId" | "tokenKind"> & { provider?: ProviderId }): void {
     this.#s.run(
-      "INSERT INTO accounts (id, name, entity_id, token_id, token_kind, position, added_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      "INSERT INTO accounts (id, provider, name, entity_id, token_id, token_kind, position, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       a.id,
+      a.provider ?? "cloudflare",
       a.name,
       a.entityId,
       a.tokenId,
@@ -193,6 +197,7 @@ function toEntity(r: EntityRecord): Entity {
 function toAccount(r: AccountRecord): Account {
   return {
     id: r.id,
+    provider: (r.provider as ProviderId) || "cloudflare",
     name: r.name ?? null,
     alias: r.alias ?? null,
     entityId: r.entity_id,

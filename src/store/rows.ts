@@ -66,6 +66,7 @@ export interface AccountRecord {
   entity_id: number;
   token_id: string;
   token_kind: string | null;
+  provider: string;
   scheduled: number;
   position: number;
   added_at: string;

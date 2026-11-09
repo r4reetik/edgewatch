@@ -19,9 +19,22 @@ import {
   TrashIcon,
 } from "@phosphor-icons/react";
 import { useShell } from "../shell.tsx";
-import { api, ago, navigate, plural, sameName, score, useApi, type AccountRow, type AccountsResponse, type Severity } from "../lib.ts";
-import { DialogHeader, ListCard, Page, PageState } from "../components/ui.tsx";
-import { ConnectForm, TokenHelp } from "../components/connect.tsx";
+import {
+  api,
+  ago,
+  navigate,
+  plural,
+  PROVIDER_INFO,
+  sameName,
+  score,
+  useApi,
+  type AccountRow,
+  type AccountsResponse,
+  type ProviderId,
+  type Severity,
+} from "../lib.ts";
+import { AccountName, DialogHeader, ListCard, Page, PageState } from "../components/ui.tsx";
+import { ConnectForm, ProviderPicker, TokenHelp, type Connected } from "../components/connect.tsx";
 
 type Account = AccountRow;
 type Entity = AccountsResponse["entities"][number];
@@ -38,7 +51,7 @@ type Modal =
 
 const TITLE = "Accounts";
 const DESCRIPTION =
-  "Cloudflare accounts Edgewatch scans, grouped by the company or team that owns them. Each entity has its own email domains and alerts, and you choose which entities appear together in All accounts.";
+  "Cloudflare accounts and Vercel teams Edgewatch scans, grouped by the company or team that owns them. An entity can hold accounts on both platforms, has its own email domains and alerts, and you choose which entities appear together in All accounts.";
 
 export function AccountsPage() {
   const { dataVersion, status, refreshSession, setScope, startScan } = useShell();
@@ -101,27 +114,20 @@ export function AccountsPage() {
       ))}
 
       {modal?.kind === "add" && (
-        <Dialog.Root open onOpenChange={(o: boolean) => !o && close()}>
-          <Dialog size="xl" className="max-h-[90vh] overflow-y-auto p-6">
-            <DialogHeader title="Add accounts" description="Paste a read-only token, pick the accounts it should scan, and choose the entity they belong to." />
-            <div className="mb-6">
-              <TokenHelp />
-            </div>
-            <ConnectForm
-              entities={entities}
-              defaultEntityId={modal.entityId}
-              onConnected={async (r) => {
-                close();
-                await refresh();
-                toasts.add({
-                  title: r.added.length ? `${plural(r.added.length, "account")} added` : "Token replaced",
-                  description: "Scans have started.",
-                  variant: "success",
-                });
-              }}
-            />
-          </Dialog>
-        </Dialog.Root>
+        <AddAccountsDialog
+          entities={entities}
+          entityId={modal.entityId}
+          onClose={close}
+          onConnected={async (r, unit) => {
+            close();
+            await refresh();
+            toasts.add({
+              title: r.added.length ? `${plural(r.added.length, unit)} added` : "Token replaced",
+              description: "Scans have started.",
+              variant: "success",
+            });
+          }}
+        />
       )}
       {modal?.kind === "new-entity" && (
         <NameDialog
@@ -154,7 +160,7 @@ export function AccountsPage() {
           placeholder={modal.account.name || modal.account.id}
           submit="Save"
           allowEmpty
-          description={`Shown everywhere in Edgewatch instead of the Cloudflare name${modal.account.name ? ` (${modal.account.name})` : ""}. Leave empty to use the Cloudflare name. Nothing changes in Cloudflare.`}
+          description={`Shown everywhere in Edgewatch instead of the ${PROVIDER_INFO[modal.account.provider].label} name${modal.account.name ? ` (${modal.account.name})` : ""}. Leave empty to use the ${PROVIDER_INFO[modal.account.provider].label} name. Nothing changes in ${PROVIDER_INFO[modal.account.provider].label}.`}
           onClose={close}
           onSave={(alias) => patchAccount(modal.account, { alias: alias || null }, "Account renamed")}
         />
@@ -183,7 +189,7 @@ export function AccountsPage() {
           title={`Remove ${modal.account.display}?`}
           confirm="Remove account"
           onClose={close}
-          description="Edgewatch stops scanning this account and deletes its scan history, findings and triage. Nothing changes in Cloudflare. A token no other account uses is deleted too."
+          description={`Edgewatch stops scanning this ${PROVIDER_INFO[modal.account.provider].account} and deletes its scan history, findings and triage. Nothing changes in ${PROVIDER_INFO[modal.account.provider].label}. A token no other account uses is deleted too.`}
           onConfirm={() => act(() => api(`/api/accounts/${modal.account.id}`, { method: "DELETE", body: {} }), `${modal.account.display} removed`)}
         />
       )}
@@ -306,7 +312,9 @@ function EntityCard({
             {e.accounts.map((a, i) => (
               <Table.Row key={a.id}>
                 <Table.Cell className="max-w-72">
-                  <div className="truncate text-kumo-default">{a.display}</div>
+                  <div className="truncate text-kumo-default">
+                    <AccountName name={a.display} provider={a.provider} />
+                  </div>
                   <div className="truncate text-sm text-kumo-subtle">
                     {a.alias && a.name ? `${a.name} · ` : ""}
                     <span className="font-mono text-xs">{a.id}</span>
@@ -318,7 +326,11 @@ function EntityCard({
                   ) : (
                     <>
                       <span className="font-mono text-sm">{a.tokenHint}</span>
-                      {a.tokenKind && <span className="ml-2 text-sm text-kumo-subtle">{a.tokenKind === "user" ? "User token" : "Account token"}</span>}
+                      {a.provider === "vercel" ? (
+                        <span className="ml-2 text-sm text-kumo-subtle">Access token</span>
+                      ) : (
+                        a.tokenKind && <span className="ml-2 text-sm text-kumo-subtle">{a.tokenKind === "user" ? "User token" : "Account token"}</span>
+                      )}
                     </>
                   )}
                 </Table.Cell>
@@ -532,7 +544,7 @@ function TokenDialog({ account, onClose, onSaved }: { account: Account; onClose:
       <Dialog size="lg" className="p-6">
         <DialogHeader
           title={`Replace token for ${account.display}`}
-          description="The new token must be able to read this account. Other accounts keep their tokens."
+          description={`The new ${PROVIDER_INFO[account.provider].label} token must be able to read this ${PROVIDER_INFO[account.provider].account}. Other accounts keep their tokens.`}
         />
         <form
           onSubmit={async (ev) => {
@@ -549,7 +561,7 @@ function TokenDialog({ account, onClose, onSaved }: { account: Account; onClose:
           }}
         >
           <SensitiveInput
-            label="API token"
+            label={account.provider === "vercel" ? "Access token" : "API token"}
             value={token}
             onChange={(ev: React.ChangeEvent<HTMLInputElement>) => setToken(ev.target.value.trim())}
             variant={err ? "error" : "default"}
@@ -692,6 +704,42 @@ function EntitySettingsDialog({
             Save
           </Button>
         </div>
+      </Dialog>
+    </Dialog.Root>
+  );
+}
+
+/**
+ * Adds accounts on either platform. It starts on the platform most of the accounts here
+ * are on, so someone who only uses Vercel (or only Cloudflare) rarely has to change it.
+ */
+function AddAccountsDialog({
+  entities,
+  entityId,
+  onClose,
+  onConnected,
+}: {
+  entities: Entity[];
+  entityId?: number;
+  onClose: () => void;
+  onConnected: (r: Connected, unit: string) => void;
+}) {
+  const all = entities.flatMap((e) => e.accounts);
+  const vercel = all.filter((a) => a.provider === "vercel").length;
+  const [provider, setProvider] = useState<ProviderId>(vercel > all.length - vercel ? "vercel" : "cloudflare");
+  const info = PROVIDER_INFO[provider];
+  return (
+    <Dialog.Root open onOpenChange={(o: boolean) => !o && onClose()}>
+      <Dialog size="xl" className="max-h-[90vh] overflow-y-auto p-6">
+        <DialogHeader
+          title="Add accounts"
+          description={`Choose the platform, paste a token, pick the ${info.accounts} it should scan, and choose the entity they belong to.`}
+        />
+        <div className="mb-6 flex flex-col gap-6">
+          <ProviderPicker value={provider} onChange={setProvider} />
+          <TokenHelp provider={provider} />
+        </div>
+        <ConnectForm key={provider} provider={provider} entities={entities} defaultEntityId={entityId} onConnected={(r) => onConnected(r, info.account)} />
       </Dialog>
     </Dialog.Root>
   );

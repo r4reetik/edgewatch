@@ -3,7 +3,8 @@
 
 import type { Store } from "./db.ts";
 import type { FindingRecord, TriageRecord } from "./rows.ts";
-import { CHECK_BY_ID } from "../core/catalog.ts";
+import { CHECK_BY_ID } from "../providers/catalog.ts";
+import { isProvider, type ProviderId } from "../shared/providers.ts";
 import { SEVERITY_WEIGHT, type Severity } from "../shared/severity.ts";
 import { dueDate, effectiveStatus, isSettled, type SlaDays, type Triage, type TriageStatus } from "../shared/triage.ts";
 import { isoDate } from "../shared/time.ts";
@@ -16,7 +17,7 @@ export type StoredFinding = Omit<Finding, "account" | "entity">;
 /** A triage change. Fields left undefined keep their current value. */
 export type TriagePatch = Partial<Pick<Triage, "status" | "owner" | "note" | "dueDate" | "acceptUntil">>;
 
-type Joined = FindingRecord & { account_id: string; first_seen: string | null; reopen_count: number | null } & Partial<
+type Joined = FindingRecord & { account_id: string; provider: string | null; first_seen: string | null; reopen_count: number | null } & Partial<
     Record<`t_${keyof Omit<TriageRecord, "fingerprint">}`, string | null>
   >;
 
@@ -46,7 +47,7 @@ export class FindingRepo {
   /** A scan's findings with current triage, most important first. */
   forScan(scanId: number, sla: SlaDays): StoredFinding[] {
     const rows = this.#s.all<Joined>(
-      `SELECT f.*, s.account_id, h.first_seen, h.reopen_count, ${TRIAGE_COLUMNS}
+      `SELECT f.*, s.account_id, (SELECT a.provider FROM accounts a WHERE a.id = s.account_id) AS provider, h.first_seen, h.reopen_count, ${TRIAGE_COLUMNS}
        FROM findings f JOIN scans s ON s.id = f.scan_id LEFT JOIN finding_history h ON h.fingerprint = f.fingerprint LEFT JOIN triage t ON t.fingerprint = f.fingerprint
        WHERE f.scan_id = ?`,
       scanId,
@@ -129,8 +130,8 @@ export class FindingRepo {
 
   /** The last stored version of a finding, for resolved permalinks. */
   lastBrief(fingerprint: string, scanId: number, account: string): FindingBrief | null {
-    const r = this.#s.get<FindingRecord & { account_id: string }>(
-      "SELECT f.*, s.account_id FROM findings f JOIN scans s ON s.id = f.scan_id WHERE f.fingerprint = ? AND f.scan_id = ?",
+    const r = this.#s.get<FindingRecord & { account_id: string; provider: string | null }>(
+      "SELECT f.*, s.account_id, (SELECT a.provider FROM accounts a WHERE a.id = s.account_id) AS provider FROM findings f JOIN scans s ON s.id = f.scan_id WHERE f.fingerprint = ? AND f.scan_id = ?",
       fingerprint,
       scanId,
     );
@@ -144,6 +145,7 @@ export class FindingRepo {
           zone: r.zone,
           category: r.category,
           accountId: r.account_id,
+          provider: providerOr(r.provider),
           account,
           confidence: (r.confidence as Confidence) || null,
         }
@@ -167,7 +169,7 @@ export class FindingRepo {
     if (!accountIds.length) return [];
     const marks = accountIds.map(() => "?").join(", ");
     const rows = this.#s.all<Joined & { latest: number | null }>(
-      `SELECT f.*, s.account_id, h.first_seen, h.reopen_count, ${TRIAGE_COLUMNS},
+      `SELECT f.*, s.account_id, (SELECT a.provider FROM accounts a WHERE a.id = s.account_id) AS provider, h.first_seen, h.reopen_count, ${TRIAGE_COLUMNS},
          (SELECT MAX(x.id) FROM scans x WHERE x.account_id = s.account_id AND x.status = 'done') AS latest
        FROM triage t
        JOIN findings f ON f.fingerprint = t.fingerprint AND f.scan_id = (SELECT MAX(g.scan_id) FROM findings g WHERE g.fingerprint = t.fingerprint)
@@ -234,6 +236,9 @@ function toTriage(r: Pick<TriageRecord, "status" | "owner" | "note" | "due_date"
   };
 }
 
+/** Findings of an account removed mid-request have no provider row; they were Cloudflare's before providers existed. */
+const providerOr = (p: string | null | undefined): ProviderId => (isProvider(p) ? p : "cloudflare");
+
 function toFinding(r: Joined, sla: SlaDays, today: string): StoredFinding {
   const check = CHECK_BY_ID[r.check_id];
   const triage = r.t_status
@@ -254,6 +259,7 @@ function toFinding(r: Joined, sla: SlaDays, today: string): StoredFinding {
   return {
     fingerprint: r.fingerprint,
     accountId: r.account_id,
+    provider: providerOr(r.provider),
     checkId: r.check_id,
     source: r.source as FindingSource,
     severity,

@@ -1,6 +1,6 @@
 import { Badge, Table } from "@cloudflare/kumo";
 import { useScopedApi, useShell } from "../shell.tsx";
-import { dateTime, link, num, plural, score, type ScansResponse } from "../lib.ts";
+import { dateTime, link, num, plural, PROVIDER_INFO, score, type ScansResponse } from "../lib.ts";
 import { Aside, Flag, ListCard, NoRows, Page, PageState } from "../components/ui.tsx";
 
 const TITLE = "Scans";
@@ -129,7 +129,7 @@ export function ScansPage() {
                         ) : null}
                         {c.message && (
                           <span className="truncate" title={c.message}>
-                            {c.permission ? "Cloudflare said: " : ""}
+                            {c.permission ? `${PROVIDER_INFO[c.provider ?? "cloudflare"].label} said: ` : ""}
                             {c.message}
                           </span>
                         )}

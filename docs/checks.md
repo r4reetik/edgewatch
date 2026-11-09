@@ -2,30 +2,45 @@
 
 # Checks
 
-Edgewatch runs its own checks, and imports Cloudflare Security Center insights alongside them.
-A check evaluates every resource it applies to (an account, zone, hostname, rule, token, application…) as pass or fail;
+Edgewatch runs its own checks on every provider, and imports Cloudflare Security Center insights alongside them.
+A check evaluates every resource it applies to (an account, zone, project, hostname, rule, token…) as pass or fail;
 each failure is a finding. Severity is the check's default, and a finding can raise or lower it
 (for example, a public R2 bucket is critical when it holds backups). Checks marked **Attack path** describe a concrete way in
 and are shown first on the Overview. When the token can't read a source a check needs, the check is skipped, never passed.
 
-| Category | Checks |
-|---|---|
-| [Attack surface](#attack-surface) | 9 |
-| [Traffic](#traffic) | 9 |
-| [Identity & access](#identity--access) | 9 |
-| [Zero Trust](#zero-trust) | 22 |
-| [TLS & HTTPS](#tls--https) | 15 |
-| [WAF & bots](#waf--bots) | 23 |
-| [DNS](#dns) | 9 |
-| [Email](#email) | 11 |
-| [Platform](#platform) | 5 |
-| [Monitoring](#monitoring) | 4 |
-| [Change risk](#change-risk) | 3 |
-| [Cost & usage](#cost--usage) | 1 |
+Checks marked **Spans providers** (XP-) compare an account with the other accounts in its entity, for example Cloudflare DNS records
+with the domains of the entity's Vercel projects. They read the latest scan of those accounts, and are skipped when the entity has no
+scanned account on the other provider.
 
-## Attack surface
+| Provider | Category | Checks |
+|---|---|---|
+| Cloudflare | [Attack surface](#cloudflare-attack-surface) | 9 |
+| Cloudflare | [Traffic](#cloudflare-traffic) | 9 |
+| Cloudflare | [Identity & access](#cloudflare-identity--access) | 9 |
+| Cloudflare | [Zero Trust](#cloudflare-zero-trust) | 22 |
+| Cloudflare | [TLS & HTTPS](#cloudflare-tls--https) | 15 |
+| Cloudflare | [WAF & bots](#cloudflare-waf--bots) | 23 |
+| Cloudflare | [DNS](#cloudflare-dns) | 10 |
+| Cloudflare | [Email](#cloudflare-email) | 11 |
+| Cloudflare | [Platform](#cloudflare-platform) | 6 |
+| Cloudflare | [Monitoring](#cloudflare-monitoring) | 4 |
+| Cloudflare | [Change risk](#cloudflare-change-risk) | 3 |
+| Cloudflare | [Cost & usage](#cloudflare-cost--usage) | 1 |
+| Vercel | [Identity & access](#vercel-identity--access) | 10 |
+| Vercel | [Deployments](#vercel-deployments) | 8 |
+| Vercel | [Secrets](#vercel-secrets) | 8 |
+| Vercel | [TLS & HTTPS](#vercel-tls--https) | 1 |
+| Vercel | [WAF & bots](#vercel-waf--bots) | 8 |
+| Vercel | [DNS](#vercel-dns) | 2 |
+| Vercel | [Platform](#vercel-platform) | 4 |
+| Vercel | [Monitoring](#vercel-monitoring) | 4 |
+| Vercel | [Change risk](#vercel-change-risk) | 1 |
 
-### ATS-001: Origin IP of a proxied host is exposed
+## Cloudflare
+
+### Cloudflare: Attack surface
+
+#### ATS-001: Origin IP of a proxied host is exposed
 
 **Severity:** High · **Attack path** · **Reads:** DNS records, Public DNS lookups · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/security/protect-your-origin-server/)
 
@@ -35,7 +50,7 @@ Cloudflare only protects traffic that goes through it. Once an attacker knows th
 
 Move the exposed record behind the proxy or to another address, change the origin IP, and allow only Cloudflare's IP ranges (or a Tunnel) at the origin.
 
-### ATS-002: Proxied origins can be reached without Cloudflare
+#### ATS-002: Proxied origins can be reached without Cloudflare
 
 **Severity:** Medium · **Reads:** DNS records, Origin certificates, Worker routes, Configuration and transform rules · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/security/protect-your-origin-server/)
 
@@ -45,7 +60,7 @@ Nothing stops someone who finds these origins from connecting to them directly: 
 
 Turn on Authenticated Origin Pulls and require the client certificate at the origin, or move the services behind a Cloudflare Tunnel.
 
-### ATS-003: Admin or internal tool reachable without Access
+#### ATS-003: Admin or internal tool reachable without Access
 
 **Severity:** High · **Attack path** · **Reads:** DNS records, Access applications · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/applications/configure-apps/self-hosted-public-app/)
 
@@ -55,7 +70,7 @@ Admin consoles and pre-production services exposed to the internet are prime tar
 
 Put the hostname behind a Cloudflare Access application, or take it off public DNS.
 
-### ATS-004: Tunnel publishes SSH, RDP or raw TCP without Access
+#### ATS-004: Tunnel publishes SSH, RDP or raw TCP without Access
 
 **Severity:** High · **Attack path** · **Reads:** Tunnel configurations, Access applications · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/applications/non-http/)
 
@@ -65,7 +80,7 @@ Anyone who knows the hostname reaches the service's login prompt through your tu
 
 Create a Cloudflare Access application for the hostname, or route the service privately (WARP) instead of on a public hostname.
 
-### ATS-005: Tunnel skips origin TLS verification
+#### ATS-005: Tunnel skips origin TLS verification
 
 **Severity:** Low · **Reads:** Tunnel configurations · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/origin-configuration/)
 
@@ -75,7 +90,7 @@ With noTLSVerify, cloudflared accepts any certificate from the origin, so someon
 
 Install a valid certificate on the origin (or set originServerName and caPool), then remove noTLSVerify.
 
-### ATS-006: Tunnel routing and DNS disagree
+#### ATS-006: Tunnel routing and DNS disagree
 
 **Severity:** Low · **Reads:** Tunnel configurations, DNS records · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/)
 
@@ -85,7 +100,7 @@ Hostnames routed to a tunnel with no matching rule hit its catch-all (usually 40
 
 Add the public hostname to the tunnel's configuration, or remove the stale DNS record or route.
 
-### ATS-007: Subdomain can be taken over
+#### ATS-007: Subdomain can be taken over
 
 **Severity:** Critical · **Attack path** · **Reads:** DNS records, Takeover probes · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/troubleshooting/)
 
@@ -95,7 +110,7 @@ The hostname points at a provider resource that no longer exists. Anyone can cla
 
 Delete the DNS record now, or recreate the resource at the provider before someone else does.
 
-### ATS-008: Delegated subdomain's nameservers don't answer
+#### ATS-008: Delegated subdomain's nameservers don't answer
 
 **Severity:** High · **Attack path** · **Reads:** DNS records, Public DNS lookups · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/how-to/subdomains-outside-cloudflare/)
 
@@ -105,7 +120,7 @@ If the nameservers a subdomain is delegated to don't serve it, someone may be ab
 
 Remove the NS delegation, or fix the zone at the delegated DNS provider.
 
-### ATS-009: Spectrum publishes SSH, RDP or another admin protocol to the internet
+#### ATS-009: Spectrum publishes SSH, RDP or another admin protocol to the internet
 
 **Severity:** High · **Attack path** · **Reads:** Spectrum applications · [Cloudflare docs](https://developers.cloudflare.com/spectrum/reference/configuration-options/)
 
@@ -115,9 +130,9 @@ Remote-administration ports behind Spectrum are still open to everyone: Spectrum
 
 Put the service behind Access (Cloudflare Tunnel with an Access application, or Access for Infrastructure) and delete the Spectrum application, or at least turn on its IP Access rules.
 
-## Traffic
+### Cloudflare: Traffic
 
-### TRF-001: Managed rules are catching attacks but only logging them
+#### TRF-001: Managed rules are catching attacks but only logging them
 
 **Severity:** High · **Attack path** · **Reads:** WAF rulesets, Security analytics · [Cloudflare docs](https://developers.cloudflare.com/waf/managed-rules/deploy-zone-dashboard/)
 
@@ -129,7 +144,7 @@ The WAF recognises these requests as attacks and lets every one through, because
 2. Add exceptions for the false positives.
 3. Remove the log-only override so the rules block.
 
-### TRF-002: Requests scored as attacks were answered normally
+#### TRF-002: Requests scored as attacks were answered normally
 
 **Severity:** High · **Reads:** Security analytics · [Cloudflare docs](https://developers.cloudflare.com/waf/detections/attack-score/)
 
@@ -139,7 +154,7 @@ Cloudflare's machine-learning attack score flagged these requests (SQL injection
 
 Add a custom WAF rule that blocks or challenges requests with cf.waf.score lt 20 (start with Log for a day to check for false positives).
 
-### TRF-003: Login attempts with leaked passwords aren't stopped
+#### TRF-003: Login attempts with leaked passwords aren't stopped
 
 **Severity:** High · **Reads:** Security analytics, WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/detections/leaked-credentials/)
 
@@ -150,7 +165,7 @@ Login requests carried passwords known from public breaches and reached the appl
 1. Add a rule that challenges or blocks when cf.waf.credential_check.username_and_password_leaked is true.
 2. Force a password reset for affected accounts.
 
-### TRF-004: A sensitive file or debug page is being served
+#### TRF-004: A sensitive file or debug page is being served
 
 **Severity:** High · **Attack path** · **Reads:** Security analytics · [Cloudflare docs](https://developers.cloudflare.com/waf/custom-rules/use-cases/)
 
@@ -162,7 +177,7 @@ Paths like /.env, /.git/, /actuator/env or /server-status answered 200 with real
 2. Rotate any credentials it exposed.
 3. Add a WAF rule blocking these paths as a safety net.
 
-### TRF-005: Content is served over plain HTTP
+#### TRF-005: Content is served over plain HTTP
 
 **Severity:** Medium · **Reads:** Security analytics · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/)
 
@@ -172,7 +187,7 @@ Visitors on these hostnames got real responses over unencrypted HTTP, which anyo
 
 Turn on Always Use HTTPS (SSL/TLS → Edge Certificates), and remove any rule that disables it for these hostnames.
 
-### TRF-006: Clients still connect with TLS 1.0 or 1.1
+#### TRF-006: Clients still connect with TLS 1.0 or 1.1
 
 **Severity:** Low · **Reads:** Security analytics, Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls/)
 
@@ -184,7 +199,7 @@ Real clients are negotiating deprecated TLS versions. Raising the minimum to 1.2
 2. Update them or let them know.
 3. Raise the minimum TLS version to 1.2.
 
-### TRF-007: Security rule hasn't matched anything in 30 days
+#### TRF-007: Security rule hasn't matched anything in 30 days
 
 **Severity:** Low · **Reads:** Security analytics, WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/custom-rules/)
 
@@ -194,7 +209,7 @@ A rule that never matches is often aimed at a path or host that changed, so the 
 
 Check the rule's expression against current traffic; fix it, or delete it if it's no longer needed.
 
-### TRF-008: Likely bots succeed on login and API endpoints
+#### TRF-008: Likely bots succeed on login and API endpoints
 
 **Severity:** Medium · **Reads:** Security analytics · [Cloudflare docs](https://developers.cloudflare.com/bots/concepts/bot-score/)
 
@@ -204,7 +219,7 @@ Requests with a bot score under 30 (automated) and no verified-bot identity got 
 
 Add a custom rule that challenges cf.bot_management.score lt 30 on login paths, or rate-limit them by IP and JA4 fingerprint.
 
-### TRF-009: A hostname with no DNS record receives heavy traffic
+#### TRF-009: A hostname with no DNS record receives heavy traffic
 
 **Severity:** Low · **Reads:** Security analytics, DNS records · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/)
 
@@ -214,9 +229,9 @@ Many requests arrive for a name you don't publish: often a record deleted while 
 
 Find out where the traffic comes from (Security → Analytics, filter by host); restore the record, or redirect or block the hostname explicitly.
 
-## Identity & access
+### Cloudflare: Identity & access
 
-### IAM-001: Member without two-factor authentication
+#### IAM-001: Member without two-factor authentication
 
 **Severity:** High · **Reads:** Account members · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/user-profiles/2fa/)
 
@@ -226,7 +241,7 @@ A stolen password alone gives full access to this Cloudflare account.
 
 Ask the member to enable 2FA under My Profile → Authentication, or remove them. Members who sign in only through SSO can show as 2FA-off; confirm with them.
 
-### IAM-002: Too many Super Administrators
+#### IAM-002: Too many Super Administrators
 
 **Severity:** High · **Reads:** Account members · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/manage-members/roles/)
 
@@ -236,7 +251,7 @@ Every Super Administrator can delete zones, change billing and create API tokens
 
 Keep two break-glass Super Administrators. Move everyone else to scoped roles (Administrator, DNS, Firewall, Zero Trust, Workers Admin).
 
-### IAM-003: Pending member invitation
+#### IAM-003: Pending member invitation
 
 **Severity:** Low · **Reads:** Account members · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/manage-members/manage/)
 
@@ -246,7 +261,7 @@ Unaccepted invitations can be accepted later by whoever controls that inbox.
 
 Revoke invitations that are no longer needed under Manage Account → Members.
 
-### IAM-004: Member outside company email domains
+#### IAM-004: Member outside company email domains
 
 **Severity:** Medium · **Reads:** Account members · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/manage-members/manage/)
 
@@ -256,7 +271,7 @@ Personal or third-party addresses are outside your identity lifecycle: offboardi
 
 Replace with a company address, or document why the external member needs access and scope their role.
 
-### IAM-005: Account does not enforce two-factor authentication
+#### IAM-005: Account does not enforce two-factor authentication
 
 **Severity:** High · **Reads:** Account settings · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/user-profiles/2fa/)
 
@@ -266,7 +281,7 @@ Without enforcement, any member can sign in with a password only.
 
 Turn on Manage Account → Configurations → Enforce two-factor authentication.
 
-### IAM-006: Account API token works from any IP address
+#### IAM-006: Account API token works from any IP address
 
 **Severity:** Medium · **Reads:** Account API tokens · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/api/how-to/restrict-tokens/)
 
@@ -277,7 +292,7 @@ A leaked token without an IP restriction works for whoever has it, from anywhere
 1. Open Manage Account → Account API Tokens and edit the token.
 2. Under Client IP Address Filtering, allow only the addresses your automation runs from.
 
-### IAM-007: Account API token never expires
+#### IAM-007: Account API token never expires
 
 **Severity:** Medium · **Reads:** Account API tokens · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/api/how-to/restrict-tokens/)
 
@@ -288,7 +303,7 @@ Tokens without an end date keep working long after the person or system that nee
 1. Edit the token under Manage Account → Account API Tokens.
 2. Set a TTL end date and roll the token before it lapses.
 
-### IAM-008: Account API token unused for 90 days or more
+#### IAM-008: Account API token unused for 90 days or more
 
 **Severity:** Medium · **Reads:** Account API tokens · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/api/get-started/account-owned-tokens/)
 
@@ -299,7 +314,7 @@ An unused token is pure risk: nothing breaks if it's deleted, but it still works
 1. Confirm nothing uses the token.
 2. Delete it under Manage Account → Account API Tokens.
 
-### IAM-009: Account API token can change every zone
+#### IAM-009: Account API token can change every zone
 
 **Severity:** High · **Reads:** Account API tokens · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/api/reference/permissions/)
 
@@ -310,9 +325,9 @@ A token with write permissions on all zones lets one leak rewrite DNS, turn off 
 1. Edit the token's Zone Resources to list only the zones it manages.
 2. Keep write permissions to the groups the job needs, or split it into narrower tokens.
 
-## Zero Trust
+### Cloudflare: Zero Trust
 
-### ZT-001: Access policy allows an individual external email
+#### ZT-001: Access policy allows an individual external email
 
 **Severity:** Medium · **Reads:** Access applications · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/policies/access/)
 
@@ -322,7 +337,7 @@ Individual addresses outside your domains bypass your IdP's offboarding and MFA 
 
 Prefer a group from your identity provider, or a time-boxed policy. Remove addresses that no longer need access.
 
-### ZT-002: Access session lasts longer than 24 hours
+#### ZT-002: Access session lasts longer than 24 hours
 
 **Severity:** Low · **Reads:** Access applications · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/users/session-management/)
 
@@ -332,7 +347,7 @@ Long sessions let a stolen session cookie or an offboarded user keep access for 
 
 Set the application session duration to 24h or less (8h for admin tools).
 
-### ZT-003: Access policy lets everyone in or bypasses Access
+#### ZT-003: Access policy lets everyone in or bypasses Access
 
 **Severity:** High · **Reads:** Access applications, Access groups · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/policies/access/)
 
@@ -342,7 +357,7 @@ An Allow-everyone or Bypass policy makes the application effectively public.
 
 Restrict the policy to specific groups or email domains, or remove the application if it is meant to be public.
 
-### ZT-004: No single sign-on identity provider for Access
+#### ZT-004: No single sign-on identity provider for Access
 
 **Severity:** Medium · **Reads:** Access identity providers · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/idp-integration/)
 
@@ -352,7 +367,7 @@ One-time PIN by email is phishable and doesn't follow your IdP's MFA and offboar
 
 Add your company identity provider (Google Workspace, Okta, Entra ID) under Zero Trust → Settings → Authentication and use it in policies.
 
-### ZT-005: Service token expired or expiring within 30 days
+#### ZT-005: Service token expired or expiring within 30 days
 
 **Severity:** Medium · **Reads:** Access service tokens · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/)
 
@@ -362,7 +377,7 @@ CI jobs and services using it will start failing authentication when it expires.
 
 Rotate the token under Zero Trust → Access → Service auth and update its consumers before the expiry date.
 
-### ZT-006: Service token never expires
+#### ZT-006: Service token never expires
 
 **Severity:** Low · **Reads:** Access service tokens · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/)
 
@@ -372,7 +387,7 @@ A leaked non-expiring token works forever unless someone notices and revokes it.
 
 Recreate the token with a duration (for example 1 year) and set an expiry alert.
 
-### ZT-007: Tunnel is not healthy
+#### ZT-007: Tunnel is not healthy
 
 **Severity:** Medium · **Reads:** Tunnels · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/monitor-tunnels/)
 
@@ -382,7 +397,7 @@ Hostnames routed to a down tunnel return error 530 to users.
 
 Check the cloudflared connector on the origin host, or delete the tunnel and its DNS routes if it was retired.
 
-### ZT-008: Tunnel has no public hostname or private route
+#### ZT-008: Tunnel has no public hostname or private route
 
 **Severity:** Low · **Reads:** Tunnels, DNS records, Private network routes · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/)
 
@@ -392,7 +407,7 @@ A healthy tunnel with no DNS route may be unused infrastructure that still holds
 
 Confirm whether the tunnel is still needed; delete it and its connector if not.
 
-### ZT-009: Service token unused for 90 days or more
+#### ZT-009: Service token unused for 90 days or more
 
 **Severity:** Medium · **Reads:** Access service tokens · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/)
 
@@ -402,7 +417,7 @@ An unused credential still opens the applications its policies allow, and nobody
 
 Revoke the token under Zero Trust → Access → Service auth, or confirm its owner still needs it.
 
-### ZT-010: Access service token was reported leaked
+#### ZT-010: Access service token was reported leaked
 
 **Severity:** Critical · **Reads:** Access service tokens · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/)
 
@@ -414,7 +429,7 @@ A secret-scanning partner found this token's secret in public. Cloudflare disabl
 2. Update the systems that use it.
 3. Find and remove the place it was published.
 
-### ZT-011: Idle service tokens aren't revoked automatically
+#### ZT-011: Idle service tokens aren't revoked automatically
 
 **Severity:** Low · **Reads:** Access organization, Access service tokens · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/service-tokens/)
 
@@ -424,7 +439,7 @@ Service tokens nobody uses stay valid until someone remembers to delete them.
 
 Turn on Settings → Authentication → Service token inactivity, so tokens unused for a set number of days stop working.
 
-### ZT-012: Access group or policy admits everyone or a public email domain
+#### ZT-012: Access group or policy admits everyone or a public email domain
 
 **Severity:** High · **Reads:** Access groups, Access policies · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/policies/access/groups/)
 
@@ -435,7 +450,7 @@ Every application that uses this group or policy is open to anyone on the intern
 1. Open Access → Access groups (or Policies).
 2. Replace Everyone or the webmail domain with your company's domains, groups from your identity provider, or named emails.
 
-### ZT-013: Access application allows any origin with credentials
+#### ZT-013: Access application allows any origin with credentials
 
 **Severity:** High · **Reads:** Access applications · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/cors/)
 
@@ -445,7 +460,7 @@ Any website a signed-in user visits can make authenticated requests to the appli
 
 Under the application's Advanced settings → CORS, list the origins that may call it instead of allowing all origins.
 
-### ZT-014: Access cookie is readable by scripts or sent cross-site
+#### ZT-014: Access cookie is readable by scripts or sent cross-site
 
 **Severity:** Low · **Reads:** Access applications · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/)
 
@@ -455,7 +470,7 @@ Without HttpOnly, a cross-site scripting bug can steal the Access session; SameS
 
 Under the application's Advanced settings → Cookie settings, turn on HTTP Only and set SameSite to Lax (or Strict).
 
-### ZT-015: Application accepts one-time PIN logins alongside single sign-on
+#### ZT-015: Application accepts one-time PIN logins alongside single sign-on
 
 **Severity:** Low · **Reads:** Access applications, Access identity providers · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/one-time-pin/)
 
@@ -465,7 +480,7 @@ One-time PIN skips your identity provider's MFA and offboarding: anyone who can 
 
 Under the application's Authentication tab, choose only your single sign-on provider, or keep one-time PIN for named contractors only.
 
-### ZT-016: Gateway HTTP policies run without TLS inspection
+#### ZT-016: Gateway HTTP policies run without TLS inspection
 
 **Severity:** High · **Reads:** Gateway rules, Gateway configuration · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/traffic-policies/http-policies/tls-decryption/)
 
@@ -476,7 +491,7 @@ Almost all web traffic is HTTPS. Without TLS inspection, HTTP policies only see 
 1. Install the Cloudflare root certificate on devices.
 2. Turn on Traffic policies → Traffic settings → TLS decryption.
 
-### ZT-017: Gateway activity logging is off
+#### ZT-017: Gateway activity logging is off
 
 **Severity:** Medium · **Reads:** Gateway rules, Gateway configuration · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/insights/logs/gateway-logs/)
 
@@ -486,7 +501,7 @@ Gateway enforces policies but keeps no record, so there's nothing to investigate
 
 Turn on Settings → Network → Activity logging (and Logpush, if you keep logs elsewhere).
 
-### ZT-018: WARP lets users turn it off or leave the organization
+#### ZT-018: WARP lets users turn it off or leave the organization
 
 **Severity:** Medium · **Reads:** WARP device profiles, Zero Trust devices · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-devices/warp/configure-warp/warp-settings/)
 
@@ -496,7 +511,7 @@ Every Gateway and device-posture control stops applying as soon as a user switch
 
 In the device profile (Settings → WARP Client → Device settings), turn on Lock WARP switch and turn off Allow device to leave organization, with an auto-connect timeout.
 
-### ZT-019: Tunnel routes a very broad private network
+#### ZT-019: Tunnel routes a very broad private network
 
 **Severity:** Medium · **Attack path** · **Reads:** Private network routes · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/private-net/cloudflared/)
 
@@ -506,7 +521,7 @@ A route this wide puts a whole network range in reach of every enrolled device; 
 
 Replace the route with the specific subnets or hosts users need, and add Gateway network policies that allow only named groups.
 
-### ZT-020: Devices are enrolled but no posture checks exist
+#### ZT-020: Devices are enrolled but no posture checks exist
 
 **Severity:** Low · **Reads:** Zero Trust devices, Device posture rules · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/devices/)
 
@@ -516,7 +531,7 @@ Access and Gateway can't tell a managed, up-to-date laptop from any other device
 
 Add device posture checks (OS version, disk encryption, firewall, a managed-device certificate) and require them in Access policies for sensitive apps.
 
-### ZT-021: cloudflared is more than a year old
+#### ZT-021: cloudflared is more than a year old
 
 **Severity:** Medium · **Reads:** Tunnels · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/)
 
@@ -526,7 +541,7 @@ Cloudflare supports cloudflared versions for one year; older connectors miss sec
 
 Update cloudflared on the tunnel's hosts (or turn on automatic updates), then confirm the connector reconnects.
 
-### ZT-022: Access seats held by users who haven't signed in for 90 days
+#### ZT-022: Access seats held by users who haven't signed in for 90 days
 
 **Severity:** Low · **Reads:** Access users · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/identity/users/seat-management/)
 
@@ -537,9 +552,9 @@ Former staff and contractors keep a seat, and their identity keeps working with 
 1. Review the users under My team → Users.
 2. Revoke and remove those who have left, or turn on automatic seat expiration.
 
-## TLS & HTTPS
+### Cloudflare: TLS & HTTPS
 
-### TLS-001: SSL/TLS mode is not Full (strict)
+#### TLS-001: SSL/TLS mode is not Full (strict)
 
 **Severity:** Medium · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/origin-configuration/ssl-modes/full-strict/)
 
@@ -549,7 +564,7 @@ Flexible sends traffic to your origin unencrypted; Full encrypts but doesn't ver
 
 Install a valid or Cloudflare Origin CA certificate on origins, then set SSL/TLS → Overview to Full (strict).
 
-### TLS-002: Minimum TLS version below 1.2
+#### TLS-002: Minimum TLS version below 1.2
 
 **Severity:** Medium · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls/)
 
@@ -559,7 +574,7 @@ TLS 1.0 and 1.1 have known weaknesses and are deprecated by browsers and PCI DSS
 
 Set SSL/TLS → Edge Certificates → Minimum TLS Version to 1.2.
 
-### TLS-003: Always Use HTTPS is off
+#### TLS-003: Always Use HTTPS is off
 
 **Severity:** Medium · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/always-use-https/)
 
@@ -569,7 +584,7 @@ Visitors who type http:// stay on an unencrypted connection.
 
 Turn on SSL/TLS → Edge Certificates → Always Use HTTPS.
 
-### TLS-004: HSTS is not enabled
+#### TLS-004: HSTS is not enabled
 
 **Severity:** Medium · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/http-strict-transport-security/)
 
@@ -579,7 +594,7 @@ Without HSTS a network attacker can downgrade a visitor's first request to HTTP.
 
 Enable HSTS under SSL/TLS → Edge Certificates once every hostname serves HTTPS. Start with a short max-age.
 
-### TLS-005: HSTS max-age is under 6 months
+#### TLS-005: HSTS max-age is under 6 months
 
 **Severity:** Low · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/http-strict-transport-security/)
 
@@ -589,7 +604,7 @@ A short max-age expires quickly, so returning visitors lose downgrade protection
 
 Raise HSTS max-age to at least 6 months (15768000 seconds).
 
-### TLS-006: TLS 1.3 is disabled
+#### TLS-006: TLS 1.3 is disabled
 
 **Severity:** Low · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/tls-13/)
 
@@ -599,7 +614,7 @@ TLS 1.3 is faster and removes legacy cipher suites.
 
 Turn on SSL/TLS → Edge Certificates → TLS 1.3.
 
-### TLS-007: Automatic HTTPS Rewrites is off
+#### TLS-007: Automatic HTTPS Rewrites is off
 
 **Severity:** Low · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/automatic-https-rewrites/)
 
@@ -609,7 +624,7 @@ Pages that reference http:// assets trigger mixed-content warnings or load insec
 
 Turn on SSL/TLS → Edge Certificates → Automatic HTTPS Rewrites.
 
-### TLS-008: Edge certificate inactive or expiring within 14 days
+#### TLS-008: Edge certificate inactive or expiring within 14 days
 
 **Severity:** High · **Reads:** Edge certificates · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/)
 
@@ -619,7 +634,7 @@ Visitors get certificate errors when the edge certificate lapses.
 
 Check the certificate pack under SSL/TLS → Edge Certificates; fix the validation records or order a replacement.
 
-### TLS-009: 0-RTT connection resumption is on
+#### TLS-009: 0-RTT connection resumption is on
 
 **Severity:** Low · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/speed/optimization/protocol/0-rtt-connection-resumption/)
 
@@ -629,7 +644,7 @@ Check the certificate pack under SSL/TLS → Edge Certificates; fix the validati
 
 Turn off Speed → Optimization → 0-RTT unless you have confirmed your app tolerates replays.
 
-### TLS-010: Proxied hostname has no matching edge certificate
+#### TLS-010: Proxied hostname has no matching edge certificate
 
 **Severity:** High · **Reads:** Edge certificates, DNS records · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/total-tls/)
 
@@ -639,7 +654,7 @@ Universal SSL covers the apex and one level of subdomains. Deeper names like a.b
 
 Order an Advanced certificate for the hostname (or turn on Total TLS), or move it up one level.
 
-### TLS-011: Origin CA certificate expires soon
+#### TLS-011: Origin CA certificate expires soon
 
 **Severity:** High · **Reads:** Origin certificates · [Cloudflare docs](https://developers.cloudflare.com/ssl/origin-configuration/origin-ca/)
 
@@ -649,7 +664,7 @@ When the certificate on your origin expires, Cloudflare's connection to it fails
 
 Create a new Origin CA certificate under SSL/TLS → Origin Server and install it on the origin before the date.
 
-### TLS-012: Legacy cipher suites are allowed
+#### TLS-012: Legacy cipher suites are allowed
 
 **Severity:** Low · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/cipher-suites/recommendations/)
 
@@ -659,7 +674,7 @@ The default (Legacy) list still accepts CBC ciphers with SHA-1 and plain RSA key
 
 Set SSL/TLS → Edge Certificates → Cipher suites to the Modern or Compatible profile.
 
-### TLS-013: A hostname allows older TLS than the rest of the zone
+#### TLS-013: A hostname allows older TLS than the rest of the zone
 
 **Severity:** Medium · **Reads:** TLS and mTLS settings · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/additional-options/minimum-tls/)
 
@@ -669,7 +684,7 @@ Per-hostname TLS settings override the zone's minimum, so this hostname still ac
 
 Remove the per-hostname minimum TLS override, or raise it to 1.2.
 
-### TLS-014: Uploaded certificate expired or expiring within 30 days
+#### TLS-014: Uploaded certificate expired or expiring within 30 days
 
 **Severity:** High · **Reads:** TLS and mTLS settings, Origin certificates, mTLS certificates · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/custom-certificates/renewing/)
 
@@ -679,7 +694,7 @@ Custom edge certificates, client certificates and mTLS or origin-pull certificat
 
 Upload a renewed certificate before the expiry date, then remove the old one.
 
-### TLS-015: Universal SSL is off and no other certificate covers the zone
+#### TLS-015: Universal SSL is off and no other certificate covers the zone
 
 **Severity:** Medium · **Reads:** TLS and mTLS settings, Edge certificates · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/universal-ssl/disable-universal-ssl/)
 
@@ -689,9 +704,9 @@ Proxied hostnames get a certificate error for every visitor.
 
 Turn Universal SSL back on under SSL/TLS → Edge Certificates, or order an Advanced certificate that covers the zone's hostnames.
 
-## WAF & bots
+### Cloudflare: WAF & bots
 
-### WAF-001: Cloudflare Managed Ruleset not deployed on a paid zone
+#### WAF-001: Cloudflare Managed Ruleset not deployed on a paid zone
 
 **Severity:** Critical · **Reads:** WAF rulesets, Account rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/managed-rules/reference/cloudflare-managed-ruleset/)
 
@@ -701,7 +716,7 @@ You pay for the managed WAF on this plan but it isn't inspecting traffic.
 
 Deploy the Cloudflare Managed Ruleset under Security → WAF → Managed rules.
 
-### WAF-002: OWASP Core Ruleset not deployed on a paid zone
+#### WAF-002: OWASP Core Ruleset not deployed on a paid zone
 
 **Severity:** Medium · **Reads:** WAF rulesets, Account rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/managed-rules/reference/owasp-core-ruleset/)
 
@@ -711,7 +726,7 @@ The OWASP ruleset catches generic injection and XSS patterns the Cloudflare rule
 
 Deploy the OWASP Core Ruleset in log mode first, tune false positives, then switch to block.
 
-### WAF-003: No rate limiting rules
+#### WAF-003: No rate limiting rules
 
 **Severity:** Low · **Reads:** WAF rulesets, Account rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/rate-limiting-rules/)
 
@@ -721,7 +736,7 @@ Login, API and RPC endpoints can be brute-forced or scraped without limits. Ever
 
 Add a rate limiting rule for your most sensitive paths under Security → WAF → Rate limiting rules.
 
-### WAF-004: Bot protection is off
+#### WAF-004: Bot protection is off
 
 **Severity:** Medium · **Reads:** Bot settings · [Cloudflare docs](https://developers.cloudflare.com/bots/get-started/)
 
@@ -731,7 +746,7 @@ Automated traffic (credential stuffing, scraping) reaches the origin unchallenge
 
 Turn on Bot Fight Mode (Free) or configure Super Bot Fight Mode to challenge definitely-automated traffic (Pro+).
 
-### WAF-005: AI crawlers are not blocked
+#### WAF-005: AI crawlers are not blocked
 
 **Severity:** Low · **Reads:** Bot settings · [Cloudflare docs](https://developers.cloudflare.com/bots/additional-configurations/block-ai-bots/)
 
@@ -741,7 +756,7 @@ AI scrapers can crawl the site freely. This is a policy choice; flagged so it is
 
 Decide on a policy and set Security → Bots → Block AI bots accordingly.
 
-### WAF-006: Security level is low or off
+#### WAF-006: Security level is low or off
 
 **Severity:** Medium · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/waf/tools/security-level/)
 
@@ -751,7 +766,7 @@ Requests from IPs with a bad reputation are not challenged.
 
 Set Security → Settings → Security level to Medium (or rely on custom rules if deliberately off).
 
-### WAF-007: Browser Integrity Check is off
+#### WAF-007: Browser Integrity Check is off
 
 **Severity:** Low · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/waf/tools/browser-integrity-check/)
 
@@ -761,7 +776,7 @@ Requests with abusive or missing headers aren't filtered.
 
 Turn on Security → Settings → Browser Integrity Check.
 
-### WAF-008: Leaked credential detection is off
+#### WAF-008: Leaked credential detection is off
 
 **Severity:** Low · **Reads:** Leaked credential checks · [Cloudflare docs](https://developers.cloudflare.com/waf/detections/leaked-credentials/)
 
@@ -771,7 +786,7 @@ Logins with passwords known from breaches go unflagged. Available on all plans.
 
 Turn on Security → Settings → Leaked credentials detection and act on the header in your app or a WAF rule.
 
-### WAF-009: Client-side script monitoring (Page Shield) is off
+#### WAF-009: Client-side script monitoring (Page Shield) is off
 
 **Severity:** Low · **Reads:** Page Shield · [Cloudflare docs](https://developers.cloudflare.com/page-shield/)
 
@@ -781,7 +796,7 @@ A compromised third-party script (Magecart-style) on your pages would go unnotic
 
 Turn on Security → Client-side security (script monitor).
 
-### WAF-010: Custom rule skips the managed WAF
+#### WAF-010: Custom rule skips the managed WAF
 
 **Severity:** Medium · **Reads:** WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/custom-rules/skip/)
 
@@ -791,7 +806,7 @@ Requests matching this rule bypass managed WAF inspection entirely.
 
 Narrow the expression to exactly what needs the exception, or skip only specific managed rules instead of the whole ruleset.
 
-### WAF-011: Development mode is on
+#### WAF-011: Development mode is on
 
 **Severity:** Medium · **Reads:** Zone settings · [Cloudflare docs](https://developers.cloudflare.com/cache/reference/development-mode/)
 
@@ -801,7 +816,7 @@ Development mode bypasses cache and is meant to be temporary.
 
 Turn off Caching → Configuration → Development Mode.
 
-### WAF-019: HTTP DDoS protection set to log only or low sensitivity
+#### WAF-019: HTTP DDoS protection set to log only or low sensitivity
 
 **Severity:** High · **Reads:** HTTP DDoS settings · [Cloudflare docs](https://developers.cloudflare.com/ddos-protection/managed-rulesets/http/override-parameters/)
 
@@ -811,7 +826,7 @@ Layer 7 DDoS attacks reach the origin instead of being stopped at the edge.
 
 Under Security → DDoS → HTTP DDoS attack protection, remove the override, or set the action back to the default and the sensitivity to High.
 
-### WAF-020: IP Access rule allowlists a whole country, network or large IP range
+#### WAF-020: IP Access rule allowlists a whole country, network or large IP range
 
 **Severity:** High · **Attack path** · **Reads:** IP access and lockdown rules, Account IP access rules · [Cloudflare docs](https://developers.cloudflare.com/waf/tools/ip-access-rules/)
 
@@ -822,7 +837,7 @@ Allowlisted requests skip the WAF, rate limiting and bot protection entirely, so
 1. Open Security → WAF → Tools (or the account's IP Access rules).
 2. Replace the allow rule with specific addresses, or a custom rule that skips only what's needed.
 
-### WAF-021: URL normalization is off
+#### WAF-021: URL normalization is off
 
 **Severity:** Medium · **Reads:** URL normalization · [Cloudflare docs](https://developers.cloudflare.com/rules/normalization/)
 
@@ -832,7 +847,7 @@ Without normalization, encoded or doubled characters in a path (/%61dmin, //admi
 
 Under Rules → Settings → URL normalization, normalize incoming URLs (Cloudflare normalization).
 
-### WAF-022: mTLS is on for a hostname but no rule enforces it
+#### WAF-022: mTLS is on for a hostname but no rule enforces it
 
 **Severity:** High · **Reads:** TLS and mTLS settings, WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/api-shield/security/mtls/configure/)
 
@@ -842,7 +857,7 @@ Turning on client certificates only asks for one. Unless a rule blocks requests 
 
 Add a custom WAF rule that blocks requests to the hostname when cf.tls_client_auth.cert_verified is false.
 
-### WAF-023: Page Shield found a malicious script on your pages
+#### WAF-023: Page Shield found a malicious script on your pages
 
 **Severity:** High · **Reads:** Page Shield · [Cloudflare docs](https://developers.cloudflare.com/page-shield/detection/review-malicious-scripts/)
 
@@ -853,7 +868,7 @@ A script flagged as malicious runs in your visitors' browsers: card skimmers and
 1. Open Security → Page Shield → Scripts and find where the script is loaded.
 2. Remove it, or block it with a content security policy.
 
-### WAF-012: Managed rules weakened by overrides
+#### WAF-012: Managed rules weakened by overrides
 
 **Severity:** High · **Attack path** · **Reads:** WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/managed-rules/deploy-zone-dashboard/)
 
@@ -863,7 +878,7 @@ The managed ruleset is deployed, but overrides switch rules or whole categories 
 
 Review the overrides under Security → WAF → Managed rules. Keep exceptions as narrow as possible, scoped to the paths that need them.
 
-### WAF-013: Security skipped based on a field anyone can set
+#### WAF-013: Security skipped based on a field anyone can set
 
 **Severity:** High · **Attack path** · **Reads:** WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/custom-rules/skip/)
 
@@ -873,7 +888,7 @@ Headers, cookies, the User-Agent and the query string are chosen by the client. 
 
 Base the exception on something an attacker can't forge: a source IP list, mTLS, a verified bot, or a Cloudflare Access service token.
 
-### WAF-014: Security skipped for a very broad IP range or network
+#### WAF-014: Security skipped for a very broad IP range or network
 
 **Severity:** Medium · **Reads:** WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/custom-rules/skip/)
 
@@ -883,7 +898,7 @@ Exempting a large CIDR or a whole network (ASN) usually includes cloud providers
 
 Narrow the exception to the specific addresses that need it, ideally kept in an IP list.
 
-### WAF-015: Rule targets a hostname that no longer exists
+#### WAF-015: Rule targets a hostname that no longer exists
 
 **Severity:** Low · **Reads:** WAF rulesets, Configuration and transform rules, Page rules, DNS records · [Cloudflare docs](https://developers.cloudflare.com/ruleset-engine/rules-language/)
 
@@ -893,7 +908,7 @@ Rules for removed hostnames are dead configuration, and they often mean protecti
 
 Update the rule to the current hostname, or delete it.
 
-### WAF-016: Rate limiting rule that never limits
+#### WAF-016: Rate limiting rule that never limits
 
 **Severity:** Low · **Reads:** WAF rulesets · [Cloudflare docs](https://developers.cloudflare.com/waf/rate-limiting-rules/best-practices/)
 
@@ -903,7 +918,7 @@ A rule that only logs, or that allows more than 50 requests per second from one 
 
 Switch the action to block or managed challenge and set a threshold based on normal traffic for that path.
 
-### WAF-017: Configuration or page rule lowers security for some traffic
+#### WAF-017: Configuration or page rule lowers security for some traffic
 
 **Severity:** Medium · **Reads:** Configuration and transform rules, Page rules · [Cloudflare docs](https://developers.cloudflare.com/rules/configuration-rules/)
 
@@ -913,7 +928,7 @@ Per-path rules that turn off the security level, Browser Integrity Check or SSL 
 
 Scope the rule as narrowly as possible, or remove it. Page Rules are deprecated; move what's needed to Configuration Rules.
 
-### WAF-018: Secret hard-coded in a transform rule
+#### WAF-018: Secret hard-coded in a transform rule
 
 **Severity:** Medium · **Reads:** Configuration and transform rules · [Cloudflare docs](https://developers.cloudflare.com/rules/transform/request-header-modification/)
 
@@ -923,9 +938,9 @@ Anyone with read access to this zone (members, API tokens, tools like this one) 
 
 Rotate the secret. Lock the origin with Authenticated Origin Pulls or a Cloudflare Tunnel instead of a shared header.
 
-## DNS
+### Cloudflare: DNS
 
-### DNS-001: Hostname routes to a deleted Cloudflare Tunnel
+#### DNS-001: Hostname routes to a deleted Cloudflare Tunnel
 
 **Severity:** High · **Reads:** DNS records, Tunnels · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/dns/)
 
@@ -935,7 +950,7 @@ Requests already fail with error 530; the record is dead weight and confuses inc
 
 Delete the DNS record, or point it at the tunnel that replaced it.
 
-### DNS-002: CNAME target does not exist (dangling record)
+#### DNS-002: CNAME target does not exist (dangling record)
 
 **Severity:** High · **Reads:** DNS records, Public DNS lookups · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/troubleshooting/)
 
@@ -945,7 +960,7 @@ If the target is a cloud resource (bucket, app, load balancer) someone else can 
 
 Delete the record or point it at a live target. Treat cloud-provider targets as urgent.
 
-### DNS-003: Private IP address published in public DNS
+#### DNS-003: Private IP address published in public DNS
 
 **Severity:** Medium · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/)
 
@@ -955,7 +970,7 @@ Leaks internal network layout and can enable DNS-rebinding attacks.
 
 Move internal names to a private zone or resolver, or remove them.
 
-### DNS-004: CNAME shares a name with other records
+#### DNS-004: CNAME shares a name with other records
 
 **Severity:** Medium · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/troubleshooting/records-with-same-name/)
 
@@ -965,7 +980,7 @@ A CNAME must be the only record at its name (RFC 1034). Resolvers may return eit
 
 Move the other records to a different name, or replace the CNAME with A/AAAA records.
 
-### DNS-005: Record had no lookups in 30 days
+#### DNS-005: Record had no lookups in 30 days
 
 **Severity:** Low · **Reads:** DNS records, DNS analytics · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/)
 
@@ -975,7 +990,7 @@ Unused records accumulate, get forgotten, and become takeover targets when the i
 
 Confirm with the owner and delete. Counts are sampled, so zero means under roughly 20–30 lookups.
 
-### DNS-006: DNSSEC is disabled
+#### DNS-006: DNSSEC is disabled
 
 **Severity:** Medium · **Reads:** DNSSEC · [Cloudflare docs](https://developers.cloudflare.com/dns/dnssec/)
 
@@ -985,7 +1000,7 @@ Without DNSSEC, resolvers can be fed forged answers for your domain (cache poiso
 
 Enable DNSSEC under DNS → Settings and add the DS record at your registrar.
 
-### DNS-007: No CAA records
+#### DNS-007: No CAA records
 
 **Severity:** Low · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/ssl/edge-certificates/caa-records/)
 
@@ -995,7 +1010,7 @@ Any certificate authority may issue certificates for this domain.
 
 Add CAA records for the CAs you use (Cloudflare's universal SSL CAs plus any others, e.g. Let's Encrypt, Amazon).
 
-### DNS-008: DNS-only wildcard record
+#### DNS-008: DNS-only wildcard record
 
 **Severity:** Low · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/reference/wildcard-dns-records/)
 
@@ -1005,7 +1020,7 @@ Every possible subdomain resolves straight to the origin, unprotected by Cloudfl
 
 Prefer explicit records; if the wildcard is needed, proxy it or restrict what the origin serves.
 
-### DNS-009: DNS-only load balancer publishes its origin addresses
+#### DNS-009: DNS-only load balancer publishes its origin addresses
 
 **Severity:** High · **Attack path** · **Reads:** Load balancers, Load balancer pools · [Cloudflare docs](https://developers.cloudflare.com/load-balancing/understand-basics/proxy-modes/)
 
@@ -1015,9 +1030,21 @@ A load balancer that isn't proxied answers DNS queries with the origins' real IP
 
 Turn on Proxied for the load balancer under Traffic → Load Balancing, unless it serves non-HTTP traffic that needs DNS-only mode.
 
-## Email
+#### XP-001: DNS record points at Vercel, but no Vercel project in the entity serves it
 
-### EML-001: SPF missing, duplicated or too permissive
+**Severity:** High · **Attack path** · **Spans providers** · **Reads:** DNS records · [Vercel docs](https://vercel.com/docs/domains/working-with-domains/add-a-domain)
+
+The record sends visitors to Vercel, yet none of the entity's Vercel projects has this hostname. Whoever adds it to their own Vercel project first serves your traffic under your domain.
+
+**How to fix**
+
+1. If the site moved or was retired, delete the DNS record in Cloudflare.
+2. If it should be live, add the hostname to the right Vercel project under Settings → Domains.
+3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.
+
+### Cloudflare: Email
+
+#### EML-001: SPF missing, duplicated or too permissive
 
 **Severity:** High · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/how-to/email-records/)
 
@@ -1027,7 +1054,7 @@ Anyone can send mail that passes as this domain.
 
 Publish exactly one SPF TXT record listing your senders and ending in ~all or -all.
 
-### EML-002: DMARC missing or not enforcing
+#### EML-002: DMARC missing or not enforcing
 
 **Severity:** High · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dmarc-management/)
 
@@ -1037,7 +1064,7 @@ Receivers have no instruction to reject spoofed mail from this domain.
 
 Publish _dmarc with p=quarantine or p=reject (start with p=none plus rua reports if you need to discover senders first).
 
-### EML-003: Misnamed DMARC record
+#### EML-003: Misnamed DMARC record
 
 **Severity:** Low · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dmarc-management/)
 
@@ -1047,7 +1074,7 @@ DMARC is only read from _dmarc.<domain>. This record has no effect.
 
 Delete it; make sure the real _dmarc record has the policy you intended.
 
-### EML-004: Domain that sends no mail is not locked down
+#### EML-004: Domain that sends no mail is not locked down
 
 **Severity:** Medium · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/how-to/email-records/#prevent-domain-spoofing)
 
@@ -1057,7 +1084,7 @@ Unused domains are favourite spoofing targets because nobody watches them.
 
 Publish SPF "v=spf1 -all" and DMARC "v=DMARC1; p=reject" (plus a null DKIM key if you want).
 
-### EML-005: DMARC without aggregate reports
+#### EML-005: DMARC without aggregate reports
 
 **Severity:** Low · **Reads:** DNS records · [Cloudflare docs](https://developers.cloudflare.com/dmarc-management/)
 
@@ -1067,7 +1094,7 @@ Without rua reports you can't see who is sending as your domain or whether legit
 
 Add rua=mailto:<reports address> to the DMARC record (Cloudflare's free DMARC Management can receive them).
 
-### EML-006: SPF exceeds 10 DNS lookups
+#### EML-006: SPF exceeds 10 DNS lookups
 
 **Severity:** Medium · **Reads:** DNS records, Public DNS lookups · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/how-to/email-records/)
 
@@ -1077,7 +1104,7 @@ Receivers treat SPF with more than 10 lookups as a permanent error, so legitimat
 
 Remove unused includes or flatten some of them.
 
-### EML-007: Weak DKIM signing key
+#### EML-007: Weak DKIM signing key
 
 **Severity:** Low · **Reads:** DNS records, Public DNS lookups · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/how-to/email-records/)
 
@@ -1087,7 +1114,7 @@ Keys under 2048 bits are below current recommendations, and keys under 1024 bits
 
 Generate a 2048-bit key with your mail provider, publish it under a new selector, then retire the old one.
 
-### EML-008: DMARC reports go to a domain that doesn't accept them
+#### EML-008: DMARC reports go to a domain that doesn't accept them
 
 **Severity:** Low · **Reads:** DNS records, Public DNS lookups · [Cloudflare docs](https://developers.cloudflare.com/dmarc-management/)
 
@@ -1097,7 +1124,7 @@ Receivers only send reports to another domain if it publishes an authorization r
 
 Ask the report receiver to publish <your-domain>._report._dmarc.<their-domain> TXT "v=DMARC1", or send reports to your own domain.
 
-### EML-009: Domain receives mail without MTA-STS
+#### EML-009: Domain receives mail without MTA-STS
 
 **Severity:** Low · **Reads:** DNS records, Public DNS lookups · [Cloudflare docs](https://developers.cloudflare.com/dns/manage-dns-records/how-to/email-records/)
 
@@ -1107,7 +1134,7 @@ Without MTA-STS, an attacker on the network path can downgrade mail delivery to 
 
 Publish an MTA-STS policy (_mta-sts TXT record plus the policy file) and a TLS-RPT record (_smtp._tls) for reports.
 
-### EML-010: Email Routing forwards every address at the domain
+#### EML-010: Email Routing forwards every address at the domain
 
 **Severity:** Medium · **Reads:** Email Routing · [Cloudflare docs](https://developers.cloudflare.com/email-routing/setup/email-routing-addresses/#catch-all-address)
 
@@ -1117,7 +1144,7 @@ A catch-all forwards mail sent to any made-up address, so spam, phishing and pas
 
 Under Email → Email Routing → Routing rules, set the catch-all action to Drop and add explicit addresses for the ones you use.
 
-### EML-011: Mail that fails DMARC is being sent as your domain
+#### EML-011: Mail that fails DMARC is being sent as your domain
 
 **Severity:** Medium · **Reads:** DMARC reports, DNS records · [Cloudflare docs](https://developers.cloudflare.com/dmarc-management/)
 
@@ -1129,9 +1156,9 @@ Receivers report messages using your domain that fail SPF and DKIM. With a p=non
 2. Authorize the legitimate ones (SPF include or DKIM).
 3. Move the policy to p=quarantine, then p=reject.
 
-## Platform
+### Cloudflare: Platform
 
-### PLT-001: Worker reachable on workers.dev
+#### PLT-001: Worker reachable on workers.dev
 
 **Severity:** Medium · **Reads:** Workers · [Cloudflare docs](https://developers.cloudflare.com/workers/configuration/routing/workers-dev/)
 
@@ -1141,7 +1168,7 @@ The workers.dev URL bypasses the WAF, Access policies and rules on your custom d
 
 Disable the workers.dev route for the Worker if it is only meant to be served on your domain.
 
-### PLT-002: R2 bucket is public on r2.dev
+#### PLT-002: R2 bucket is public on r2.dev
 
 **Severity:** Medium · **Reads:** R2 · [Cloudflare docs](https://developers.cloudflare.com/r2/buckets/public-buckets/)
 
@@ -1151,7 +1178,7 @@ Anyone with the URL can read every object; r2.dev is also rate-limited and not m
 
 Disable the r2.dev URL and serve through a custom domain with access controls if needed.
 
-### PLT-003: Credential stored as a plain-text variable
+#### PLT-003: Credential stored as a plain-text variable
 
 **Severity:** High · **Reads:** Worker settings, Pages projects · [Cloudflare docs](https://developers.cloudflare.com/workers/configuration/secrets/)
 
@@ -1163,7 +1190,7 @@ Plain-text variables are visible to anyone who can read the Worker or Pages proj
 2. Store the new value as a secret (wrangler secret put, or Variables and Secrets → Encrypt).
 3. Delete the plain-text variable.
 
-### PLT-004: Pages preview deployments are public
+#### PLT-004: Pages preview deployments are public
 
 **Severity:** Low · **Reads:** Pages projects, Access applications · [Cloudflare docs](https://developers.cloudflare.com/pages/configuration/preview-deployments/)
 
@@ -1173,7 +1200,7 @@ Every branch push gets a public URL, so unreleased features, test data and debug
 
 Turn on Access for the project's preview deployments under Settings → General → Enable access policy, or limit previews to chosen branches.
 
-### PLT-005: R2 bucket lets any website write to it
+#### PLT-005: R2 bucket lets any website write to it
 
 **Severity:** Medium · **Reads:** R2 · [Cloudflare docs](https://developers.cloudflare.com/r2/buckets/cors/)
 
@@ -1183,9 +1210,19 @@ A CORS rule that allows any origin with PUT, POST or DELETE lets scripts on any 
 
 Under the bucket's Settings → CORS policy, list your own origins instead of *, and only allow the methods your app uses.
 
-## Monitoring
+#### XP-002: Vercel site is proxied through Cloudflare
 
-### MON-001: Recommended notification not configured
+**Severity:** Low · **Spans providers** · **Reads:** DNS records · [Vercel docs](https://vercel.com/guides/cloudflare-with-vercel)
+
+With Cloudflare's proxy in front, Vercel's firewall, bot protection and rate limits only see Cloudflare's addresses, and Vercel can fail to renew the site's certificate. Two caches can also serve different versions.
+
+**How to fix**
+
+Set the record to DNS only (grey cloud) and use Vercel's firewall, or, if you keep Cloudflare in front on purpose, mark this as accepted and protect the *.vercel.app URLs with Standard Protection in Vercel.
+
+### Cloudflare: Monitoring
+
+#### MON-001: Recommended notification not configured
 
 **Severity:** Medium · **Reads:** Notifications · [Cloudflare docs](https://developers.cloudflare.com/notifications/)
 
@@ -1195,7 +1232,7 @@ You won't hear about this class of problem until users report it.
 
 Create the notification under Manage Account → Notifications.
 
-### MON-002: A Logpush job is failing to deliver logs
+#### MON-002: A Logpush job is failing to deliver logs
 
 **Severity:** Medium · **Reads:** Logpush health · [Cloudflare docs](https://developers.cloudflare.com/logs/logpush/logpush-health/)
 
@@ -1205,7 +1242,7 @@ Security logs your SIEM or storage depends on aren't arriving, so detections and
 
 Open Analytics & Logs → Logpush, check the job's last error (expired credentials and full buckets are common), and fix the destination.
 
-### MON-003: Notification webhook is insecure or failing
+#### MON-003: Notification webhook is insecure or failing
 
 **Severity:** Medium · **Reads:** Notifications · [Cloudflare docs](https://developers.cloudflare.com/notifications/get-started/configure-webhooks/)
 
@@ -1215,7 +1252,7 @@ Alerts sent over plain HTTP can be read or forged in transit, and a webhook that
 
 Under Notifications → Destinations, switch the webhook to an https:// URL and fix whatever is rejecting deliveries.
 
-### MON-004: Access application rejects a high volume of logins
+#### MON-004: Access application rejects a high volume of logins
 
 **Severity:** Medium · **Reads:** Access login analytics, Access applications · [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/insights/logs/audit-logs/)
 
@@ -1225,9 +1262,9 @@ Thousands of failed Access logins usually mean credential stuffing, a leaked or 
 
 Open Logs → Access, filter by the application, and see who is failing: block abusive sources, rotate exposed tokens, or fix the client.
 
-## Change risk
+### Cloudflare: Change risk
 
-### CHG-001: Security rule disabled or deleted recently
+#### CHG-001: Security rule disabled or deleted recently
 
 **Severity:** High · **Attack path** · **Reads:** Audit logs · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/account/account-security/review-audit-logs/)
 
@@ -1237,7 +1274,7 @@ Turning off a block, challenge or rate limiting rule removes protection immediat
 
 Confirm the change was intended. Re-enable the rule, or record why it was removed.
 
-### CHG-002: Access policy widened recently
+#### CHG-002: Access policy widened recently
 
 **Severity:** Medium · **Attack path** · **Reads:** Audit logs · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/account/account-security/review-audit-logs/)
 
@@ -1247,7 +1284,7 @@ Adding Everyone, a Bypass rule or outside email addresses lets more people into 
 
 Confirm the change with the application owner, and prefer identity-provider groups over individual addresses.
 
-### CHG-003: Zone security setting lowered recently
+#### CHG-003: Zone security setting lowered recently
 
 **Severity:** High · **Attack path** · **Reads:** Audit logs · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/account/account-security/review-audit-logs/)
 
@@ -1257,9 +1294,9 @@ A weaker SSL mode, security level or TLS minimum applies to all traffic the mome
 
 Confirm the change was intended and restore the stronger setting.
 
-## Cost & usage
+### Cloudflare: Cost & usage
 
-### COST-001: Paid plan on a zone with very little traffic
+#### COST-001: Paid plan on a zone with very little traffic
 
 **Severity:** Low · **Reads:** Traffic analytics · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/subscriptions-and-billing/)
 
@@ -1268,3 +1305,493 @@ Paid-plan features only pay off on zones that serve real traffic.
 **How to fix**
 
 Consider moving the zone to the Free plan, or start using the paid features you are paying for.
+
+## Vercel
+
+### Vercel: Identity & access
+
+#### VID-001: Team doesn't require SAML single sign-on
+
+**Severity:** High · **Reads:** Team settings · [Vercel docs](https://vercel.com/docs/saml)
+
+Without SSO enforcement, members sign in with personal Vercel logins that your identity provider can't disable when someone leaves.
+
+**How to fix**
+
+1. Open Team Settings → Security & Privacy → SAML Single Sign-On.
+2. Connect your identity provider if it isn't.
+3. Turn on Require Team Members to log in with SAML.
+
+#### VID-002: Too many team Owners
+
+**Severity:** Medium · **Reads:** Team members and invitations · [Vercel docs](https://vercel.com/docs/rbac/access-roles)
+
+Every Owner can delete projects, change billing, add members and read every secret. Each extra Owner widens the damage a stolen login can do.
+
+**How to fix**
+
+Keep two Owners for break-glass access. Move everyone else to Member, Developer or Viewer under Team Settings → Members.
+
+#### VID-003: Team member outside company email domains can change projects
+
+**Severity:** Medium · **Reads:** Team members and invitations · [Vercel docs](https://vercel.com/docs/rbac/managing-team-members)
+
+Personal or third-party addresses sit outside your identity lifecycle, so offboarding won't remove them, and their role lets them deploy or change settings.
+
+**How to fix**
+
+Replace the member with a company address, or give them the Viewer role or project-level access only. Add your company domains to the entity on the Accounts page if they're missing.
+
+#### VID-004: Team invitation or access request left open
+
+**Severity:** Low · **Reads:** Team members and invitations · [Vercel docs](https://vercel.com/docs/rbac/managing-team-members)
+
+An invitation can still be accepted by whoever controls that inbox, and a request to join waits for anyone with the right role to approve it, long after either was needed.
+
+**How to fix**
+
+Under Team Settings → Members, revoke invitations older than two weeks, and approve or decline requests to join.
+
+#### VID-008: Team doesn't require two-factor authentication
+
+**Severity:** High · **Reads:** Team settings · [Vercel docs](https://vercel.com/docs/two-factor-authentication)
+
+Members can sign in with a password or email link alone. A phished or reused password then opens every project, secret and domain on the team.
+
+**How to fix**
+
+Under Team Settings → Security & Privacy, turn on Require Two-Factor Authentication. Members without it are asked to set it up.
+
+#### VID-009: Integration can change every project
+
+**Severity:** Medium · **Reads:** Installed integrations · [Vercel docs](https://vercel.com/docs/integrations/install-an-integration/manage-integrations-reference)
+
+The integration has write access and reaches all projects, including ones created later. If the vendor or its token is compromised, so is every project.
+
+**How to fix**
+
+Under Team Settings → Integrations, open the integration's Manage page and limit it to the projects that need it, or remove it.
+
+#### VID-005: Vercel access token was found leaked
+
+**Severity:** Critical · **Reads:** Your access tokens · [Vercel docs](https://vercel.com/docs/accounts/access-tokens)
+
+Vercel detected this token in a public place. Anyone who saw it can act as its user on this team.
+
+**How to fix**
+
+1. Delete the token under Account Settings → Tokens now.
+2. Create a replacement and update the system that used it.
+3. Review the team's activity log for changes made since the leak.
+
+#### VID-006: Vercel access token never expires
+
+**Severity:** Medium · **Reads:** Your access tokens · [Vercel docs](https://vercel.com/docs/accounts/access-tokens)
+
+A token without an end date keeps working long after the person or system that needed it is gone, and Vercel tokens can't be limited to reading.
+
+**How to fix**
+
+Create a replacement with an expiration date under Account Settings → Tokens, switch the system over, then delete the old token.
+
+#### VID-007: Vercel access token unused for 90 days
+
+**Severity:** Low · **Reads:** Your access tokens · [Vercel docs](https://vercel.com/docs/accounts/access-tokens)
+
+An unused token is access nobody needs, waiting to leak.
+
+**How to fix**
+
+Delete the token under Account Settings → Tokens.
+
+#### VPL-004: OIDC tokens use the global issuer
+
+**Severity:** Medium · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/oidc#issuer-mode)
+
+With the global issuer, cloud roles that trust Vercel must check the team themselves; a trust policy that forgets lets other Vercel teams assume your role.
+
+**How to fix**
+
+Switch Settings → Security → Secure Backend Access with OIDC Federation to Team issuer mode, then update the issuer URL in your cloud trust policies.
+
+### Vercel: Deployments
+
+#### VDP-001: Preview deployments are open to anyone
+
+**Severity:** High · **Attack path** · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/deployment-protection)
+
+Every branch and pull request gets a public URL. Previews often run unreleased code against staging data, and their URLs are easy to find in Git comments and logs.
+
+**How to fix**
+
+1. Open the project's Settings → Deployment Protection.
+2. Turn on Vercel Authentication for Standard Protection (previews and deployment URLs).
+
+#### VDP-002: Production deployment URLs are open, bypassing the custom domain
+
+**Severity:** Medium · **Reads:** Projects, Project domains · [Vercel docs](https://vercel.com/docs/deployment-protection#understanding-deployment-protection-by-environment)
+
+Each production deployment also answers on a *.vercel.app URL. If that URL is public, it serves the site without whatever sits in front of your custom domain, and old production builds stay reachable.
+
+**How to fix**
+
+In Settings → Deployment Protection, choose Standard Protection, which covers every deployment except your custom domains.
+
+#### VDP-003: Pull requests from forks deploy without approval
+
+**Severity:** High · **Attack path** · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/git/vercel-for-github#git-fork-protection)
+
+Anyone can open a pull request from a fork. Without Git Fork Protection it deploys straight away, with the project's environment variables, so code you never reviewed can read your secrets.
+
+**How to fix**
+
+Turn on Settings → Git → Git Fork Protection.
+
+#### VDP-004: Deployment protection has a bypass secret
+
+**Severity:** Low · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/deployment-protection/methods-to-bypass-deployment-protection/protection-bypass-automation)
+
+A bypass secret opens every protected deployment to whoever holds it. It's meant for test automation, and it's easy to leave in a CI log or share too widely.
+
+**How to fix**
+
+Check each secret under Settings → Deployment Protection → Protection Bypass for Automation is still used, and regenerate or remove the rest.
+
+#### VDP-005: Project has deploy hooks
+
+**Severity:** Low · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/deploy-hooks)
+
+A deploy hook URL needs no login: anyone who has it can start deployments, using build minutes and replacing what's live with the branch's latest build.
+
+**How to fix**
+
+Under Settings → Git → Deploy Hooks, delete hooks nothing uses, and keep the rest out of client code and public repositories.
+
+#### VDP-006: Old preview deployments never expire
+
+**Severity:** Low · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/security/deployment-retention)
+
+Every preview stays reachable forever, including builds with since-fixed vulnerabilities or secrets that were later rotated out of code.
+
+**How to fix**
+
+Set a retention period under Settings → Security → Deployment Retention Policy (for example 90 days for previews).
+
+#### VDP-008: Cron jobs can be triggered by anyone
+
+**Severity:** Medium · **Reads:** Projects, Environment variable names and types · [Vercel docs](https://vercel.com/docs/cron-jobs/manage-cron-jobs#securing-cron-jobs)
+
+A cron job is an ordinary public URL. Vercel only proves a request came from its scheduler when the project sets CRON_SECRET and the route checks it, so without one anyone can run the job as often as they like.
+
+**How to fix**
+
+1. Add a Sensitive CRON_SECRET environment variable (a random string of at least 16 characters).
+2. In each cron route, reject requests whose Authorization header isn't `Bearer` followed by that secret.
+
+#### VDP-007: New projects start without deployment protection
+
+**Severity:** Low · **Reads:** Team settings · [Vercel docs](https://vercel.com/docs/deployment-protection#configuring-deployment-protection)
+
+Each new project starts with public previews until someone remembers to change it.
+
+**How to fix**
+
+Under Team Settings → Deployment Protection, turn on Vercel Authentication as the default for new projects.
+
+### Vercel: Secrets
+
+#### VEN-001: Vercel flags a secret that team members can read
+
+**Severity:** High · **Reads:** Environment variable names and types · [Vercel docs](https://vercel.com/docs/environment-variables/sensitive-environment-variables)
+
+Vercel marked this variable as a readable secret: anyone on the team who can open the project, and any token with access, can read its value.
+
+**How to fix**
+
+1. Rotate the secret with its issuer.
+2. Delete the variable under Settings → Environment Variables.
+3. Add the new value again with Sensitive turned on.
+
+#### VEN-002: Secret stored as a plain-text environment variable
+
+**Severity:** High · **Reads:** Environment variable names and types · [Vercel docs](https://vercel.com/docs/environment-variables#environment-variable-types)
+
+Plain-text variables are shown in the dashboard and returned by the API to anyone with access to the project. Its name suggests it holds a password, key or token.
+
+**How to fix**
+
+Rotate the secret, delete the variable, and add the new value again with Sensitive turned on.
+
+#### VEN-003: Secret-looking variable is sent to browsers
+
+**Severity:** High · **Attack path** · **Reads:** Environment variable names and types · [Vercel docs](https://vercel.com/docs/environment-variables/framework-environment-variables)
+
+Frameworks copy variables with prefixes like NEXT_PUBLIC_ or VITE_ into the JavaScript every visitor downloads. A key or token there is public.
+
+**How to fix**
+
+If the value really is secret, rotate it, rename the variable without the public prefix, and read it only in server code. If it's meant to be public (a publishable key), mark the finding as a false positive.
+
+#### VEN-004: Secret not marked Sensitive
+
+**Severity:** Medium · **Reads:** Environment variable names and types · [Vercel docs](https://vercel.com/docs/environment-variables/sensitive-environment-variables)
+
+Without Sensitive, the value can be read back in the dashboard, the CLI and the API by anyone who can open the project. Sensitive values can only be used by deployments.
+
+**How to fix**
+
+Delete the variable and add it again with Sensitive turned on. Vercel can't convert an existing variable.
+
+#### VEN-005: Production secret is also given to preview deployments
+
+**Severity:** Medium · **Reads:** Environment variable names and types · [Vercel docs](https://vercel.com/docs/environment-variables#environments)
+
+Previews build any branch, often before review. A production secret there can be read by unreviewed code and ends up in more build logs.
+
+**How to fix**
+
+Split the variable: keep the production value for Production only, and give Preview its own staging credential.
+
+#### VEN-007: Production secret is downloaded to developer machines
+
+**Severity:** Medium · **Reads:** Environment variable names and types · [Vercel docs](https://vercel.com/docs/environment-variables#development-environment-variables)
+
+Variables for the Development environment are what `vercel env pull` writes into a local .env file. A production secret there ends up on every laptop that pulls it, in plain text.
+
+**How to fix**
+
+Give Development its own non-production credential, and keep the production value for Production only. Sensitive variables can't be pulled at all.
+
+#### VEN-008: Credential written into a build or install command
+
+**Severity:** High · **Attack path** · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/builds/configure-a-build#build-command)
+
+Project commands are shown in the dashboard and returned by the API to anyone with access to the project, and they appear in build logs. A token written into one is effectively public to the team.
+
+**How to fix**
+
+1. Rotate the credential with its issuer.
+2. Store the new one as a Sensitive environment variable.
+3. Reference it from the command (for example `$NPM_TOKEN`) instead of writing it in.
+
+#### VEN-006: Team doesn't require new secrets to be Sensitive
+
+**Severity:** Medium · **Reads:** Team settings · [Vercel docs](https://vercel.com/docs/environment-variables/sensitive-environment-variables#environment-variables-policy)
+
+Without the policy, every new production and preview variable is readable by default, and it's up to each person to remember the Sensitive switch.
+
+**How to fix**
+
+Under Team Settings → Security & Privacy → Environment Variable Policy, turn on Enforce Sensitive Environment Variables.
+
+### Vercel: TLS & HTTPS
+
+#### VDM-003: Custom certificate is about to expire
+
+**Severity:** High · **Reads:** Custom certificates · [Vercel docs](https://vercel.com/docs/domains/custom-SSL-certificate)
+
+Vercel renews its own certificates, but not ones you uploaded. When it expires, browsers block the site.
+
+**How to fix**
+
+Upload a renewed certificate under Team Settings → Domains → SSL Certificates, or remove the custom one and let Vercel issue its own.
+
+### Vercel: WAF & bots
+
+#### VFW-001: Vercel Firewall is turned off
+
+**Severity:** High · **Reads:** Firewall configuration · [Vercel docs](https://vercel.com/docs/vercel-firewall/vercel-waf)
+
+With the firewall off, custom rules, IP blocks and managed rulesets don't run, so nothing filters attacks before they reach your functions.
+
+**How to fix**
+
+Open the project's Firewall tab and turn the firewall on, then check its rules still match what you expect.
+
+#### VFW-002: Bot protection is off on a public site
+
+**Severity:** Low · **Reads:** Projects, Project domains, Firewall configuration · [Vercel docs](https://vercel.com/docs/vercel-firewall/vercel-waf/managed-rulesets)
+
+Automated traffic that pretends to be a browser reaches your pages and functions, running up usage and probing for weak spots. Vercel leaves bot protection off until you turn it on.
+
+**How to fix**
+
+In the project's Firewall → Configure → Bot Management, turn on Bot Protection with the Challenge action.
+
+#### VFW-003: AI crawlers aren't blocked
+
+**Severity:** Low · **Reads:** Firewall configuration · [Vercel docs](https://vercel.com/docs/vercel-firewall/vercel-waf/managed-rulesets)
+
+AI crawlers copy your content and can generate heavy traffic. Blocking them is a choice; if you allow them, mark this as accepted.
+
+**How to fix**
+
+In the project's Firewall → Configure → Bot Management, set AI Bots to Deny.
+
+#### VFW-004: OWASP rules are on but only logging
+
+**Severity:** Medium · **Reads:** Firewall configuration · [Vercel docs](https://vercel.com/docs/vercel-firewall/vercel-waf/managed-rulesets#configure-owasp-core-ruleset)
+
+The OWASP core ruleset matches injection attacks (SQL injection, cross-site scripting, remote code execution) but, in Log mode, lets every one of them through.
+
+**How to fix**
+
+In the project's Firewall → Configure → OWASP Core Ruleset, check the logged matches for false positives, then set the rules to Deny.
+
+#### VFW-005: Firewall rule only logs
+
+**Severity:** Low · **Reads:** Firewall configuration · [Vercel docs](https://vercel.com/docs/vercel-firewall/vercel-waf/custom-rules)
+
+A rule in Log mode matches attacks but lets them through. It's meant for testing a new rule, and is easy to forget.
+
+**How to fix**
+
+Check the rule's matches in the Firewall tab, then switch it to Deny or Challenge, or delete it.
+
+#### VFW-006: A wide IP range skips the firewall
+
+**Severity:** High · **Attack path** · **Reads:** Firewall configuration · [Vercel docs](https://vercel.com/docs/vercel-firewall/vercel-waf/ip-blocking)
+
+A bypass rule for a large network turns the firewall off for everyone in it, including attackers who share that network or cloud provider.
+
+**How to fix**
+
+Narrow the bypass to the exact addresses that need it, or delete it.
+
+#### VFW-007: No rate limiting rule
+
+**Severity:** Low · **Reads:** Firewall configuration · [Vercel docs](https://vercel.com/docs/vercel-firewall/vercel-waf/rate-limiting)
+
+Without a rate limit, one client can hammer login forms and API routes for credential stuffing or to run up function usage.
+
+**How to fix**
+
+Add a custom rule with the Rate Limit action for login, sign-up and API paths in the project's Firewall tab.
+
+#### XP-003: Cloudflare's protection can be skipped through the *.vercel.app URL
+
+**Severity:** Medium · **Attack path** · **Spans providers** · **Reads:** Projects, Project domains · [Vercel docs](https://vercel.com/docs/deployment-protection#understanding-deployment-protection-by-environment)
+
+The custom domain is proxied through Cloudflare, so Cloudflare's WAF, rate limits and bot rules guard it. The same site also answers on public *.vercel.app deployment URLs, which go straight to Vercel without any of that.
+
+**How to fix**
+
+In the Vercel project's Settings → Deployment Protection, choose Standard Protection so only the custom domain is public. Then traffic can only reach the site through Cloudflare.
+
+### Vercel: DNS
+
+#### VDM-001: Domain registered through Vercel is about to lapse
+
+**Severity:** High · **Attack path** · **Reads:** Domains · [Vercel docs](https://vercel.com/docs/domains/renew-a-domain)
+
+Auto-renew is off and the registration ends soon. A lapsed domain stops resolving, and anyone can register it afterwards and receive your traffic and email.
+
+**How to fix**
+
+Turn on auto-renew for the domain under Domains, or renew it now. Check the payment method on file.
+
+#### VDM-002: Project domain isn't verified
+
+**Severity:** Medium · **Reads:** Project domains · [Vercel docs](https://vercel.com/docs/domains/troubleshooting#domain-verification)
+
+Vercel couldn't confirm you own the domain, usually because another team or account uses it. Until it's verified, it doesn't serve this project, and someone else may control it.
+
+**How to fix**
+
+Add the TXT record Vercel shows under the project's Settings → Domains, or remove the domain if it isn't yours.
+
+### Vercel: Platform
+
+#### VPL-001: Functions run on a Node.js version past end of life
+
+**Severity:** Medium · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/functions/runtimes/node-js/node-js-versions)
+
+Node.js gets no security fixes after its end-of-life date, and Vercel stops building on old versions without much notice.
+
+**How to fix**
+
+Choose a supported Node.js version under the project's Settings → Build and Deployment → Node.js Version, then redeploy and test.
+
+#### VPL-002: Directory listing is on
+
+**Severity:** Medium · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/directory-listing)
+
+Visitors can browse every file in a folder without an index page, which can reveal backups, configuration and files that were never linked.
+
+**How to fix**
+
+Turn off Settings → Advanced → Directory Listing.
+
+#### VPL-003: Source maps are public
+
+**Severity:** Low · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/deployment-protection/protecting-sourcemaps)
+
+Public source maps hand anyone your original source code, comments included, which makes finding weaknesses much easier.
+
+**How to fix**
+
+Turn on Protected Source Maps under Settings → Deployment Protection.
+
+#### VPL-006: Production hasn't been redeployed in over a year
+
+**Severity:** Low · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/deployments/managing-deployments#redeploy-a-project)
+
+Dependency fixes, framework security releases and runtime patches only reach a site when it's rebuilt. A year-old production build carries every vulnerability found since.
+
+**How to fix**
+
+Update the project's dependencies and redeploy, or, if the site is no longer needed, remove its domains and delete the project.
+
+### Vercel: Monitoring
+
+#### VMN-001: Logs aren't kept outside Vercel
+
+**Severity:** Low · **Reads:** Drains · [Vercel docs](https://vercel.com/docs/drains)
+
+Vercel keeps runtime logs for a short time. Without a drain, there's nothing to search after an incident that's more than a few days old.
+
+**How to fix**
+
+Add a log drain to your log platform or an S3 bucket under Team Settings → Drains.
+
+#### VMN-002: Drain writes logs to S3 as public objects
+
+**Severity:** Critical · **Attack path** · **Reads:** Drains · [Vercel docs](https://vercel.com/docs/drains)
+
+The drain sets a public ACL on every object it writes, so anyone with an object's URL can read request logs, which hold IP addresses, paths and sometimes tokens.
+
+**How to fix**
+
+Change the drain's object ACL to private or bucket-owner-full-control, then remove public access from the objects already written.
+
+#### VMN-003: Logs or webhooks are sent without encryption
+
+**Severity:** High · **Reads:** Drains, Webhooks · [Vercel docs](https://vercel.com/docs/drains)
+
+An http:// endpoint sends logs or event payloads in clear text, where anyone on the path can read or change them.
+
+**How to fix**
+
+Change the endpoint to https:// under Team Settings → Drains or Webhooks.
+
+#### VMN-004: Drain is disabled or failing
+
+**Severity:** Medium · **Reads:** Drains · [Vercel docs](https://vercel.com/docs/drains)
+
+Logs stopped reaching their destination, so alerts and investigations that rely on them see nothing.
+
+**How to fix**
+
+Open the drain under Team Settings → Drains, fix the endpoint or credentials, and turn it back on.
+
+### Vercel: Change risk
+
+#### VPL-005: Project isn't connected to Git
+
+**Severity:** Low · **Reads:** Projects · [Vercel docs](https://vercel.com/docs/git)
+
+Deployments come from someone's machine through the CLI, so there's no review, no history of what was deployed and no easy rollback to a known commit.
+
+**How to fix**
+
+Connect the repository under Settings → Git, and deploy through pull requests.

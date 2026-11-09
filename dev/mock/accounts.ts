@@ -5,19 +5,40 @@ import { Store } from "../../src/store/db.ts";
 import { Repo } from "../../src/store/repo.ts";
 import { TokenVault } from "../../src/config.ts";
 import { MOCK_ACCOUNT, MOCK_TOKEN } from "./cloudflare.ts";
+import { MOCK_VERCEL_TEAM, MOCK_VERCEL_TOKEN, MOCK_VERCEL_TOKEN_2, MOCK_VERCEL_USER } from "./vercel.ts";
 import { DAY_MS, isoDate } from "../../src/shared/time.ts";
+import type { ProviderId } from "../../src/shared/providers.ts";
 
-export function seedAccount(repo: Repo, vault: TokenVault, o: { id?: string; token?: string; name?: string; entity?: string | number } = {}) {
+export function seedAccount(
+  repo: Repo,
+  vault: TokenVault,
+  o: { id?: string; token?: string; name?: string; entity?: string | number; provider?: ProviderId } = {},
+) {
   const entityId =
     typeof o.entity === "number"
       ? o.entity
       : (repo.entities.list().find((e) => e.name === (o.entity ?? "Mock Group")) ?? repo.entities.create(o.entity ?? "Mock Group")).id;
   const id = o.id ?? MOCK_ACCOUNT;
-  repo.accounts.add({ id, name: o.name ?? "Mock Co", entityId, tokenId: vault.put(o.token ?? MOCK_TOKEN, "user"), tokenKind: "user" });
+  repo.accounts.add({ id, provider: o.provider, name: o.name ?? "Mock Co", entityId, tokenId: vault.put(o.token ?? MOCK_TOKEN, "user"), tokenKind: "user" });
   return { id, entityId };
 }
 
-/** An in-memory repo and vault with live probes off, so scans touch only the mocked Cloudflare API. */
+/** Adds the mock Vercel team (and, with `personal`, the mock Hobby account) the way the Accounts page would. */
+export function seedVercel(repo: Repo, vault: TokenVault, o: { entity?: string | number; personal?: { entity: string | number } } = {}) {
+  const team = seedAccount(repo, vault, {
+    id: MOCK_VERCEL_TEAM,
+    token: MOCK_VERCEL_TOKEN,
+    name: "Mock Web",
+    entity: o.entity ?? "Mock Group",
+    provider: "vercel",
+  });
+  const personal = o.personal
+    ? seedAccount(repo, vault, { id: MOCK_VERCEL_USER, token: MOCK_VERCEL_TOKEN_2, name: "Sam (personal)", entity: o.personal.entity, provider: "vercel" })
+    : null;
+  return { team, personal };
+}
+
+/** An in-memory repo and vault with live probes off, so scans touch only the mocked APIs. */
 export function testRepo(): { repo: Repo; vault: TokenVault } {
   const repo = new Repo(new Store(":memory:"));
   repo.settings.save({ ...repo.settings.get(), probes: { takeover: false } });

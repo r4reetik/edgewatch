@@ -142,6 +142,10 @@ export const MIGRATIONS: string[] = [
   );
   CREATE INDEX triage_events_fp ON triage_events(fingerprint, id);
   `,
+  `
+  -- The platform an account is on. Accounts added before Vercel support are Cloudflare's.
+  ALTER TABLE accounts ADD COLUMN provider TEXT NOT NULL DEFAULT 'cloudflare';
+  `,
 ];
 
 export class Store {

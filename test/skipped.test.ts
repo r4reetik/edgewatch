@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { evaluate } from "../src/core/engine.ts";
 import { CHECKS } from "../src/core/catalog.ts";
-import { CASES } from "./checks/cases.ts";
+import { CASE_OPTS, CASES } from "./checks/cases.ts";
 import { analytics, inventory, opts, zone } from "./fixtures/inventory.ts";
 
 test("a check whose source was unreadable reports nothing, even on its failing case", () => {
@@ -14,7 +14,7 @@ test("a check whose source was unreadable reports nothing, even on its failing c
   for (const c of CHECKS.filter((x) => x.requires?.length)) {
     for (const source of c.requires!) {
       const inv = { ...CASES[c.id](), unreadable: [source] };
-      if (evaluate(inv, opts()).results.some((r) => r.checkId === c.id)) leaked.push(`${c.id} (${source})`);
+      if (evaluate(inv, opts(CASE_OPTS[c.id])).results.some((r) => r.checkId === c.id)) leaked.push(`${c.id} (${source})`);
     }
   }
   assert.deepEqual(leaked, []);

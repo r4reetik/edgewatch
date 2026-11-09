@@ -7,6 +7,7 @@ import type { EntityView, SessionAccount, SessionEntity } from "../shared/api.ts
 
 export const publicAccount = (vault: TokenVault, a: Account): SessionAccount => ({
   id: a.id,
+  provider: a.provider,
   name: a.name,
   alias: a.alias,
   display: displayName(a),

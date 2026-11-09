@@ -5,7 +5,8 @@
 // small one.
 
 import { computeScore } from "../core/engine.ts";
-import { CHECK_BY_ID } from "../core/catalog.ts";
+import { CHECK_BY_ID } from "../providers/catalog.ts";
+import { PROVIDERS } from "../shared/providers.ts";
 import { displayName, type Account, type DoneScan, type Entity, type Repo, type Scope } from "../store/repo.ts";
 import { byImportance } from "../store/findings.ts";
 import { groupBy } from "../shared/collections.ts";
@@ -17,6 +18,8 @@ import type {
   Finding,
   FindingBrief,
   FindingGroup,
+  ProjectRow,
+  ProviderScore,
   ScanMeta,
   Settings,
   TrendPoint,
@@ -56,6 +59,7 @@ export const brief = (f: Finding): FindingBrief => ({
   zone: f.zone,
   category: f.category,
   accountId: f.accountId,
+  provider: f.provider,
   account: f.account,
   confidence: f.confidence,
 });
@@ -84,6 +88,7 @@ export function scores(scans: AccountScan[], findings: Finding[]) {
     const s = computeScore(JSON.parse(scan.category_totals || "{}"), mine);
     return {
       id: account.id,
+      provider: account.provider,
       name: displayName(account),
       entity: entity?.name ?? null,
       score: s.overall,
@@ -97,6 +102,21 @@ export function scores(scans: AccountScan[], findings: Finding[]) {
     categoryScores[cat] = mean(accounts.map((a) => a.categoryScores[cat]));
   }
   return { overall: mean(accounts.map((a) => a.score)), byCategory: categoryScores, accounts };
+}
+
+/** With accounts from several providers in view: each provider's score (the mean of its accounts') and open counts. */
+export function providerScores(accounts: AccountSummary[], open: Finding[]): ProviderScore[] {
+  const byProvider = groupBy(accounts, (a) => a.provider);
+  if (byProvider.size < 2) return [];
+  return PROVIDERS.filter((p) => byProvider.has(p)).map((p) => {
+    const list = byProvider.get(p)!;
+    return {
+      provider: p,
+      score: mean(list.map((a) => a.score)),
+      accounts: list.length,
+      counts: countBySeverity(open.filter((f) => f.provider === p)),
+    };
+  });
 }
 
 function mean(xs: (number | null | undefined)[]): number | null {
@@ -166,14 +186,19 @@ export function trend(repo: Repo, accounts: Account[]): TrendPoint[] {
   });
 }
 
-/** One row per data source; with several accounts, which accounts can't read it. */
+/** One row per data source; with several accounts, which accounts can't read it. Sources of different providers stay apart. */
 export function coverage(scans: AccountScan[]): Coverage[] {
-  if (scans.length === 1) return scans[0].scan.snap.coverage || [];
+  if (scans.length === 1) return (scans[0].scan.snap.coverage || []).map((c) => ({ ...c, provider: scans[0].account.provider }));
   const by = new Map<string, Coverage>();
   for (const { account, scan } of scans) {
     for (const c of scan.snap.coverage || []) {
-      let cur = by.get(c.label);
-      if (!cur) by.set(c.label, (cur = { label: c.label, ok: true, permission: c.permission, notReadableIn: [], skippedChecks: [] }));
+      const key = `${account.provider}|${c.label}`;
+      let cur = by.get(key);
+      if (!cur)
+        by.set(
+          key,
+          (cur = { key: c.key, label: c.label, ok: true, permission: c.permission, provider: account.provider, notReadableIn: [], skippedChecks: [] }),
+        );
       if (!c.ok) {
         cur.ok = false;
         cur.notReadableIn!.push({ id: account.id, name: displayName(account) });
@@ -191,6 +216,11 @@ const tag = <T extends object>(rows: T[] | undefined, a: Account) => (rows || []
 export function zones(scans: AccountScan[]): ZoneRow[] | null {
   if (!scans.some((s) => s.scan.snap.zones)) return null;
   return scans.flatMap(({ account, scan }) => tag(scan.snap.zones, account));
+}
+
+export function projects(scans: AccountScan[]): ProjectRow[] | null {
+  if (!scans.some((s) => s.scan.snap.projects)) return null;
+  return scans.flatMap(({ account, scan }) => tag(scan.snap.projects, account));
 }
 
 export function value(scans: AccountScan[]): ValueView | null {

@@ -6,7 +6,7 @@ import { MODULES } from "./checks/index.ts";
 import { Evaluator } from "./checks/define.ts";
 import { securityCenterFindings } from "./checks/securitycenter.ts";
 import { SEVERITY_WEIGHT } from "../shared/severity.ts";
-import type { CheckModule } from "./checks/define.ts";
+import type { CheckMeta, CheckModule } from "./checks/define.ts";
 import type { CategoryTotals, EngineOptions, Inventory, Result, Severity } from "./types.ts";
 
 export interface Evaluation {
@@ -22,30 +22,47 @@ export interface Evaluation {
 export function evaluate(inv: Inventory, opts: EngineOptions): Evaluation {
   const ev = new Evaluator(opts);
   for (const m of MODULES as readonly CheckModule[]) ev.run(m, inv);
+  const out = summarize(inv.accountId, ev.results, opts, CHECK_BY_ID, (failures) =>
+    securityCenterFindings(inv, failures, opts.disabledChecks).map((f) => ({ ...f, severity: opts.severityOverrides[f.checkId] || f.severity })),
+  );
+  return { ...out, securityCenter: { ...out.securityCenter, total: inv.insights?.length ?? null } };
+}
 
+/**
+ * The provider-neutral half of an evaluation: one result per resource, fingerprints,
+ * category totals for the score, and per-check counts. `extra` adds findings that come
+ * from the provider rather than from checks (Cloudflare's Security Center).
+ */
+export function summarize(
+  accountId: string,
+  raw: Result[],
+  opts: EngineOptions | Pick<EngineOptions, "severityOverrides">,
+  checkById: Record<string, Pick<CheckMeta<string>, "severity">>,
+  extra: (failures: Result[]) => Result[] = () => [],
+): Evaluation {
   // One evaluation per resource: two records reported under the same name would otherwise count twice in the
   // score while appearing once as a finding. A failure wins over a pass.
   const unique = new Map<string, Result>();
-  for (const r of ev.results) {
-    const fp = fingerprint(inv.accountId, r);
+  for (const r of raw) {
+    const fp = fingerprint(accountId, r);
     const prev = unique.get(fp);
     if (!prev || (prev.pass && !r.pass)) unique.set(fp, r);
   }
   const results = [...unique.values()];
 
   const failures = results.filter((r) => !r.pass);
-  const sc = securityCenterFindings(inv, failures, opts.disabledChecks).map((f) => ({ ...f, severity: opts.severityOverrides[f.checkId] || f.severity }));
+  const sc = extra(failures);
 
   const byFp = new Map<string, Result>();
   for (const f of [...failures, ...sc]) {
-    f.fingerprint = fingerprint(inv.accountId, f);
+    f.fingerprint = fingerprint(accountId, f);
     if (!byFp.has(f.fingerprint)) byFp.set(f.fingerprint, f);
   }
 
   const categories: CategoryTotals = Object.fromEntries(CATEGORIES.map((c) => [c, { total: 0, evaluated: 0 }]));
   const checkStats: Evaluation["checkStats"] = {};
   for (const r of results) {
-    const def = CHECK_BY_ID[r.checkId];
+    const def = checkById[r.checkId];
     const w = SEVERITY_WEIGHT[r.pass ? opts.severityOverrides[r.checkId] || def.severity : r.severity] || 0;
     categories[r.category].total += w;
     categories[r.category].evaluated++;
@@ -59,7 +76,7 @@ export function evaluate(inv: Inventory, opts: EngineOptions): Evaluation {
     findings: [...byFp.values()],
     categories,
     checkStats,
-    securityCenter: { imported: sc.length, corroborated: failures.filter((f) => f.corroborated).length, total: inv.insights?.length ?? null },
+    securityCenter: { imported: sc.length, corroborated: failures.filter((f) => f.corroborated).length, total: null },
   };
 }
 
