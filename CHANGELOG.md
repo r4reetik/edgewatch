@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.8.0
+
 - **Owner suggestions when triaging.** The Owner field, in a finding's triage and in bulk triage, lists the owners already assigned in the same entity as soon as you click it, and narrows them as you type, so a name is picked instead of retyped (and spelled the same way every time). Owners from other entities are never suggested.
 - Creating or renaming an entity to a name that's already taken is caught in the dialog. When adding accounts, typing the name of an existing entity offers to add them to it instead of making a second one.
 - Settings → Notifications offers the address you opened Edgewatch at as the Link URL, in one click.
