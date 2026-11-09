@@ -17,6 +17,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: { "/api": "http://127.0.0.1:4317" },
+    // Keep the browser's Host header (Vite's string shorthand rewrites it to the target). The API's CSRF check
+    // compares Origin with Host, so a rewritten Host blocks every POST in development.
+    proxy: { "/api": { target: "http://127.0.0.1:4317", changeOrigin: false } },
   },
 });
