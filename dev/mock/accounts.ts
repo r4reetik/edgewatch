@@ -6,6 +6,7 @@ import { Repo } from "../../src/store/repo.ts";
 import { TokenVault } from "../../src/config.ts";
 import { MOCK_ACCOUNT, MOCK_TOKEN } from "./cloudflare.ts";
 import { MOCK_VERCEL_TEAM, MOCK_VERCEL_TOKEN, MOCK_VERCEL_TOKEN_2, MOCK_VERCEL_USER } from "./vercel.ts";
+import { MOCK_AWS_ACCOUNT, MOCK_AWS_TOKEN } from "./aws.ts";
 import { DAY_MS, isoDate } from "../../src/shared/time.ts";
 import type { ProviderId } from "../../src/shared/providers.ts";
 
@@ -36,6 +37,11 @@ export function seedVercel(repo: Repo, vault: TokenVault, o: { entity?: string |
     ? seedAccount(repo, vault, { id: MOCK_VERCEL_USER, token: MOCK_VERCEL_TOKEN_2, name: "Sam (personal)", entity: o.personal.entity, provider: "vercel" })
     : null;
   return { team, personal };
+}
+
+/** Adds the mock AWS account the way the Accounts page would. */
+export function seedAws(repo: Repo, vault: TokenVault, o: { entity?: string | number } = {}) {
+  return seedAccount(repo, vault, { id: MOCK_AWS_ACCOUNT, token: MOCK_AWS_TOKEN, name: "mock-aws", entity: o.entity ?? "Mock Group", provider: "aws" });
 }
 
 /** An in-memory repo and vault with live probes off, so scans touch only the mocked APIs. */

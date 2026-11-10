@@ -11,9 +11,11 @@
 // `report` only accepts the module's own check IDs, so a typo is a type error.
 // Register the module in checks/index.ts; the catalog is built from the registry.
 // Other providers write their modules the same way with `checksFor<TheirContext>()`
-// (see src/providers/vercel/checks/define.ts); the Evaluator is shared.
+// (see src/providers/vercel/checks/define.ts and src/providers/aws/checks/define.ts);
+// the Evaluator is shared.
 
 import type { Category } from "../categories.ts";
+import type { ProviderId } from "../../shared/providers.ts";
 import type { SourceKey } from "../sources.ts";
 import type { Confidence, EngineOptions, Evidence, Inventory, Result, Severity } from "../types.ts";
 import { dash, orgDomains, type Dash } from "./helpers.ts";
@@ -26,12 +28,14 @@ export interface CheckMeta<S extends string = SourceKey> {
   why: string;
   /** How to fix it: where in the dashboard, and what to change. "1. … 2. …" renders as steps. */
   fix: string;
-  /** Cloudflare documentation for the setting. */
+  /** The provider's documentation for the setting. */
   docs?: string;
   /** Data sources the check reads; when one is unreadable the UI says this check was skipped. */
   requires?: S[];
   /** A concrete way in: surfaced first on the Overview. */
   attackPath?: boolean;
+  /** The other platforms this check compares the account with (checks that span providers): shown on its findings. */
+  spans?: ProviderId[];
 }
 
 /** One evaluation: a resource passes or fails a check. */

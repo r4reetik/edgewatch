@@ -12,7 +12,7 @@ import type { VercelInventory } from "./types.ts";
 
 export function evaluateVercel(inv: VercelInventory, opts: EngineOptions): Evaluation {
   const ev = new Evaluator(opts);
-  const ctx: VercelContext = { inv, opts, d: dash(inv), org: orgDomains(inv, opts), related: opts.related ?? NO_RELATED };
+  const ctx: VercelContext = { inv, opts, d: dash(inv), org: orgDomains(inv, opts), related: { ...NO_RELATED, ...opts.related } };
   for (const m of VERCEL_MODULES as readonly CheckModule<string, VercelContext, VercelSourceKey>[]) ev.runWith(m, ctx, inv.unreadable);
   return summarize(inv.accountId, ev.results, opts, VERCEL_CHECK_BY_ID);
 }

@@ -127,7 +127,7 @@ The data directory holds:
 
 - `edgewatch.db`, with `edgewatch.db-wal` and `edgewatch.db-shm` next to it while it runs: accounts, scans,
   findings, triage and settings (SQLite).
-- `credentials.json`: the API tokens. The database only holds a reference to each.
+- `credentials.json`: the tokens and access keys. The database only holds a reference to each.
 - `backups/`: copies of the database from before each upgrade that changed it, the newest three.
 
 All of them are readable by the owning user only. Back up the whole directory; a copy taken while Edgewatch
@@ -146,5 +146,5 @@ migrating it. Release lines, automatic updates and rolling back are covered in [
 - **Removing an account** (Accounts → the account's menu → Remove) deletes its scans, findings and triage.
   Older copies remain in `backups/` until newer upgrades replace them.
 - **Uninstalling:** stop Edgewatch and delete the data directory (`~/.edgewatch` by default) or the Docker
-  volume. Nothing is stored anywhere else. Revoke the tokens in Cloudflare and Vercel too.
+  volume. Nothing is stored anywhere else. Revoke the tokens and access keys at each provider too.
 - `PORT` is read when `EDGEWATCH_PORT` isn't set, for platforms that assign one.

@@ -23,6 +23,7 @@ import {
   type Overview,
   withScope,
   PROVIDER_INFO,
+  providerList,
   type ProviderId,
   withProvider,
 } from "../lib.ts";
@@ -40,6 +41,7 @@ import {
   ScoreMeter,
   SeverityBadge,
   Stat,
+  PlatformMark,
 } from "../components/ui.tsx";
 import { TrendCharts } from "../components/charts.tsx";
 
@@ -50,7 +52,7 @@ export function OverviewPage() {
   const { data, error, loading, reload } = useScopedApi<Overview>("/api/overview");
   const [since, setSince] = useState<"new" | "resolved">("new");
   const description = multi
-    ? `Security posture of ${view.kind === "all" ? "every account in All accounts" : `the ${plural(view.accounts.length, "account")} in ${view.label}`}, from each account's latest scan.`
+    ? `Security posture of ${view.kind === "all" ? "every account in All accounts" : view.kind === "selection" && !view.entity ? `the ${plural(view.accounts.length, "account")} ticked in the view` : `the ${plural(view.accounts.length, "account")} in ${view.label}`}, from each account's latest scan.`
     : `Security posture of this ${view.accounts[0] ? `${PROVIDER_INFO[view.accounts[0].provider].label} ${PROVIDER_INFO[view.accounts[0].provider].account}` : "account"}, from its latest scan.`;
 
   if (error || !data?.scan) {
@@ -104,7 +106,7 @@ export function OverviewPage() {
         <Banner
           variant="alert"
           icon={<WarningIcon weight="fill" />}
-          title={`${multi && gapAccounts.length ? `The token for ${gapAccounts.join(", ")}` : "The API token"} can't read ${plural(gaps.length, "data source")}`}
+          title={`${multi && gapAccounts.length ? `The credential for ${gapAccounts.join(", ")}` : "The account's credential"} can't read ${plural(gaps.length, "data source")}`}
           description={`${skipped.size ? `${plural(skipped.size, "check")} were skipped, not passed. ` : ""}Missing: ${[...new Set(gaps.map((g) => g.permission || g.label))].slice(0, 3).join("; ")}${gaps.length > 3 ? "; and more" : ""}.`}
           action={<Banner.Action onClick={() => navigate("/scans#coverage")}>See what's missing</Banner.Action>}
         />
@@ -247,7 +249,7 @@ export function OverviewPage() {
         </div>
       </Card>
 
-      {multi && <AccountsCard rows={data.accounts} unscanned={data.unscanned} showEntity={view.kind === "all"} />}
+      {multi && <AccountsCard rows={data.accounts} unscanned={data.unscanned} showEntity={!view.entity} />}
 
       <p className="text-sm text-kumo-subtle">
         {multi
@@ -264,6 +266,7 @@ export function OverviewPage() {
 const PATH_SOURCES: Record<ProviderId, string> = {
   cloudflare: "DNS, rules, tunnels, Access, traffic and the audit log",
   vercel: "deployment protection, secrets, the firewall and domains",
+  aws: "IAM, security groups, buckets, databases and DNS",
 };
 
 function AttackPaths({ data, multi }: { data: Extract<Overview, { trend: unknown }>; multi: boolean }) {
@@ -273,7 +276,8 @@ function AttackPaths({ data, multi }: { data: Extract<Overview, { trend: unknown
       title="Attack paths"
       actions={
         <>
-          <Aside>Correlated from {providers.map((p) => PATH_SOURCES[p]).join("; ")}</Aside>
+          {/* One provider: what its paths are built from. Several: just their names, so the line stays short however many there are. */}
+          <Aside>Correlated from {providers.length === 1 ? PATH_SOURCES[providers[0]] : `your ${providerList(providers)} configuration`}</Aside>
           {data.attackPathCount > data.attackPaths.length && (
             <Button size="sm" variant="ghost" icon={<ArrowRightIcon />} onClick={() => navigate("/findings?category=Attack%20surface")}>
               All {num(data.attackPathCount)}
@@ -293,9 +297,15 @@ function AttackPaths({ data, multi }: { data: Extract<Overview, { trend: unknown
                 <SeverityBadge severity={p.severity} />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-kumo-default">{p.title}</span>
-                  <ConfidenceBadge confidence={p.confidence} />
+                {/* In the text flow, not a wrapping flex row, so a long title wraps under itself and the icon stays beside it. */}
+                <div className="text-kumo-default">
+                  <span className="mr-2 inline-flex align-middle empty:hidden">
+                    <PlatformMark provider={p.provider} spans={p.spans} />
+                  </span>
+                  <span className="font-medium">{p.title}</span>
+                  <span className="ml-2 inline-flex align-middle empty:hidden">
+                    <ConfidenceBadge confidence={p.confidence} />
+                  </span>
                 </div>
                 <p className="mt-0.5 text-sm break-words text-kumo-subtle [overflow-wrap:anywhere]">
                   {multi && <span className="font-medium text-kumo-default">{p.account}: </span>}
@@ -396,6 +406,7 @@ function GroupTable({ rows, multi }: { rows: FindingGroup[]; multi: boolean }) {
               </Table.Cell>
               <Table.Cell className="max-w-md">
                 <div className="flex min-w-0 items-center gap-2">
+                  <PlatformMark provider={g.providers} spans={g.spans} />
                   <a
                     {...link(to)}
                     className="truncate text-kumo-link hover:underline focus-visible:ring-2 focus-visible:ring-kumo-brand focus-visible:outline-none"
@@ -436,6 +447,9 @@ function BriefTable({ rows, linked, multi }: { rows: FindingBrief[]; linked: boo
               <SeverityBadge severity={f.severity} />
             </Table.Cell>
             <Table.Cell className="max-w-md">
+              <span className="mr-2 inline-flex align-middle empty:hidden">
+                <PlatformMark provider={f.provider} spans={f.spans} />
+              </span>
               {linked ? (
                 <a
                   {...link(`/findings/${f.fingerprint}`)}

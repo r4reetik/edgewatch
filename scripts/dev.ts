@@ -1,7 +1,7 @@
 // One command for local development: the API server (real or mocked
-// Cloudflare data) plus the Vite dev server with hot reload.
+// provider data) plus the Vite dev server with hot reload.
 //   npm run dev            real accounts, data in ./.edgewatch
-//   npm run dev -- --mock  mocked Cloudflare API, nothing written to disk
+//   npm run dev -- --mock  mocked provider APIs, nothing written to disk
 
 import { spawn, type ChildProcess } from "node:child_process";
 

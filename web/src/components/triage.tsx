@@ -10,6 +10,7 @@ import {
   dateTime,
   link,
   plural,
+  dashboardName,
   siteName,
   STATUS_LABEL,
   useApi,
@@ -19,7 +20,7 @@ import {
   type TriageStatus,
 } from "../lib.ts";
 import { isoDate } from "../../../src/shared/time.ts";
-import { AccountName, ConfidenceBadge, FormGrid, ReopenedBadge, SeverityBadge, StatusBadge } from "./ui.tsx";
+import { AccountName, ConfidenceBadge, FormGrid, PlatformMark, ReopenedBadge, SeverityBadge, StatusBadge } from "./ui.tsx";
 import { useShell } from "../shell.tsx";
 
 type Editable = Pick<Triage, "status" | "owner" | "note" | "dueDate" | "acceptUntil">;
@@ -68,6 +69,7 @@ export function FindingHeader({ f, actions, hideTitle }: { f: Finding; actions?:
           <ConfidenceBadge confidence={f.confidence} />
           {f.reopened && <ReopenedBadge />}
           <span className="font-mono text-xs text-kumo-subtle">{f.source === "security_center" ? "Cloudflare Security Center" : f.checkId}</span>
+          <PlatformMark provider={f.provider} spans={f.spans} always label />
         </div>
         {!hideTitle && <h2 className="text-lg font-semibold text-kumo-default">{f.title}</h2>}
         <p className="break-all text-sm text-kumo-subtle">
@@ -140,7 +142,7 @@ export function FindingBody({ f }: { f: Finding }) {
       <div className="flex flex-wrap gap-x-5 gap-y-1">
         {f.link && (
           <Link href={f.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
-            Open in the {siteName(f.link)} dashboard <ArrowSquareOutIcon />
+            Open in the {dashboardName(f.link)} <ArrowSquareOutIcon />
           </Link>
         )}
         {f.docs && (

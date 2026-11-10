@@ -22,9 +22,11 @@ import { useShell } from "../shell.tsx";
 import {
   api,
   ago,
+  capitalize,
   navigate,
   plural,
   PROVIDER_INFO,
+  PROVIDERS,
   sameName,
   score,
   useApi,
@@ -33,8 +35,8 @@ import {
   type ProviderId,
   type Severity,
 } from "../lib.ts";
-import { AccountName, DialogHeader, ListCard, Page, PageState } from "../components/ui.tsx";
-import { ConnectForm, ProviderPicker, TokenHelp, type Connected } from "../components/connect.tsx";
+import { AccountName, DialogHeader, ListCard, Page, PageState, Terms } from "../components/ui.tsx";
+import { ConnectForm, CredentialFields, joinCredential, ProviderPicker, TokenHelp, type Connected } from "../components/connect.tsx";
 
 type Account = AccountRow;
 type Entity = AccountsResponse["entities"][number];
@@ -50,8 +52,9 @@ type Modal =
   | null;
 
 const TITLE = "Accounts";
-const DESCRIPTION =
-  "Cloudflare accounts and Vercel teams Edgewatch scans, grouped by the company or team that owns them. An entity can hold accounts on both platforms, has its own email domains and alerts, and you choose which entities appear together in All accounts.";
+/** "Cloudflare accounts, Vercel teams and AWS accounts". */
+const SCANNED = PROVIDERS.map((p) => `${PROVIDER_INFO[p].label} ${PROVIDER_INFO[p].accounts}`);
+const DESCRIPTION = `The ${SCANNED.slice(0, -1).join(", ")} and ${SCANNED[SCANNED.length - 1]} Edgewatch scans, grouped by the company or team that owns them. An entity can hold accounts on several platforms, has its own email domains and alerts, and you choose which entities appear together in All accounts.`;
 
 export function AccountsPage() {
   const { dataVersion, status, refreshSession, setScope, startScan } = useShell();
@@ -122,7 +125,7 @@ export function AccountsPage() {
             close();
             await refresh();
             toasts.add({
-              title: r.added.length ? `${plural(r.added.length, unit)} added` : "Token replaced",
+              title: r.added.length ? `${plural(r.added.length, unit)} added` : "Credential replaced",
               description: "Scans have started.",
               variant: "success",
             });
@@ -180,7 +183,11 @@ export function AccountsPage() {
           onSaved={async () => {
             close();
             await refresh();
-            toasts.add({ title: "Token replaced", description: "A new scan has started.", variant: "success" });
+            toasts.add({
+              title: `${capitalize(PROVIDER_INFO[modal.account.provider].credential)} replaced`,
+              description: "A new scan has started.",
+              variant: "success",
+            });
           }}
         />
       )}
@@ -193,6 +200,7 @@ export function AccountsPage() {
           onConfirm={() => act(() => api(`/api/accounts/${modal.account.id}`, { method: "DELETE", body: {} }), `${modal.account.display} removed`)}
         />
       )}
+      <Terms />
     </Page>
   );
 }
@@ -298,7 +306,7 @@ function EntityCard({
           <Table.Header variant="compact">
             <Table.Row>
               <Table.Head>Account</Table.Head>
-              <Table.Head>Token</Table.Head>
+              <Table.Head>Credential</Table.Head>
               <Table.Head>Last scan</Table.Head>
               <Table.Head className="text-right">Score</Table.Head>
               <Table.Head className="whitespace-nowrap">Critical and high</Table.Head>
@@ -326,11 +334,9 @@ function EntityCard({
                   ) : (
                     <>
                       <span className="font-mono text-sm">{a.tokenHint}</span>
-                      {a.provider === "vercel" ? (
-                        <span className="ml-2 text-sm text-kumo-subtle">Access token</span>
-                      ) : (
-                        a.tokenKind && <span className="ml-2 text-sm text-kumo-subtle">{a.tokenKind === "user" ? "User token" : "Account token"}</span>
-                      )}
+                      <span className="ml-2 text-sm text-kumo-subtle">
+                        {(a.tokenKind && PROVIDER_INFO[a.provider].credentialKinds?.[a.tokenKind]) || capitalize(PROVIDER_INFO[a.provider].credential)}
+                      </span>
                     </>
                   )}
                 </Table.Cell>
@@ -400,7 +406,7 @@ function EntityCard({
                         Move down
                       </DropdownMenu.Item>
                       <DropdownMenu.Item icon={KeyIcon} onClick={() => onModal({ kind: "token", account: a })}>
-                        Replace token
+                        Replace {PROVIDER_INFO[a.provider].credential}
                       </DropdownMenu.Item>
                       <DropdownMenu.Separator />
                       <DropdownMenu.Item icon={TrashIcon} variant="danger" disabled={a.busy} onClick={() => onModal({ kind: "remove", account: a })}>
@@ -536,15 +542,17 @@ function ConfirmDialog({
 }
 
 function TokenDialog({ account, onClose, onSaved }: { account: Account; onClose: () => void; onSaved: () => void }) {
-  const [token, setToken] = useState("");
+  const info = PROVIDER_INFO[account.provider];
+  const [values, setValues] = useState<string[]>(() => info.fields.map(() => ""));
+  const token = joinCredential(values);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   return (
     <Dialog.Root open onOpenChange={(o: boolean) => !o && onClose()}>
       <Dialog size="lg" className="p-6">
         <DialogHeader
-          title={`Replace token for ${account.display}`}
-          description={`The new ${PROVIDER_INFO[account.provider].label} token must be able to read this ${PROVIDER_INFO[account.provider].account}. Other accounts keep their tokens.`}
+          title={`Replace the ${info.credential} for ${account.display}`}
+          description={`The new ${info.label} ${info.credential} must be able to read this ${info.account}. Other accounts keep theirs.`}
         />
         <form
           onSubmit={async (ev) => {
@@ -560,11 +568,10 @@ function TokenDialog({ account, onClose, onSaved }: { account: Account; onClose:
             }
           }}
         >
-          <SensitiveInput
-            label={account.provider === "vercel" ? "Access token" : "API token"}
-            value={token}
-            onChange={(ev: React.ChangeEvent<HTMLInputElement>) => setToken(ev.target.value.trim())}
-            variant={err ? "error" : "default"}
+          <CredentialFields
+            provider={account.provider}
+            values={values}
+            onChange={setValues}
             error={err || undefined}
             description="Stored only on this machine, readable by your user only."
           />
@@ -710,8 +717,8 @@ function EntitySettingsDialog({
 }
 
 /**
- * Adds accounts on either platform. It starts on the platform most of the accounts here
- * are on, so someone who only uses Vercel (or only Cloudflare) rarely has to change it.
+ * Adds accounts on any platform. It starts on the platform most of the accounts here
+ * are on, so someone who uses one platform rarely has to change it.
  */
 function AddAccountsDialog({
   entities,
@@ -725,15 +732,16 @@ function AddAccountsDialog({
   onConnected: (r: Connected, unit: string) => void;
 }) {
   const all = entities.flatMap((e) => e.accounts);
-  const vercel = all.filter((a) => a.provider === "vercel").length;
-  const [provider, setProvider] = useState<ProviderId>(vercel > all.length - vercel ? "vercel" : "cloudflare");
+  const count = (p: ProviderId) => all.filter((a) => a.provider === p).length;
+  // The first provider wins a tie, since sort is stable.
+  const [provider, setProvider] = useState<ProviderId>(() => [...PROVIDERS].sort((a, b) => count(b) - count(a))[0]);
   const info = PROVIDER_INFO[provider];
   return (
     <Dialog.Root open onOpenChange={(o: boolean) => !o && onClose()}>
       <Dialog size="xl" className="max-h-[90vh] overflow-y-auto p-6">
         <DialogHeader
           title="Add accounts"
-          description={`Choose the platform, paste a token, pick the ${info.accounts} it should scan, and choose the entity they belong to.`}
+          description={`Choose the platform, paste its ${info.credential}, pick the ${info.accounts} it should scan, and choose the entity they belong to.`}
         />
         <div className="mb-6 flex flex-col gap-6">
           <ProviderPicker value={provider} onChange={setProvider} />

@@ -4,6 +4,7 @@ import { lazy, type ComponentType } from "react";
 import type { ProviderId } from "../../src/shared/providers.ts";
 import {
   ArrowsClockwiseIcon,
+  MapPinIcon,
   BuildingsIcon,
   ClipboardTextIcon,
   ClockCounterClockwiseIcon,
@@ -16,8 +17,13 @@ import {
   WalletIcon,
 } from "@phosphor-icons/react";
 
-export type NavGroup = "Posture" | "Monitoring" | "Spend" | "Admin";
-export const NAV_GROUPS: NavGroup[] = ["Posture", "Monitoring", "Spend", "Admin"];
+/**
+ * The sidebar's sections, in order. Posture is what's wrong and what's being done about it, for every platform.
+ * Inventory is what each platform has (one page per platform). Insights are what a platform reports besides
+ * its configuration. Manage is Edgewatch itself: what it scans, with which checks, and when.
+ */
+export type NavGroup = "Posture" | "Inventory" | "Insights" | "Manage";
+export const NAV_GROUPS: NavGroup[] = ["Posture", "Inventory", "Insights", "Manage"];
 
 export interface RouteDef {
   /** A path, or a pattern with `:param` segments. */
@@ -32,7 +38,7 @@ export interface RouteDef {
   global?: boolean;
   /** The sidebar item to highlight, when it isn't this route. */
   parent?: string;
-  /** Only for these providers: hidden from the sidebar when no account in view is on one of them. */
+  /** Only for these providers: hidden from the sidebar when no account in view is on one of them, and marked with their icon. */
   providers?: ProviderId[];
 }
 
@@ -56,7 +62,7 @@ export const ROUTES: RouteDef[] = [
   {
     path: "/zones",
     label: "Zones",
-    group: "Posture",
+    group: "Inventory",
     icon: GlobeIcon,
     providers: ["cloudflare"],
     page: page(() => import("./pages/Zones.tsx"), "ZonesPage"),
@@ -64,15 +70,23 @@ export const ROUTES: RouteDef[] = [
   {
     path: "/projects",
     label: "Projects",
-    group: "Posture",
+    group: "Inventory",
     icon: StackIcon,
     providers: ["vercel"],
     page: page(() => import("./pages/Projects.tsx"), "ProjectsPage"),
   },
   {
+    path: "/regions",
+    label: "Regions",
+    group: "Inventory",
+    icon: MapPinIcon,
+    providers: ["aws"],
+    page: page(() => import("./pages/Regions.tsx"), "RegionsPage"),
+  },
+  {
     path: "/activity",
     label: "Activity",
-    group: "Monitoring",
+    group: "Insights",
     icon: ClockCounterClockwiseIcon,
     providers: ["cloudflare"],
     page: page(() => import("./pages/Activity.tsx"), "ActivityPage"),
@@ -80,15 +94,22 @@ export const ROUTES: RouteDef[] = [
   {
     path: "/value",
     label: "Value",
-    group: "Spend",
+    group: "Insights",
     icon: WalletIcon,
     providers: ["cloudflare"],
     page: page(() => import("./pages/Value.tsx"), "ValuePage"),
   },
-  { path: "/accounts", label: "Accounts", group: "Admin", icon: BuildingsIcon, global: true, page: page(() => import("./pages/Accounts.tsx"), "AccountsPage") },
-  { path: "/checks", label: "Checks", group: "Admin", icon: ListChecksIcon, page: page(() => import("./pages/Checks.tsx"), "ChecksPage") },
-  { path: "/scans", label: "Scans", group: "Admin", icon: ArrowsClockwiseIcon, page: page(() => import("./pages/Scans.tsx"), "ScansPage") },
-  { path: "/settings", label: "Settings", group: "Admin", icon: GearIcon, global: true, page: page(() => import("./pages/Settings.tsx"), "SettingsPage") },
+  {
+    path: "/accounts",
+    label: "Accounts",
+    group: "Manage",
+    icon: BuildingsIcon,
+    global: true,
+    page: page(() => import("./pages/Accounts.tsx"), "AccountsPage"),
+  },
+  { path: "/checks", label: "Checks", group: "Manage", icon: ListChecksIcon, page: page(() => import("./pages/Checks.tsx"), "ChecksPage") },
+  { path: "/scans", label: "Scans", group: "Manage", icon: ArrowsClockwiseIcon, page: page(() => import("./pages/Scans.tsx"), "ScansPage") },
+  { path: "/settings", label: "Settings", group: "Manage", icon: GearIcon, global: true, page: page(() => import("./pages/Settings.tsx"), "SettingsPage") },
 ];
 
 export const ReportPage = page(() => import("./pages/Report.tsx"), "ReportPage");

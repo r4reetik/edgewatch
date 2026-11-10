@@ -9,4 +9,4 @@
 - **A check is missing.** [Suggest a check](https://github.com/r4reetik/edgewatch/issues/new?template=check_request.yml).
 - **A security problem in Edgewatch itself.** Don't open an issue; follow [SECURITY.md](SECURITY.md).
 
-Edgewatch is not affiliated with Cloudflare. For problems with your Cloudflare account itself, contact Cloudflare support.
+Edgewatch is not affiliated with Cloudflare, Vercel or AWS. For problems with an account on one of them, contact that provider's support.

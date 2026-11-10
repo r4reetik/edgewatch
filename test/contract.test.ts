@@ -1,5 +1,6 @@
 // Rules every check must follow, enforced over the whole catalog.
 
+import { providerOfUrl } from "../src/shared/providers.ts";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
@@ -37,7 +38,7 @@ test("check metadata is complete and consistent", () => {
     assert.ok(c.title && c.why && c.fix, `${c.id} has a title, why and fix`);
     // Checks that span providers (XP-) may link the other provider's docs.
     assert.ok(
-      !c.docs || c.docs.startsWith("https://developers.cloudflare.com/") || (c.id.startsWith("XP-") && c.docs.startsWith("https://vercel.com/")),
+      !c.docs || c.docs.startsWith("https://developers.cloudflare.com/") || (c.id.startsWith("XP-") && providerOfUrl(c.docs) != null),
       `${c.id} links Cloudflare's docs`,
     );
     for (const s of c.requires || []) assert.ok(s in SOURCES, `${c.id} requires a known source: ${s}`);

@@ -16,7 +16,7 @@ body:
     id: detect
     attributes:
       label: How to detect it
-      description: The Cloudflare setting, API endpoint or GraphQL dataset that shows it, and what a bad value looks like. Links to Cloudflare docs help.
+      description: The platform (Cloudflare, Vercel, AWS…), then the setting, API endpoint or dataset that shows it, and what a bad value looks like. Links to the provider's docs help.
     validations:
       required: true
   - type: dropdown

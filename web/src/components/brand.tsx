@@ -14,7 +14,8 @@ export function Wordmark() {
   return (
     <span className="flex items-center gap-2">
       <Mark />
-      <span className="text-base font-semibold tracking-tight text-kumo-default">Edgewatch</span>
+      {/* In a collapsed sidebar only the mark fits; the name would show as a clipped sliver. */}
+      <span className="text-base font-semibold tracking-tight text-kumo-default group-data-[state=collapsed]/sidebar:hidden">Edgewatch</span>
     </span>
   );
 }

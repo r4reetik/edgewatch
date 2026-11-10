@@ -1,5 +1,5 @@
-// Connecting accounts from any provider: verify a token, add accounts, rename,
-// move, replace a token, remove. Available before any account is connected. The
+// Connecting accounts from any provider: verify a credential (a token, an access
+// key), add accounts, rename, move, replace the credential, remove. Available before any account is connected. The
 // request names its provider (`provider`, Cloudflare when absent).
 
 import type { AppContext } from "../env.ts";
@@ -35,7 +35,7 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
   r.post("/api/accounts/verify", async (c) => {
     const body = await requireJson(c);
     const p = PROVIDER[providerId(body.provider)];
-    const t = token(body.token);
+    const t = token(body.token, p.info.id);
     const ids = accountIds(body.accountIds ?? (body.accountId ? [body.accountId] : []), p.info.id);
     const [info, visible] = await Promise.all([p.verify(t, ids), visibleAccounts(p, t)]);
     if (!info.valid) return c.json({ token: info, accounts: [], probes: {}, probeLimit: PROBE_LIMIT } satisfies VerifyResponse);
@@ -53,14 +53,14 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
   r.post("/api/accounts", async (c) => {
     const body = await requireJson(c);
     const p = PROVIDER[providerId(body.provider)];
-    const t = token(body.token);
+    const t = token(body.token, p.info.id);
     const ids = accountIds(body.accountIds, p.info.id);
     if (!ids.length) throw badRequest(`Choose at least one ${p.info.account}.`);
     const info = await p.verify(t, ids);
-    if (!info.valid) throw badRequest(info.message || "The token is not valid.");
+    if (!info.valid) throw badRequest(info.message || `The ${p.info.credential} is not valid.`);
     const visible = new Map((await visibleAccounts(p, t)).map((a) => [a.id, a.name]));
     const unseen = ids.find((id) => !visible.has(id));
-    if (unseen) throw badRequest(`This token can't read ${p.info.account} ${unseen}.`);
+    if (unseen) throw badRequest(`This ${p.info.credential} can't read ${p.info.account} ${unseen}.`);
     const other = ids.map((id) => repo.accounts.get(id)).find((a) => a && a.provider !== p.info.id);
     if (other) throw badRequest(`${other.id} is already connected as a ${PROVIDER[other.provider].info.label} account.`);
 
@@ -138,11 +138,11 @@ export function accountRoutes(r: Routes, { repo, scanner, vault }: AppContext) {
 
   r.put("/api/accounts/:id/token", async (c) => {
     const a = account(param(c, "id"));
-    const t = token((await readJson(c))?.token);
     const p = PROVIDER[a.provider];
+    const t = token((await readJson(c))?.token, a.provider);
     const info = await p.verify(t, [a.id]);
-    if (!info.valid) throw badRequest(info.message || "The token is not valid.");
-    if (!(await visibleAccounts(p, t)).some((v) => v.id === a.id)) throw badRequest(`This token can't read this ${p.info.account}.`);
+    if (!info.valid) throw badRequest(info.message || `The ${p.info.credential} is not valid.`);
+    if (!(await visibleAccounts(p, t)).some((v) => v.id === a.id)) throw badRequest(`This ${p.info.credential} can't read this ${p.info.account}.`);
     repo.accounts.update(a.id, { tokenId: vault.put(t, info.kind), tokenKind: info.kind });
     pruneTokens();
     scanner.start("token", [a.id]);

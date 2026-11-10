@@ -2,6 +2,7 @@
 // "just now", "5 min ago", "3 h ago", "2 d ago".
 
 import { DAY_MS } from "../../../src/shared/time.ts";
+import { PROVIDER_INFO, providerOfUrl } from "../../../src/shared/providers.ts";
 
 const nf = new Intl.NumberFormat("en-US");
 export const num = (n: number | null | undefined) => (n == null ? "—" : nf.format(n));
@@ -37,19 +38,23 @@ export const clampPage = (page: number, total: number, perPage: number) => Math.
 /** Names that differ only in case or surrounding spaces are the same name. */
 export const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
 
-/** What a finding's `zone` is called for the providers in view: a Cloudflare zone, a Vercel project. */
-export function zoneWord(providers: readonly string[]): string {
-  const v = providers.includes("vercel"),
-    c = providers.includes("cloudflare") || !providers.length;
-  return v && c ? "Zone or project" : v ? "Project" : "Zone";
-}
-
-/** The site a link goes to, by its address: findings and checks can link Cloudflare's or Vercel's dashboard and docs. */
+/** The site a link goes to, by its address: findings and checks link each provider's own dashboard and docs. */
 export function siteName(url: string): string {
+  const p = providerOfUrl(url);
+  if (p) return PROVIDER_INFO[p].label;
   try {
-    const h = new URL(url).hostname;
-    return h.endsWith("vercel.com") ? "Vercel" : h.endsWith("cloudflare.com") ? "Cloudflare" : h;
+    return new URL(url).hostname;
   } catch {
     return "the provider";
   }
 }
+
+/** Where a finding is fixed, in the provider's words: "Cloudflare dashboard", "AWS console". */
+export function dashboardName(url: string): string {
+  const p = providerOfUrl(url);
+  return `${siteName(url)} ${p ? PROVIDER_INFO[p].dashboard : "dashboard"}`;
+}
+
+/** "an access key", "a token". */
+export const withArticle = (noun: string) => `${/^[aeiou]/i.test(noun) ? "an" : "a"} ${noun}`;
+export const capitalize = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);

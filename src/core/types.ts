@@ -6,7 +6,7 @@ import type * as CF from "./cf-types.ts";
 import type { Category } from "./categories.ts";
 import type { SourceKey } from "./sources.ts";
 import type { Severity } from "../shared/severity.ts";
-import type { Confidence, Evidence, EvidenceStep, ProviderLinks } from "../shared/api.ts";
+import type { Confidence, Evidence, EvidenceStep, LinkKey, ProviderLinks } from "../shared/api.ts";
 
 export type Api = any;
 export type { Severity, Confidence, Evidence, EvidenceStep, Category };
@@ -195,6 +195,8 @@ export interface Inventory {
   deepDns: DeepDns;
   /** null when takeover probing is turned off. */
   takeover: TakeoverProbe[] | null;
+  /** AWS's published EC2 address ranges, read only when the entity has an AWS account (for checks that span providers). */
+  awsPrefixes?: [number, number][] | null;
 }
 
 /** One pass/fail evaluation of a check against one resource. */
@@ -224,19 +226,31 @@ export interface EngineOptions {
   orgDomains: string[];
   disabledChecks: Set<string>;
   severityOverrides: Record<string, Severity>;
-  /** What the entity's other accounts, on other providers, share with this one. Absent: no checks that span providers. */
-  related?: Related;
+  /** What the entity's other accounts share with this one. Absent: no checks that span providers. */
+  related?: Partial<Related>;
 }
 
-/** What checks that span providers know about the entity's other accounts, from their latest scans. */
-export interface Related {
-  /** Cloudflare DNS records in the entity that point at Vercel; null when the entity has no scanned Cloudflare account. */
-  toVercel: NonNullable<ProviderLinks["toVercel"]> | null;
-  /** Domains served by the entity's Vercel projects; null when the entity has no scanned Vercel account that could read them. */
-  vercelDomains: NonNullable<ProviderLinks["vercelDomains"]> | null;
-}
+/**
+ * What checks that span providers know about the entity's other accounts, from their latest scans:
+ * every list of ProviderLinks, merged across those accounts. A list is null when no scanned account
+ * in the entity published it, and the checks that need it are skipped. A list is also null when one
+ * of the accounts that should publish it hasn't (not scanned yet, or its scan couldn't read all of
+ * it): `unknown` names those lists, so a check on the same provider can tell "no other account" from
+ * "another account we know nothing about".
+ */
+export type Related = { [K in keyof ProviderLinks]-?: NonNullable<ProviderLinks[K]> | null } & { unknown: LinkKey[] };
 
-export const NO_RELATED: Related = { toVercel: null, vercelDomains: null };
+export const NO_RELATED: Related = {
+  toVercel: null,
+  vercelDomains: null,
+  toAws: null,
+  dnsAddresses: null,
+  awsEndpoints: null,
+  awsAddresses: null,
+  awsReleased: null,
+  awsAccounts: null,
+  unknown: [],
+};
 
 export interface CollectOptions {
   /** Send HTTP probes to hostnames that point at takeover-prone providers. */

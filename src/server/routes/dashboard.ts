@@ -17,6 +17,7 @@ import {
   scanMeta,
   projects,
   providerScores,
+  regions,
   scopeFindings,
   scores,
   securityCenter,
@@ -35,6 +36,7 @@ import type {
   FindingsResponse,
   Overview,
   ProjectsResponse,
+  RegionsResponse,
   Report,
   ScanRow,
   ScansResponse,
@@ -80,6 +82,7 @@ function sinceLastScan(repo: Repo, scans: AccountScan[], findings: Finding[]) {
             category: r.category,
             accountId: account.id,
             provider: account.provider,
+            spans: CHECK_BY_ID[r.check_id]?.spans ?? [],
             account: displayName(account),
             confidence: (r.confidence as FindingBrief["confidence"]) || null,
           }),
@@ -213,6 +216,10 @@ export function dashboardRoutes(r: Routes, { repo, scanner, version }: AppContex
     const s = latestScans(repo, c.get("scope"));
     return c.json({ scan: scanMeta(s), projects: projects(s), coverage: coverage(s) } satisfies ProjectsResponse);
   });
+  r.get("/api/regions", (c) => {
+    const s = latestScans(repo, c.get("scope"));
+    return c.json({ scan: scanMeta(s), regions: regions(s), coverage: coverage(s) } satisfies RegionsResponse);
+  });
   r.get("/api/value", (c) => {
     const s = latestScans(repo, c.get("scope"));
     return c.json({ scan: scanMeta(s), value: value(s), coverage: coverage(s) } satisfies ValueResponse);
@@ -269,6 +276,7 @@ export function dashboardRoutes(r: Routes, { repo, scanner, version }: AppContex
       coverage: coverage(scans),
       zones: zones(scans),
       projects: projects(scans),
+      regions: regions(scans),
       valueCounts: value(scans)?.counts,
       checks: checkStats(scans),
     } satisfies Report);

@@ -9,8 +9,9 @@ import { spawn } from "node:child_process";
 
 const { start, isLoopback, webMissing, VERSION } = await import("./main.ts");
 const { defaultDataDir } = await import("./config.ts");
+const { providerList } = await import("./shared/providers.ts");
 
-const HELP = `Edgewatch ${VERSION}: security posture tracker for Cloudflare and Vercel
+const HELP = `Edgewatch ${VERSION}: security posture tracker for ${providerList()}
 
 Usage: edgewatch [options]
 
@@ -31,8 +32,8 @@ Environment only:
   EDGEWATCH_LOG=json           Log one JSON object per line
   EDGEWATCH_UPDATE_CHECK=off   Never check GitHub for new releases
 
-Cloudflare accounts and Vercel teams are added in the browser, one token or several. Tokens are stored in
-<data-dir>/credentials.json, readable by your user only. Binding to a non-loopback address
+Accounts on every platform are added in the browser, with one credential or several. Credentials are
+stored in <data-dir>/credentials.json, readable by your user only. Binding to a non-loopback address
 requires a password unless EDGEWATCH_AUTH=none is set.
 
 Docs: https://github.com/r4reetik/edgewatch#readme`;
@@ -104,7 +105,7 @@ const accounts = running.repo.accounts.list(),
 console.log(
   `\n  Edgewatch ${VERSION}\n\n  Open:  ${running.url}\n  Data:  ${dataDir}\n  Auth:  ${password ? "password" : insecureNoAuth && !loopback ? "none (behind your proxy)" : "none (local only)"}\n`,
 );
-if (!accounts.length) console.log("  No accounts yet: open the URL to add a Cloudflare or Vercel token.\n");
+if (!accounts.length) console.log(`  No accounts yet: open the URL to connect ${providerList(undefined, "or")}.\n`);
 else
   console.log(`  Watching ${accounts.length} account${accounts.length === 1 ? "" : "s"} in ${entities.length} entit${entities.length === 1 ? "y" : "ies"}.\n`);
 if (process.env.CLOUDFLARE_API_TOKEN) console.log("  Note: CLOUDFLARE_API_TOKEN is no longer read. Add accounts in the browser instead.\n");

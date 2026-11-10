@@ -1,6 +1,6 @@
 // Scans accounts one at a time from a queue and tracks live progress for the UI.
 // One account at a time keeps the request rate predictable when several accounts
-// share a token (Cloudflare's and Vercel's rate limits are per token). What a scan
+// share a token (providers' rate limits are per token). What a scan
 // reads and checks is up to the account's provider (src/providers).
 
 import { computeScore, severityCounts } from "./core/engine.ts";
@@ -8,8 +8,8 @@ import { PROVIDER } from "./providers/index.ts";
 import { notifyScan } from "./notify.ts";
 import { displayName, type Account, type Repo } from "./store/repo.ts";
 import type { TokenVault } from "./config.ts";
-import type { Related } from "./core/types.ts";
-import type { ScanSnapshot } from "./shared/api.ts";
+import { NO_RELATED, type Related } from "./core/types.ts";
+import { LINK_KEYS, LINK_PROVIDER, type LinkKey, type ScanSnapshot } from "./shared/api.ts";
 
 export interface ScanState {
   running: boolean;
@@ -127,7 +127,7 @@ export class Scanner {
     };
     const token = this.#vault.get(account.tokenId);
     if (!token) {
-      const msg = "The API token for this account is missing. Replace it on the Accounts page.";
+      const msg = `The ${PROVIDER[account.provider].info.credential} for this account is missing. Replace it on the Accounts page.`;
       this.#repo.scans.fail(id, msg, 0);
       this.#log(`Scan ${id} (${displayName(account)}) failed: ${msg}`);
       throw new Error(msg);
@@ -139,10 +139,12 @@ export class Scanner {
       const entity = this.#repo.entities.get(account.entityId);
       const siblings = this.#siblings(account);
       const overrides = this.#repo.settings.overrides();
+      const prev = this.#repo.scans.latest(account.id);
       const out = await provider.scan({
         token: token.token,
         account,
         probeTakeovers: settings.probes.takeover,
+        previous: prev?.snapshot ? (JSON.parse(prev.snapshot as string) as ScanSnapshot) : null,
         engine: {
           orgDomains: [...(entity?.orgDomains || []), ...siblings.domains],
           disabledChecks: overrides.disabled,
@@ -162,7 +164,6 @@ export class Scanner {
 
       const snapshot: ScanSnapshot = { accountName: out.accountName, coverage: out.coverage, checks: result.checkStats, ...out.snapshot };
 
-      const prev = this.#repo.scans.latest(account.id);
       this.#repo.scans.complete(id, { findings: result.findings, score: score.overall, counts, categories: result.categories, snapshot, calls });
       this.#repo.scans.prune(account.id, settings.retentionDays);
       // Keep the provider's name current, for accounts renamed in its dashboard.
@@ -216,20 +217,32 @@ export class Scanner {
   /**
    * What the entity's other accounts share with this one, from their latest scans: the domains they
    * own (internal email domains), and the links that checks spanning providers compare against.
-   * A provider with no scanned account in the entity stays null, so those checks are skipped.
+   * A provider with no scanned account in the entity stays null, so those checks are skipped; so does
+   * a list that any account of its provider hasn't published yet.
    */
   #siblings(account: Account): { domains: string[]; related: Related } {
     const domains: string[] = [];
-    const related: Related = { toVercel: null, vercelDomains: null };
+    const related: Related = { ...NO_RELATED, unknown: [] };
+    const merge = <K extends LinkKey>(k: K, list: NonNullable<Related[K]>) => {
+      related[k] = [...(related[k] ?? []), ...list] as Related[K];
+    };
+    const unknown = new Set<LinkKey>();
     for (const a of this.#repo.accounts.list()) {
       if (a.entityId !== account.entityId || a.id === account.id) continue;
       const s = this.#repo.scans.latest(a.id);
-      if (!s?.snapshot) continue;
-      const snap = JSON.parse(s.snapshot as string) as ScanSnapshot;
-      domains.push(...PROVIDER[a.provider].ownedDomains(snap));
-      if (snap.links?.toVercel) related.toVercel = [...(related.toVercel ?? []), ...snap.links.toVercel];
-      if (snap.links?.vercelDomains) related.vercelDomains = [...(related.vercelDomains ?? []), ...snap.links.vercelDomains];
+      const snap = s?.snapshot ? (JSON.parse(s.snapshot as string) as ScanSnapshot) : null;
+      if (snap) domains.push(...PROVIDER[a.provider].ownedDomains(snap));
+      // Every list this account's provider publishes: merged when it's there, unknown when it isn't.
+      for (const k of LINK_KEYS) {
+        if (LINK_PROVIDER[k] !== a.provider) continue;
+        const list = snap?.links?.[k];
+        if (list) merge(k, list);
+        else unknown.add(k);
+      }
     }
+    // A list that one account couldn't supply is incomplete, and an incomplete list is never used.
+    for (const k of unknown) related[k] = null;
+    related.unknown = [...unknown];
     return { domains, related };
   }
 }

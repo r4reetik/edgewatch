@@ -6,7 +6,7 @@ import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { installMockCloudflare, MOCK_ACCOUNT, MOCK_TOKEN } from "../dev/mock/cloudflare.ts";
 import { installMockVercel, MOCK_VERCEL_TEAM, MOCK_VERCEL_TOKEN, MOCK_VERCEL_TOKEN_2, MOCK_VERCEL_USER } from "../dev/mock/vercel.ts";
-import { resolveScope, splitScopeKey, withProvider } from "../src/shared/scope.ts";
+import { keyForAccounts, resolveScope, splitScopeKey, withProvider } from "../src/shared/scope.ts";
 import { makeApp } from "./helpers/app.ts";
 
 describe("Cloudflare and Vercel together", () => {
@@ -56,7 +56,7 @@ describe("Cloudflare and Vercel together", () => {
       // Vercel IDs keep their case; a Cloudflare-shaped request for them is refused.
       const wrong = await call("/api/accounts", { method: "POST", body: JSON.stringify({ token: MOCK_VERCEL_TOKEN, accountIds: [MOCK_VERCEL_TEAM] }) });
       assert.equal(wrong.status, 400);
-      const unknown = await call("/api/accounts", { method: "POST", body: JSON.stringify({ provider: "aws", token: "x", accountIds: [] }) });
+      const unknown = await call("/api/accounts", { method: "POST", body: JSON.stringify({ provider: "not-a-provider", token: "x", accountIds: [] }) });
       assert.equal(unknown.status, 400);
 
       const saved = await json("/api/accounts", "POST", { provider: "vercel", token: MOCK_VERCEL_TOKEN, accountIds: [MOCK_VERCEL_TEAM], entityName: "Web" });
@@ -173,4 +173,51 @@ test("scope keys carry an optional provider, dropped when the view has only one"
     resolveScope(accounts, entities, "all@cloudflare")!.accounts.map((a) => a.id),
     ["a1", "a2"],
   );
+});
+
+test("a view can be any set of accounts, named by its shortest key, and separate entities are never combined", () => {
+  const acc = (id: string, provider: "cloudflare" | "vercel" | "aws", entityId: number) => ({ id, provider, entityId, name: id, alias: null });
+  const list = [acc("cf1", "cloudflare", 1), acc("aws1", "aws", 1), acc("aws2", "aws", 1), acc("cf2", "cloudflare", 2), acc("v3", "vercel", 3)];
+  const ents = [
+    { id: 1, name: "Group", includeInAll: true },
+    { id: 2, name: "Sister", includeInAll: true },
+    { id: 3, name: "Apart", includeInAll: false },
+  ];
+  const key = (...ids: string[]) => keyForAccounts(list, ents, ids);
+  // The whole of something keeps its own key, so links stay short and stable.
+  assert.equal(key("cf1", "aws1", "aws2", "cf2"), "all");
+  assert.equal(key("cf1", "aws1", "aws2"), "e:1");
+  assert.equal(key("aws2"), "a:aws2");
+  assert.equal(key("aws1", "aws2"), "e:1@aws", "every account of one platform in an entity");
+  assert.equal(key("cf1", "cf2"), "all@cloudflare");
+  // With one entity, everything in it is that entity (and "all" resolves to the same accounts).
+  assert.equal(keyForAccounts(list.slice(0, 3), ents.slice(0, 1), ["cf1", "aws1", "aws2"]), "e:1");
+  // Anything else is the set itself, in a stable order.
+  assert.equal(key("cf1", "aws2"), "s:aws2,cf1");
+  assert.equal(key("aws2", "cf1"), "s:aws2,cf1");
+  assert.equal(key(), null);
+  assert.equal(key("nope"), null);
+
+  const part = resolveScope(list, ents, "s:aws2,cf1")!;
+  assert.equal(part.kind, "selection");
+  assert.equal(part.label, "Group");
+  assert.equal(part.entity?.id, 1);
+  assert.deepEqual(
+    part.accounts.map((a) => a.id),
+    ["cf1", "aws2"],
+  );
+  assert.deepEqual(part.providers, ["cloudflare", "aws"]);
+  const across = resolveScope(list, ents, "s:aws1,cf2")!;
+  assert.equal(across.entity, null);
+  assert.equal(across.label, "2 accounts");
+  // An account that was removed drops out of an old link; a link with nothing left doesn't resolve.
+  assert.deepEqual(
+    resolveScope(list, ents, "s:aws1,gone,cf1")!.accounts.map((a) => a.id),
+    ["cf1", "aws1"],
+  );
+  assert.equal(resolveScope(list, ents, "s:gone"), null);
+  // An entity kept out of All accounts is never shown together with another.
+  assert.equal(resolveScope(list, ents, "s:cf1,v3"), null);
+  assert.equal(key("cf1", "v3"), null);
+  assert.equal(key("v3"), "a:v3");
 });

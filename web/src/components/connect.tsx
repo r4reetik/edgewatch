@@ -1,11 +1,24 @@
-// Choosing a provider, then token entry, verification, account selection and
-// permission check for it. Used by first-run setup and by Accounts → Add accounts.
-// Each provider has its own token steps (TokenHelp); the rest of the flow is shared.
+// Choosing a provider, then entering its credential (a token, an access key),
+// verification, account selection and permission check. Used by first-run setup
+// and by Accounts → Add accounts. Each provider has its own steps for creating the
+// credential (TokenHelp); the rest of the flow is shared and worded from
+// PROVIDER_INFO, so it never branches on a provider's name.
 
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Banner, Button, Input, Link, Radio, Select, SensitiveInput, Table, LayerCard } from "@cloudflare/kumo";
 import { ArrowSquareOutIcon, CheckCircleIcon, WarningIcon, XCircleIcon } from "@phosphor-icons/react";
-import { api, plural, PROVIDER_INFO, PROVIDERS, sameName, type ProviderId, type SessionEntity, type TemplateResponse } from "../lib.ts";
+import {
+  api,
+  capitalize,
+  CREDENTIAL_SEPARATOR,
+  plural,
+  PROVIDER_INFO,
+  PROVIDERS,
+  sameName,
+  type ProviderId,
+  type SessionEntity,
+  type TemplateResponse,
+} from "../lib.ts";
 import { FormGrid, ProviderIcon } from "./ui.tsx";
 import type { PermissionProbe, VisibleAccount, VerifyResponse, AddAccountsResponse } from "../lib.ts";
 type Probe = PermissionProbe;
@@ -13,12 +26,6 @@ type Verify = VerifyResponse;
 export type Connected = AddAccountsResponse;
 
 const NEW = "new";
-
-/** What each provider is for, on the provider choice. */
-const PROVIDER_BLURB: Record<ProviderId, string> = {
-  cloudflare: "Zones, DNS, WAF, Zero Trust, Workers and more",
-  vercel: "Projects, deployment protection, secrets, firewall and domains",
-};
 
 /** Which platform the accounts are on. Someone on one platform only ever sees that one's steps. */
 export function ProviderPicker({ value, onChange }: { value: ProviderId; onChange: (p: ProviderId) => void }) {
@@ -34,15 +41,63 @@ export function ProviderPicker({ value, onChange }: { value: ProviderId; onChang
               {PROVIDER_INFO[p].label}
             </span>
           }
-          description={PROVIDER_BLURB[p]}
+          description={PROVIDER_INFO[p].blurb}
         />
       ))}
     </Radio.Group>
   );
 }
 
+/** How to create the credential, one set of steps per provider. A new provider doesn't compile until it has one. */
+const TOKEN_HELP: Record<ProviderId, () => React.ReactNode> = { cloudflare: CloudflareTokenHelp, vercel: VercelTokenHelp, aws: AwsTokenHelp };
+
 export function TokenHelp({ provider = "cloudflare" }: { provider?: ProviderId }) {
-  return provider === "vercel" ? <VercelTokenHelp /> : <CloudflareTokenHelp />;
+  const Help = TOKEN_HELP[provider];
+  return <Help />;
+}
+
+/** The credential as it is sent and stored: one field as it is, several joined in order. */
+export const joinCredential = (values: string[]) => (values.every((v) => v) ? values.join(CREDENTIAL_SEPARATOR) : "");
+
+/**
+ * The provider's credential inputs: one for a token, two for an AWS access key. Secret fields
+ * are hidden while typing. The description sits under the last field.
+ */
+export function CredentialFields({
+  provider,
+  values,
+  onChange,
+  onEnter,
+  description,
+  error,
+}: {
+  provider: ProviderId;
+  values: string[];
+  onChange: (values: string[]) => void;
+  onEnter?: () => void;
+  description?: string;
+  error?: string;
+}) {
+  const fields = PROVIDER_INFO[provider].fields;
+  const inputs = fields.map((f, i) => {
+    const last = i === fields.length - 1;
+    const props = {
+      className: "w-full",
+      label: f.label,
+      placeholder: f.placeholder,
+      value: values[i] ?? "",
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => onChange(fields.map((_, j) => (j === i ? e.target.value.trim() : (values[j] ?? "")))),
+      // Enter submits a pasted credential, like a form.
+      onKeyDown: (e: React.KeyboardEvent) => {
+        if (e.key === "Enter") onEnter?.();
+      },
+      description: last ? description : undefined,
+      variant: (last && error ? "error" : "default") as "error" | "default",
+      error: last ? error || undefined : undefined,
+    };
+    return f.secret ? <SensitiveInput key={f.label} {...props} /> : <Input key={f.label} {...props} autoComplete="off" spellCheck={false} />;
+  });
+  return fields.length > 1 ? <FormGrid>{inputs}</FormGrid> : inputs[0];
 }
 
 function CloudflareTokenHelp() {
@@ -98,7 +153,29 @@ function VercelTokenHelp() {
   );
 }
 
-/** Remount it (key={provider}) when the provider changes: a token belongs to one provider. */
+function AwsTokenHelp() {
+  return (
+    <ol className="ml-5 list-decimal space-y-2 text-base text-kumo-default marker:text-kumo-subtle">
+      <li>
+        In the AWS console, go to <span className="font-medium">IAM → Users → Create user</span>. Name it edgewatch and leave console access off.{" "}
+        <Link href="https://console.aws.amazon.com/iam/home#/users/create" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
+          Open IAM <ArrowSquareOutIcon />
+        </Link>
+      </li>
+      <li>
+        Choose <span className="font-medium">Attach policies directly</span> and attach AWS's managed <span className="font-medium">SecurityAudit</span> policy.
+        It reads configuration only: it can't change anything, and it can't read what is stored in your buckets or databases.
+      </li>
+      <li>
+        Open the user, go to <span className="font-medium">Security credentials → Create access key</span>, choose{" "}
+        <span className="font-medium">Application running outside AWS</span>, and paste the key ID and the secret below. An access key belongs to one AWS
+        account, so each account needs its own.
+      </li>
+    </ol>
+  );
+}
+
+/** Remount it (key={provider}) when the provider changes: a credential belongs to one provider. */
 export function ConnectForm({
   provider = "cloudflare",
   entities,
@@ -114,8 +191,10 @@ export function ConnectForm({
 }) {
   const info = PROVIDER_INFO[provider];
   const unit = info.account;
-  const Unit = unit[0].toUpperCase() + unit.slice(1);
-  const [token, setToken] = useState("");
+  const Unit = capitalize(unit);
+  const cred = info.credential;
+  const [values, setValues] = useState<string[]>(() => info.fields.map(() => ""));
+  const token = joinCredential(values);
   const [result, setResult] = useState<Verify | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [probedKey, setProbedKey] = useState("");
@@ -186,19 +265,18 @@ export function ConnectForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <SensitiveInput
-        label={provider === "vercel" ? "Access token" : "API token"}
-        value={token}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-          setToken(e.target.value.trim());
+      <CredentialFields
+        provider={provider}
+        values={values}
+        onChange={(v) => {
+          setValues(v);
           setResult(null);
           setSelected(new Set());
         }}
-        onKeyDown={(e: React.KeyboardEvent) => {
-          // Enter verifies a pasted token, like submitting a form.
-          if (e.key === "Enter" && token && !result && !busy) void verify([]);
+        onEnter={() => {
+          if (token && !result && !busy) void verify([]);
         }}
-        description={`Stored only on this machine, readable by your user only. It is never shown again or sent anywhere except ${provider === "vercel" ? "api.vercel.com" : "api.cloudflare.com"}.`}
+        description={`Stored only on this machine, readable by your user only. It is never shown again or sent anywhere except ${info.apiHost}.`}
       />
 
       {err && <Banner variant="error" icon={<XCircleIcon weight="fill" />} title="Something went wrong" description={err} />}
@@ -206,21 +284,12 @@ export function ConnectForm({
         <Banner
           variant="error"
           icon={<XCircleIcon weight="fill" />}
-          title={`${info.label} rejected this token`}
+          title={`${info.label} rejected this ${cred}`}
           description={result.token.message || "Check that it was copied completely and hasn't expired."}
         />
       )}
       {valid && !accounts.length && (
-        <Banner
-          variant="alert"
-          icon={<WarningIcon weight="fill" />}
-          title={`This token can't see any ${unit}`}
-          description={
-            provider === "vercel"
-              ? "Create a token scoped to the team you want to scan, or to Full Account."
-              : "Edit the token in Cloudflare and include at least one account."
-          }
-        />
+        <Banner variant="alert" icon={<WarningIcon weight="fill" />} title={`This ${cred} can't see any ${unit}`} description={info.noAccounts} />
       )}
 
       {valid && accounts.length > 0 && (
@@ -262,7 +331,7 @@ export function ConnectForm({
                     <Table.Cell className="whitespace-nowrap text-right">
                       {a.added && (
                         <Badge variant="neutral">
-                          {selected.has(a.id) ? "Token will be replaced" : `Added${entityOf(a.entityId) ? ` to ${entityOf(a.entityId)}` : ""}`}
+                          {selected.has(a.id) ? `${capitalize(cred)} will be replaced` : `Added${entityOf(a.entityId) ? ` to ${entityOf(a.entityId)}` : ""}`}
                         </Badge>
                       )}
                     </Table.Cell>
@@ -321,13 +390,13 @@ export function ConnectForm({
             variant="alert"
             icon={<WarningIcon weight="fill" />}
             title={`${plural(gaps.length, "data source")} not readable`}
-            description={`You can add the ${info.accounts} now; the checks below are skipped until the token ${provider === "vercel" ? "belongs to someone whose role can read them" : "gets the permissions"}.`}
+            description={`You can add the ${info.accounts} now; the checks below are skipped until the ${cred} ${info.needsToRead}.`}
           />
         ) : (
           <Banner
             icon={<CheckCircleIcon weight="fill" />}
-            title="Token verified"
-            description={`${provider === "vercel" ? "The token" : `A ${result!.token.kind}-owned token`} can read everything Edgewatch checks${ids.length > probeLimit ? ` (checked on the first ${probeLimit} ${info.accounts})` : ""}.`}
+            title={`${capitalize(cred)} verified`}
+            description={`The ${cred} can read everything Edgewatch checks${ids.length > probeLimit ? ` (checked on the first ${probeLimit} ${info.accounts})` : ""}.`}
           />
         ))}
 
@@ -375,7 +444,7 @@ export function ConnectForm({
         {valid && ids.length === 0 && accounts.length > 0 && <span className="mr-auto text-sm text-kumo-subtle">Select at least one {unit}.</span>}
         {(!valid || stale) && (
           <Button variant={valid ? "secondary" : "primary"} disabled={!token} loading={busy === "verify"} onClick={() => verify(valid ? ids : [])}>
-            {valid ? "Check permissions" : "Verify token"}
+            {valid ? "Check permissions" : `Verify ${cred}`}
           </Button>
         )}
         {valid && ids.length > 0 && (

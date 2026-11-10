@@ -34,7 +34,7 @@ export function settingsRoutes(r: Routes, { repo, auth, version, updates }: AppC
     const scans = scope ? latestScans(repo, scope) : [];
     const stats = checkStats(scans);
     const o = repo.settings.overrides();
-    // Only the providers in view: someone on Cloudflare alone doesn't need Vercel's checks listed.
+    // Only the providers in view: someone on one platform doesn't need the others' checks listed.
     const shown = new Set(scope?.provider ? [scope.provider] : scope?.providers.length ? scope.providers : PROVIDERS);
     return c.json({
       scan: scanMeta(scans),
@@ -42,6 +42,7 @@ export function settingsRoutes(r: Routes, { repo, auth, version, updates }: AppC
         (d): CheckRow => ({
           id: d.id,
           provider: d.provider,
+          spans: d.spans ?? [],
           category: d.category,
           severity: d.severity,
           title: d.title,

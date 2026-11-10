@@ -146,6 +146,7 @@ export class FindingRepo {
           category: r.category,
           accountId: r.account_id,
           provider: providerOr(r.provider),
+          spans: CHECK_BY_ID[r.check_id]?.spans ?? [],
           account,
           confidence: (r.confidence as Confidence) || null,
         }
@@ -274,6 +275,7 @@ function toFinding(r: Joined, sla: SlaDays, today: string): StoredFinding {
     why: check?.why || null,
     fix: check?.fix || null,
     docs: check?.docs || null,
+    spans: check?.spans ?? [],
     triage,
     status,
     settled,

@@ -6,6 +6,7 @@
 import type { CheckId } from "../../src/core/catalog.ts";
 import type { EngineOptions, Inventory, ZoneInventory } from "../../src/core/types.ts";
 import { analytics, goodSettings, inventory, record, zone } from "../fixtures/inventory.ts";
+import { toPrefixes } from "../../src/core/aws-ranges.ts";
 
 const NOW = Date.parse("2026-06-01T00:00:00Z");
 const days = (n: number) => new Date(NOW + n * 86_400_000).toISOString();
@@ -315,9 +316,15 @@ export const CASES: Record<CheckId, () => Inventory> = {
 
   "XP-001": () => withDns(record(`old-site.${Z}`, "CNAME", "cname.vercel-dns.com")),
   "XP-002": () => withDns(record(`www.${Z}`, "CNAME", "cname.vercel-dns.com", { proxied: true })),
+  "XP-004": () => withDns(record(`assets.${Z}`, "CNAME", "d111111abcdef8.cloudfront.net")),
+  "XP-007": () => withDns(record(`old-vm.${Z}`, "A", "198.51.100.77")),
+  "XP-008": () => ({ ...withDns(record(`vendor.${Z}`, "A", "198.51.100.77")), awsPrefixes: toPrefixes(["198.51.100.0/24"]) }),
 };
 
 /** Engine options a case needs beyond the defaults: checks that span providers read the entity's other accounts. */
 export const CASE_OPTS: Partial<Record<CheckId, Partial<EngineOptions>>> = {
   "XP-001": { related: { toVercel: null, vercelDomains: [{ host: `app.${Z}`, project: "web", projectId: "prj_1", protectsDeploymentUrls: true }] } },
+  "XP-004": { related: { awsEndpoints: [{ kind: "cloudfront", name: "d222222abcdef8.cloudfront.net" }] } },
+  "XP-007": { related: { awsAddresses: ["198.51.100.9"], awsReleased: [{ ip: "198.51.100.77", at: "2026-05-20T00:00:00.000Z" }] } },
+  "XP-008": { related: { awsAddresses: ["198.51.100.9"] } },
 };

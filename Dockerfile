@@ -11,7 +11,7 @@ RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
 FROM node:26-slim
 LABEL org.opencontainers.image.source="https://github.com/r4reetik/edgewatch" \
-      org.opencontainers.image.description="Security posture tracking for Cloudflare accounts. Read-only." \
+      org.opencontainers.image.description="Security posture tracking for Cloudflare, Vercel and AWS. Read-only." \
       org.opencontainers.image.licenses="MIT"
 ENV NODE_ENV=production \
     EDGEWATCH_HOST=0.0.0.0 \

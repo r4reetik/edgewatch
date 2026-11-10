@@ -25,6 +25,7 @@ import {
   num,
   openFor,
   plural,
+  PROVIDER_INFO,
   setParams,
   useLocation,
   withScope,
@@ -40,7 +41,7 @@ import {
   type Triage,
   zoneWord,
 } from "../lib.ts";
-import { AccountName, ConfidenceBadge, ListCard, Page, PageState, ReopenedBadge, SeverityBadge, StatusBadge, Tag } from "../components/ui.tsx";
+import { AccountName, ConfidenceBadge, ListCard, Page, PageState, PlatformMark, ReopenedBadge, SeverityBadge, StatusBadge, Tag } from "../components/ui.tsx";
 import { BulkTriageDialog, FindingDialog } from "../components/triage.tsx";
 import { isSettled, effectiveStatus } from "../../../src/shared/triage.ts";
 import { groupBy } from "../../../src/shared/collections.ts";
@@ -49,14 +50,16 @@ const PER_PAGE = 50;
 const ALL = "all";
 const TITLE = "Findings";
 const DESCRIPTION =
-  "Every open problem from Edgewatch's checks, and from Cloudflare Security Center. Assign owners, set due dates, or accept a risk until a date.";
+  "Every open problem from Edgewatch's checks, and from the insights a platform reports itself. A finding is one resource failing one check. Assign owners, set due dates, or accept a risk until a date.";
 
-type GroupBy = "check" | "zone" | "account" | "none";
+type GroupBy = "check" | "zone" | "account" | "platform" | "none";
 type SortKey = "severity" | "age" | "due";
-const groupLabels = (zone: string): Record<GroupBy, string> => ({
+/** The groupings on offer. Grouping by platform only makes sense when the view has more than one. */
+const groupLabels = (zone: string, mixed: boolean): Partial<Record<GroupBy, string>> => ({
   check: "Group by check",
   zone: `Group by ${zone.toLowerCase()}`,
   account: "Group by account",
+  ...(mixed ? { platform: "Group by platform" } : {}),
   none: "No grouping",
 });
 
@@ -70,6 +73,7 @@ const SEVERITY_FILTERS: Record<string, string> = {
 };
 const SOURCE_LABEL: Record<string, string> = { custom: "Edgewatch checks", security_center: "Security Center" };
 const CONFIDENCE_LABEL: Record<string, string> = { confirmed: "Confirmed", likely: "Likely", config: "From configuration" };
+const SPANS_LABEL: Record<string, string> = { "1": "Compares platforms" };
 
 const sorters: Record<SortKey, (a: Finding, b: Finding) => number> = {
   severity: (a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity] || String(a.firstSeen).localeCompare(String(b.firstSeen)),
@@ -80,6 +84,7 @@ const sorters: Record<SortKey, (a: Finding, b: Finding) => number> = {
 export function FindingsPage() {
   const { multi, view } = useShell();
   const zoneLabel = zoneWord(view.accounts.map((a) => a.provider));
+  const mixed = new Set(view.accounts.map((a) => a.provider)).size > 1;
   const { data, error, loading, reload, setData } = useScopedApi<FindingsResponse>("/api/findings");
   const { params } = useLocation();
   const toasts = useKumoToastManager();
@@ -182,17 +187,23 @@ export function FindingsPage() {
 
   const categories = [...new Set(findings.map((x) => x.category))].sort();
   const zones = [...new Set(findings.map((x) => x.zone || "account"))].sort();
-  const accounts = [...new Map(findings.map((x) => [x.accountId, x.account])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  // With several platforms in view an account's name alone doesn't say what it is.
+  const accounts = [...new Map(findings.map((x) => [x.accountId, mixed ? `${x.account} · ${PROVIDER_INFO[x.provider].label}` : x.account])).entries()].sort(
+    (a, b) => a[1].localeCompare(b[1]),
+  );
+  const anySpans = findings.some((x) => x.spans.length > 0);
+  const anyInsights = findings.some((x) => x.source === "security_center");
   const setFilter = (key: keyof FindingFilters, v: string | null) =>
     setParams({ [FILTER_PARAMS[key]]: v === ALL ? null : v, ...(key === "status" ? { new: null } : {}) });
 
-  // Filters behind "More filters" show as removable chips.
+  // Filters behind "Filters" show as removable chips, each named after what it filters.
   const chips: { label: string; clear: () => void }[] = [
-    filters.category && { label: filters.category, clear: () => setFilter("category", null) },
-    filters.zone && { label: filters.zone === "account" ? "Account-wide" : filters.zone, clear: () => setFilter("zone", null) },
-    filters.source && { label: SOURCE_LABEL[filters.source], clear: () => setFilter("source", null) },
-    filters.confidence && { label: CONFIDENCE_LABEL[filters.confidence], clear: () => setFilter("confidence", null) },
-    filters.checkId && { label: `Check ${filters.checkId}`, clear: () => setFilter("checkId", null) },
+    filters.category && { label: `Category: ${filters.category}`, clear: () => setFilter("category", null) },
+    filters.confidence && { label: `Confidence: ${CONFIDENCE_LABEL[filters.confidence]}`, clear: () => setFilter("confidence", null) },
+    filters.source && { label: `Reported by: ${SOURCE_LABEL[filters.source]}`, clear: () => setFilter("source", null) },
+    filters.spans && { label: SPANS_LABEL[filters.spans], clear: () => setFilter("spans", null) },
+    filters.checkId && { label: `Check: ${filters.checkId}`, clear: () => setFilter("checkId", null) },
+    filters.zone && { label: `${zoneLabel}: ${filters.zone === "account" ? "Account-wide" : filters.zone}`, clear: () => setFilter("zone", null) },
   ].filter((c): c is { label: string; clear: () => void } => !!c);
   const anyFilter = !!(filters.q || filters.severity || (multi && filters.accountId) || chips.length);
 
@@ -206,21 +217,24 @@ export function FindingsPage() {
         }
       />
       <DropdownMenu.Content>
-        <DropdownMenu.Label>What's shown ({num(rows.length)})</DropdownMenu.Label>
-        <DropdownMenu.Item
-          onClick={() => {
-            void download(exportUrl("csv"));
-          }}
-        >
-          CSV (spreadsheets)
-        </DropdownMenu.Item>
-        <DropdownMenu.Item
-          onClick={() => {
-            void download(exportUrl("json"));
-          }}
-        >
-          JSON (automation)
-        </DropdownMenu.Item>
+        {/* A menu label only works inside a group: outside one, opening the menu throws. */}
+        <DropdownMenu.Group>
+          <DropdownMenu.Label>What's shown ({num(rows.length)})</DropdownMenu.Label>
+          <DropdownMenu.Item
+            onClick={() => {
+              void download(exportUrl("csv"));
+            }}
+          >
+            CSV (spreadsheets)
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            onClick={() => {
+              void download(exportUrl("json"));
+            }}
+          >
+            JSON (automation)
+          </DropdownMenu.Item>
+        </DropdownMenu.Group>
       </DropdownMenu.Content>
     </DropdownMenu>
   );
@@ -293,25 +307,34 @@ export function FindingsPage() {
             <DropdownMenu.Trigger
               render={
                 <Button variant="secondary" icon={<FunnelSimpleIcon />}>
-                  More filters{chips.length ? ` (${chips.length})` : ""}
+                  Filters{chips.length ? ` (${chips.length})` : ""}
                 </Button>
               }
             />
             <DropdownMenu.Content className="max-h-[60vh] overflow-y-auto">
-              <FilterMenu
-                label="Category"
-                value={filters.category}
-                options={Object.fromEntries(categories.map((c) => [c, c]))}
-                onPick={(v) => setFilter("category", v)}
-              />
-              <FilterMenu
-                label={zoneLabel}
-                value={filters.zone}
-                options={Object.fromEntries(zones.map((z) => [z, z === "account" ? "Account-wide" : z]))}
-                onPick={(v) => setFilter("zone", v)}
-              />
-              <FilterMenu label="Source" value={filters.source} options={SOURCE_LABEL} onPick={(v) => setFilter("source", v)} />
-              <FilterMenu label="Confidence" value={filters.confidence} options={CONFIDENCE_LABEL} onPick={(v) => setFilter("confidence", v)} />
+              {/* What the finding is about, then where it is. Severity, account and the platform switch sit outside this menu. */}
+              <DropdownMenu.Group>
+                <DropdownMenu.Label>What</DropdownMenu.Label>
+                <FilterMenu
+                  label="Category"
+                  value={filters.category}
+                  options={Object.fromEntries(categories.map((c) => [c, c]))}
+                  onPick={(v) => setFilter("category", v)}
+                />
+                <FilterMenu label="Confidence" value={filters.confidence} options={CONFIDENCE_LABEL} onPick={(v) => setFilter("confidence", v)} />
+                {anyInsights && <FilterMenu label="Reported by" value={filters.source} options={SOURCE_LABEL} onPick={(v) => setFilter("source", v)} />}
+                {anySpans && <FilterMenu label="Correlation" value={filters.spans} options={SPANS_LABEL} onPick={(v) => setFilter("spans", v)} />}
+              </DropdownMenu.Group>
+              <DropdownMenu.Separator />
+              <DropdownMenu.Group>
+                <DropdownMenu.Label>Where</DropdownMenu.Label>
+                <FilterMenu
+                  label={zoneLabel}
+                  value={filters.zone}
+                  options={Object.fromEntries(zones.map((z) => [z, z === "account" ? "Account-wide" : z]))}
+                  onPick={(v) => setFilter("zone", v)}
+                />
+              </DropdownMenu.Group>
             </DropdownMenu.Content>
           </DropdownMenu>
           <Select
@@ -319,7 +342,7 @@ export function FindingsPage() {
             className="min-w-36 flex-1 sm:w-44 sm:flex-none"
             value={groupBy}
             onValueChange={(v) => setParams({ group: v === "check" ? null : String(v) })}
-            items={groupLabels(zoneLabel)}
+            items={groupLabels(zoneLabel, mixed)}
           />
         </div>
         {(chips.length > 0 || anyFilter) && (
@@ -339,7 +362,9 @@ export function FindingsPage() {
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => setParams({ q: null, severity: null, category: null, zone: null, account: null, source: null, confidence: null, check: null })}
+                onClick={() =>
+                  setParams({ q: null, severity: null, category: null, zone: null, account: null, source: null, confidence: null, spans: null, check: null })
+                }
               >
                 Clear filters
               </Button>
@@ -569,6 +594,7 @@ function FindingsTable({ rows, selected, toggle, onOpen, nested, multi, sort, de
                 </Table.Cell>
                 <Table.Cell className="max-w-md">
                   <div className="flex min-w-0 items-center gap-2">
+                    <PlatformMark provider={x.provider} spans={x.spans} />
                     <TitleLink f={x} onOpen={onOpen} />
                     <ConfidenceBadge confidence={x.confidence} />
                     {x.reopened && <ReopenedBadge />}
@@ -610,7 +636,9 @@ interface Group {
 }
 
 function groupRows(rows: Finding[], by: Exclude<GroupBy, "none">, multi: boolean): Group[] {
-  const key = (f: Finding) => (by === "check" ? f.checkId : by === "zone" ? `${f.accountId}|${f.zone || "account"}` : f.accountId);
+  const key = (f: Finding) =>
+    by === "check" ? f.checkId : by === "zone" ? `${f.accountId}|${f.zone || "account"}` : by === "platform" ? f.provider : f.accountId;
+  const platforms = (items: Finding[]) => [...new Set(items.map((i) => i.provider))];
   return [...groupBy(rows, key).entries()]
     .map(([id, items]): Group => {
       const severity = items.reduce<Severity>((s, i) => (SEVERITY_WEIGHT[i.severity] > SEVERITY_WEIGHT[s] ? i.severity : s), "info");
@@ -629,12 +657,29 @@ function groupRows(rows: Finding[], by: Exclude<GroupBy, "none">, multi: boolean
           why: first.why,
           fix: first.fix,
           title: first.title,
-          tag: <Tag info={first.source === "security_center"}>{first.source === "security_center" ? "Security Center" : first.checkId}</Tag>,
+          tag: (
+            <>
+              <PlatformMark provider={platforms(items)} spans={first.spans} />
+              <Tag info={first.source === "security_center"}>{first.source === "security_center" ? "Security Center" : first.checkId}</Tag>
+            </>
+          ),
           subtitle: `${multi ? (accounts > 1 ? `${accounts} accounts · ` : `${first.account} · `) : ""}${sample}`,
         };
       }
-      if (by === "zone") return { id, items, severity, title: first.zone || "Account-wide", subtitle: `${multi ? `${first.account} · ` : ""}${sample}` };
-      return { id, items, severity, title: first.account, subtitle: `${first.entity ? `${first.entity} · ` : ""}${sample}` };
+      const tag = <PlatformMark key="platform" provider={first.provider} />;
+      if (by === "zone") return { id, items, severity, tag, title: first.zone || "Account-wide", subtitle: `${multi ? `${first.account} · ` : ""}${sample}` };
+      if (by === "platform") {
+        const accounts = new Set(items.map((i) => i.accountId)).size;
+        return {
+          id,
+          items,
+          severity,
+          tag,
+          title: PROVIDER_INFO[first.provider].label,
+          subtitle: `${plural(accounts, PROVIDER_INFO[first.provider].account, PROVIDER_INFO[first.provider].accounts)} · ${sample}`,
+        };
+      }
+      return { id, items, severity, tag, title: first.account, subtitle: `${first.entity ? `${first.entity} · ` : ""}${sample}` };
     })
     .sort((a, b) => SEVERITY_WEIGHT[b.severity] - SEVERITY_WEIGHT[a.severity] || b.items.length - a.items.length);
 }
@@ -660,7 +705,15 @@ function GroupedTable({
             <span className="sr-only">Select</span>
           </Table.Head>
           <Table.Head className="w-28">Severity</Table.Head>
-          <Table.Head>{groupBy === "check" ? "Check" : groupBy === "zone" ? zoneWord(view.accounts.map((a) => a.provider)) : "Account"}</Table.Head>
+          <Table.Head>
+            {groupBy === "check"
+              ? "Check"
+              : groupBy === "zone"
+                ? zoneWord(view.accounts.map((a) => a.provider))
+                : groupBy === "platform"
+                  ? "Platform"
+                  : "Account"}
+          </Table.Head>
           <Table.Head className="text-right">Findings</Table.Head>
           <Table.Head className="hidden md:table-cell">Owned</Table.Head>
         </Table.Row>

@@ -113,7 +113,7 @@ function ScansCard({ s, save }: { s: Settings; save: Save }) {
         <SettingRow
           end
           title="Confirm subdomain takeovers"
-          description="Sends a GET to each of your hostnames that points at a cloud provider (S3, Vercel, Heroku, GitHub Pages and others), at most 100 per scan, and checks for that provider's 'doesn't exist' page. Turn off to keep every request inside Cloudflare's API."
+          description="Sends a GET to each of your hostnames that points at a cloud provider (S3, Vercel, Heroku, GitHub Pages and others), at most 100 per scan, and checks for that provider's 'doesn't exist' page. Turn off to keep every request inside your providers' APIs."
         >
           <Switch
             aria-label="Confirm subdomain takeovers"

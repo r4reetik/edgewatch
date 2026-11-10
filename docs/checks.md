@@ -3,14 +3,14 @@
 # Checks
 
 Edgewatch runs its own checks on every provider, and imports Cloudflare Security Center insights alongside them.
-A check evaluates every resource it applies to (an account, zone, project, hostname, rule, token…) as pass or fail;
+A check evaluates every resource it applies to (an account, zone, project, bucket, hostname, rule, token…) as pass or fail;
 each failure is a finding. Severity is the check's default, and a finding can raise or lower it
 (for example, a public R2 bucket is critical when it holds backups). Checks marked **Attack path** describe a concrete way in
 and are shown first on the Overview. When the token can't read a source a check needs, the check is skipped, never passed.
 
-Checks marked **Spans providers** (XP-) compare an account with the other accounts in its entity, for example Cloudflare DNS records
-with the domains of the entity's Vercel projects. They read the latest scan of those accounts, and are skipped when the entity has no
-scanned account on the other provider.
+Checks marked **Spans providers** (XP-) compare an account with the other accounts in its entity, for example Cloudflare or Route 53
+DNS records with the domains of the entity's Vercel projects, or with the endpoints its AWS accounts have. They read the latest scan
+of those accounts, and are skipped when the entity has no scanned account on the other provider.
 
 | Provider | Category | Checks |
 |---|---|---|
@@ -20,7 +20,7 @@ scanned account on the other provider.
 | Cloudflare | [Zero Trust](#cloudflare-zero-trust) | 22 |
 | Cloudflare | [TLS & HTTPS](#cloudflare-tls--https) | 15 |
 | Cloudflare | [WAF & bots](#cloudflare-waf--bots) | 23 |
-| Cloudflare | [DNS](#cloudflare-dns) | 10 |
+| Cloudflare | [DNS](#cloudflare-dns) | 13 |
 | Cloudflare | [Email](#cloudflare-email) | 11 |
 | Cloudflare | [Platform](#cloudflare-platform) | 6 |
 | Cloudflare | [Monitoring](#cloudflare-monitoring) | 4 |
@@ -35,6 +35,14 @@ scanned account on the other provider.
 | Vercel | [Platform](#vercel-platform) | 4 |
 | Vercel | [Monitoring](#vercel-monitoring) | 4 |
 | Vercel | [Change risk](#vercel-change-risk) | 1 |
+| AWS | [Attack surface](#aws-attack-surface) | 10 |
+| AWS | [Identity & access](#aws-identity--access) | 12 |
+| AWS | [Secrets](#aws-secrets) | 1 |
+| AWS | [TLS & HTTPS](#aws-tls--https) | 5 |
+| AWS | [WAF & bots](#aws-waf--bots) | 2 |
+| AWS | [DNS](#aws-dns) | 4 |
+| AWS | [Platform](#aws-platform) | 5 |
+| AWS | [Monitoring](#aws-monitoring) | 3 |
 
 ## Cloudflare
 
@@ -1042,6 +1050,43 @@ The record sends visitors to Vercel, yet none of the entity's Vercel projects ha
 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains.
 3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.
 
+#### XP-004: DNS record points at an AWS resource that no AWS account in the entity has
+
+**Severity:** High · **Attack path** · **Spans providers** · **Reads:** DNS records · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
+
+The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Edgewatch doesn't see.
+
+**How to fix**
+
+1. If the site moved or was retired, delete the DNS record in Cloudflare.
+2. If it should be live, recreate the resource or point the record at the current one.
+3. If the resource belongs to an AWS account that isn't in Edgewatch, add that account to this entity, or mark the finding as a false positive.
+
+#### XP-007: DNS record points at an AWS address the entity released
+
+**Severity:** High · **Attack path** · **Spans providers** · **Reads:** DNS records · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
+
+Edgewatch saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic, through Cloudflare's proxy too, and can obtain a certificate for it.
+
+**How to fix**
+
+1. If the server is gone, delete the DNS record in Cloudflare.
+2. If it moved, point the record at its current address, and give the server an Elastic IP so the address can't change again.
+3. If the address moved to an AWS account that isn't in Edgewatch, add that account to this entity.
+
+#### XP-008: DNS record points at an AWS address outside the entity's accounts
+
+**Severity:** Low · **Spans providers** · **Reads:** DNS records · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
+
+The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Edgewatch doesn't scan. It may also be an address you released before Edgewatch started watching, which AWS has since given to someone else.
+
+**How to fix**
+
+1. Find out who runs the server at that address.
+2. If it is an AWS account of yours, add it to this entity so its addresses are tracked.
+3. If it is a vendor's, mark the finding as accepted.
+4. If nobody knows, delete the record.
+
 ### Cloudflare: Email
 
 #### EML-001: SPF missing, duplicated or too permissive
@@ -1795,3 +1840,476 @@ Deployments come from someone's machine through the CLI, so there's no review, n
 **How to fix**
 
 Connect the repository under Settings → Git, and deploy through pull requests.
+
+## AWS
+
+### AWS: Attack surface
+
+#### AS3-001: S3 Block Public Access is off for the account
+
+**Severity:** Medium · **Reads:** S3 Block Public Access for the account, S3 buckets · [AWS docs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/configuring-block-public-access-account.html)
+
+Without the account-wide block, any bucket can be made public by one policy or ACL change, now or later. With it on, a mistake on a single bucket can't expose data.
+
+**How to fix**
+
+In the S3 console → Block Public Access settings for this account, turn on all four settings. Buckets that must be public (a static site, for example) are better served through CloudFront.
+
+#### AS3-002: S3 bucket is public
+
+**Severity:** Critical · **Attack path** · **Reads:** S3 Block Public Access for the account, S3 buckets, S3 bucket access settings · [AWS docs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html)
+
+Anyone on the internet can read the bucket, and with some policies list or write to it. Public buckets are the most common source of leaked data on AWS.
+
+**How to fix**
+
+1. If the bucket shouldn't be public, open it in S3 → Permissions and turn on Block Public Access.
+2. Then remove the public statement from its policy and the public grants from its ACL.
+3. If it serves a website through CloudFront, edit the distribution's origin to use origin access control, let CloudFront add the bucket policy it offers, and then turn on Block Public Access.
+
+#### AS3-003: S3 bucket has no Block Public Access of its own
+
+**Severity:** Low · **Reads:** S3 Block Public Access for the account, S3 buckets, S3 bucket access settings · [AWS docs](https://docs.aws.amazon.com/AmazonS3/latest/userguide/access-control-block-public-access.html)
+
+The bucket is private today, but neither it nor the account blocks public access, so one policy or ACL change makes it public.
+
+**How to fix**
+
+Open the bucket in S3 → Permissions → Block public access and turn on all four settings, or turn the block on for the whole account.
+
+#### ANW-001: Security group opens SSH or RDP to the internet
+
+**Severity:** High · **Attack path** · **Reads:** Security groups, Network interfaces and Elastic IPs · [AWS docs](https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html)
+
+Remote administration ports are scanned and brute-forced around the clock. An exposed SSH or RDP port turns one weak password or unpatched service into a foothold.
+
+**How to fix**
+
+1. Edit the group's inbound rules and replace 0.0.0.0/0 with your office or VPN range.
+2. Better: remove the rule and connect with Session Manager or EC2 Instance Connect Endpoint, which need no inbound port.
+3. If nothing uses the group, delete it.
+
+#### ANW-002: Security group opens a database port to the internet
+
+**Severity:** High · **Reads:** Security groups, Network interfaces and Elastic IPs · [AWS docs](https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html)
+
+A database reachable from the internet is protected by its password alone, and exposed to every bug in its network protocol.
+
+**How to fix**
+
+Edit the group's inbound rules so the database port is allowed only from the security group of the application that uses it, not from 0.0.0.0/0. If nothing uses the group, delete it.
+
+#### ANW-003: Security group allows all traffic from the internet
+
+**Severity:** Critical · **Attack path** · **Reads:** Security groups, Network interfaces and Elastic IPs · [AWS docs](https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html)
+
+Every port of everything that uses this group is reachable by anyone: admin interfaces, databases, debug ports and services nobody remembers are listening.
+
+**How to fix**
+
+Edit the group's inbound rules: delete the rule that allows all traffic from 0.0.0.0/0 or ::/0, and add rules for the specific ports the service needs. If nothing uses the group, delete it.
+
+#### AEC-003: EBS snapshot is public
+
+**Severity:** Critical · **Attack path** · **Reads:** EBS encryption, public snapshots and public images · [AWS docs](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-modifying-snapshot-permissions.html)
+
+Any AWS account can copy the snapshot and mount it: the whole disk, with whatever databases, keys and configuration were on it.
+
+**How to fix**
+
+In EC2 → Snapshots, select the snapshot → Actions → Modify permissions, and set it to Private. Treat every secret that was on the disk as leaked and rotate it.
+
+#### AEC-004: Machine image (AMI) is public
+
+**Severity:** High · **Reads:** EBS encryption, public snapshots and public images · [AWS docs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/sharingamis-intro.html)
+
+Any AWS account can launch the image and read what was baked into it: application code, configuration, and often credentials.
+
+**How to fix**
+
+In EC2 → AMIs, select the image → Actions → Edit AMI permissions, and set it to Private. If it was meant to be shared, share it with specific accounts instead.
+
+#### AEC-006: Lambda function URL needs no authentication
+
+**Severity:** Medium · **Reads:** Lambda functions and function URLs · [AWS docs](https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html)
+
+Anyone who finds the URL can invoke the function. Unless the function checks callers itself, they can use whatever it does and run up its bill.
+
+**How to fix**
+
+If the function isn't a public endpoint, set its function URL's auth type to AWS_IAM under Lambda → the function → Configuration → Function URL. If it is public on purpose and checks requests itself, mark this as accepted.
+
+#### ADB-001: Database is publicly accessible
+
+**Severity:** High · **Attack path** · **Reads:** RDS databases, Security groups · [AWS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_VPC.WorkingWithRDSInstanceinaVPC.html#USER_VPC.Hiding)
+
+The database has a public address. Only its security group and its password keep the internet out, and one loosened rule exposes it.
+
+**How to fix**
+
+1. In RDS → the database → Modify → Connectivity → Additional configuration, choose Not publicly accessible.
+2. Reach it from inside the VPC, through a VPN, or with Session Manager port forwarding.
+
+### AWS: Identity & access
+
+#### AID-001: Root user has no MFA
+
+**Severity:** Critical · **Reads:** IAM account summary (root user) · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/enable-mfa-for-root.html)
+
+The root user can do anything in the account, including closing it, and no policy can restrict it. With a password alone, one phished or reused password gives all of that away.
+
+**How to fix**
+
+1. Sign in as the root user.
+2. Open the account menu → Security credentials.
+3. Under Multi-factor authentication, assign a passkey or hardware key, and keep a second one somewhere safe.
+
+#### AID-002: Root user has access keys
+
+**Severity:** Critical · **Reads:** IAM account summary (root user) · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/root-user-best-practices.html)
+
+A root access key is a permanent credential with full control of the account that MFA doesn't protect and no policy can limit. If it leaks from a laptop, a script or a repository, the account is gone.
+
+**How to fix**
+
+1. Find what uses the key and move it to an IAM role or a user with only the permissions it needs.
+2. Sign in as the root user → Security credentials → Access keys, and delete the key.
+
+#### AID-003: IAM user can sign in to the console without MFA
+
+**Severity:** High · **Reads:** IAM users, their access keys and MFA devices · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_mfa_enable.html)
+
+The user's password is all that stands between an attacker and everything the user can do in the console.
+
+**How to fix**
+
+Open the user in IAM → Security credentials → Multi-factor authentication and assign a device. If the person signs in through IAM Identity Center instead, remove the console password.
+
+#### AID-004: Access key is older than 90 days
+
+**Severity:** Medium · **Reads:** IAM users, their access keys and MFA devices · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id-credentials-access-keys-update.html)
+
+Access keys never expire on their own. The longer one lives, the more places it has been copied to, and the more likely one of them leaks.
+
+**How to fix**
+
+1. Create a second key for the user.
+2. Switch the system that uses the old key over.
+3. Deactivate the old key, and delete it once nothing breaks. Better: replace the user with an IAM role.
+
+#### AID-005: Access key unused for 90 days
+
+**Severity:** Medium · **Reads:** IAM users, their access keys and MFA devices · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html)
+
+A key nobody uses is access nobody needs, and nobody will notice when someone else starts using it.
+
+**How to fix**
+
+Open the user in IAM → Security credentials, deactivate the key, and delete it after a few weeks without complaints.
+
+#### AID-006: Console password unused for 90 days
+
+**Severity:** Low · **Reads:** IAM users, their access keys and MFA devices · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_finding-unused.html)
+
+The person has left, changed role, or signs in another way, but their password still works.
+
+**How to fix**
+
+Open the user in IAM → Security credentials → Console sign-in and remove console access, or delete the user if nothing else uses it.
+
+#### AID-007: Password policy is missing or weak
+
+**Severity:** Medium · **Reads:** IAM password policy, IAM users, their access keys and MFA devices · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_passwords_account-policy.html)
+
+IAM users with console passwords can pick short passwords and reuse old ones, which makes guessing and credential stuffing work.
+
+**How to fix**
+
+In IAM → Account settings → Password policy, require at least 14 characters and prevent password reuse.
+
+#### AID-008: Administrator has a long-lived access key
+
+**Severity:** High · **Attack path** · **Reads:** IAM users, their access keys and MFA devices, IAM roles, groups and policies · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#bp-users-federation-idp)
+
+The key gives full control of the account to whoever holds it, without MFA and without an expiry. Keys leak from laptops, CI logs and repositories far more often than passwords do.
+
+**How to fix**
+
+1. Move the workload to an IAM role, or give its user only the permissions it needs.
+2. For people, use IAM Identity Center or a role assumed with MFA.
+3. Delete the administrator's access key.
+
+#### AID-009: IAM role can be assumed by any AWS account
+
+**Severity:** Critical · **Attack path** · **Reads:** IAM roles, groups and policies · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements_principal.html)
+
+The role's trust policy names every AWS principal, with no condition. Anyone with an AWS account can assume the role and use its permissions.
+
+**How to fix**
+
+Open the role in IAM → Trust relationships and replace the wildcard principal with the specific account, role or service that needs it. For a third party, also require an external ID.
+
+#### AID-010: Customer managed policy allows every action on every resource
+
+**Severity:** Medium · **Reads:** IAM roles, groups and policies · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#grant-least-privilege)
+
+The policy is a second AdministratorAccess under another name. Whoever it is attached to is an administrator, which reviews that look for AdministratorAccess will miss.
+
+**How to fix**
+
+Open the policy in IAM → Policies and narrow its actions and resources to what its users need, or detach it and use AdministratorAccess where full access is intended.
+
+#### AID-011: IAM role trusts an AWS account outside the entity without an external ID
+
+**Severity:** Medium · **Reads:** IAM roles, groups and policies · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/confused-deputy.html)
+
+Another company's AWS account can assume this role with nothing but its own permissions. If that account is a vendor's, any of the vendor's other customers may be able to make it act on your account (the confused deputy problem); if it is an old partner or a forgotten account, it still has the access.
+
+**How to fix**
+
+1. Open the role in IAM → Trust relationships.
+2. If the other account is one of yours, add it to this entity in Edgewatch.
+3. If it is a vendor's, add a Condition that requires the external ID they gave you (sts:ExternalId).
+4. If nobody uses the role any more, delete it.
+
+#### AEC-007: Internet-facing instance runs with administrator access
+
+**Severity:** High · **Attack path** · **Reads:** EC2 instances, Security groups, IAM roles, groups and policies · [AWS docs](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2.html)
+
+The instance has a public address and open ports, and the role attached to it can do anything in the account. One vulnerability in whatever listens there (a web app, an SSH daemon, an exposed admin tool) hands the attacker the role's credentials, and with them the account.
+
+**How to fix**
+
+1. Give the instance a role with only the permissions its software uses. IAM Access Analyzer can generate one from the role's CloudTrail activity.
+2. Require IMDSv2 on the instance.
+3. Put it behind a load balancer and close its public ports, or remove its public address.
+
+### AWS: Secrets
+
+#### AEC-008: Credential in an instance's start-up script
+
+**Severity:** High · **Reads:** Instance start-up scripts (scanned for credentials, never stored), EC2 instances · [AWS docs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/user-data.html)
+
+User data isn't a secret store: anyone who can describe the instance can read it, every process on the instance can fetch it from the metadata service, and it is copied into launch templates and images. A credential written there is readable far beyond the people who should have it.
+
+**How to fix**
+
+1. Rotate the credential: treat it as leaked.
+2. Move it to Secrets Manager or Systems Manager Parameter Store, and let the script read it at start-up with the instance's role.
+3. Replace the instance (or its launch template) so the old script is gone.
+
+### AWS: TLS & HTTPS
+
+#### AED-001: CloudFront distribution serves plain HTTP
+
+**Severity:** Medium · **Reads:** CloudFront distributions · [AWS docs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-https-viewers-to-cloudfront.html)
+
+Visitors who arrive over HTTP stay on HTTP, so anyone on their network can read or change what they see, including session cookies.
+
+**How to fix**
+
+In CloudFront → the distribution → Behaviors, edit each behavior and set Viewer protocol policy to Redirect HTTP to HTTPS.
+
+#### AED-002: CloudFront distribution accepts TLS 1.0 or 1.1
+
+**Severity:** Medium · **Reads:** CloudFront distributions · [AWS docs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/secure-connections-supported-viewer-protocols-ciphers.html)
+
+TLS 1.0 and 1.1 have known weaknesses and are no longer accepted by PCI DSS or current browsers. Accepting them lets an attacker downgrade a visitor's connection.
+
+**How to fix**
+
+In CloudFront → the distribution → Settings → Edit, set Security policy to TLSv1.2_2021 or newer.
+
+#### AED-004: CloudFront reaches its origin over plain HTTP
+
+**Severity:** Medium · **Reads:** CloudFront distributions · [AWS docs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-https-cloudfront-to-custom-origin.html)
+
+The visitor sees a padlock, but the request travels unencrypted between CloudFront and the origin, where it can be read or altered.
+
+**How to fix**
+
+Install a certificate on the origin, then in CloudFront → the distribution → Origins, edit the origin and set Protocol to HTTPS only.
+
+#### AED-005: Load balancer serves plain HTTP
+
+**Severity:** Medium · **Reads:** Load balancers and listeners · [AWS docs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-listeners.html#redirect-actions)
+
+The internet-facing load balancer answers on HTTP without sending visitors to HTTPS, so their requests and cookies cross the network unencrypted.
+
+**How to fix**
+
+In EC2 → Load Balancers → the load balancer → Listeners, edit the HTTP listener's default action to Redirect to HTTPS on port 443.
+
+#### AED-006: Load balancer accepts TLS 1.0 or 1.1
+
+**Severity:** Medium · **Reads:** Load balancers and listeners · [AWS docs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/describe-ssl-policies.html)
+
+The listener's security policy still negotiates TLS 1.0 or 1.1, which have known weaknesses and fail PCI DSS.
+
+**How to fix**
+
+In EC2 → Load Balancers → the load balancer → Listeners, edit the HTTPS listener and choose the recommended policy, ELBSecurityPolicy-TLS13-1-2-2021-06 or newer.
+
+### AWS: WAF & bots
+
+#### AED-003: CloudFront distribution has no web ACL
+
+**Severity:** Low · **Reads:** CloudFront distributions · [AWS docs](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/distribution-web-awswaf.html)
+
+Requests reach the application behind the distribution without AWS WAF looking at them: no managed rules for common attacks, no rate limits, no bot control.
+
+**How to fix**
+
+In CloudFront → the distribution → Security, enable AWS WAF protections. Start with the core managed rules and a rate limit. If another WAF sits in front of this distribution (Cloudflare, for example), mark this as accepted.
+
+#### XP-006: Origin behind Cloudflare accepts traffic from the whole internet
+
+**Severity:** High · **Attack path** · **Spans providers** · **Reads:** Load balancers and listeners, Security groups, Network interfaces and Elastic IPs · [Cloudflare docs](https://developers.cloudflare.com/fundamentals/security/protect-your-origin-server/)
+
+Visitors reach this origin through Cloudflare, where your WAF, rate limits and bot rules run. Its security group also lets anyone connect to it directly, and origin addresses are easy to find (certificate logs, old DNS records, internet scans). An attacker who connects directly skips every Cloudflare protection and can flood the origin itself.
+
+**How to fix**
+
+1. In the security group, replace 0.0.0.0/0 on ports 80 and 443 with Cloudflare's address ranges (cloudflare.com/ips); a managed prefix list keeps them in one place.
+2. Or connect the origin through Cloudflare Tunnel and remove the inbound rule altogether.
+3. Turn on Authenticated Origin Pulls in Cloudflare so the origin can refuse requests that didn't come through your zone.
+
+### AWS: DNS
+
+#### ADN-001: Route 53 record points at an AWS resource the entity doesn't have
+
+**Severity:** High · **Attack path** · **Reads:** Route 53 hosted zones and records, CloudFront distributions, S3 buckets, Load balancers and listeners · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
+
+The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Edgewatch doesn't see.
+
+**How to fix**
+
+1. If the site was retired, delete the record in Route
+2. If it should be live, recreate the resource or point the record at the current one.
+3. If the resource belongs to an AWS account that isn't in Edgewatch, add that account to this entity, or mark the finding as a false positive.
+
+#### ADN-002: Route 53 record points at an AWS address the entity released
+
+**Severity:** High · **Attack path** · **Reads:** Route 53 hosted zones and records, Network interfaces and Elastic IPs · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
+
+Edgewatch saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic and can obtain a certificate for it.
+
+**How to fix**
+
+1. If the server is gone, delete the record in Route
+2. If it moved, point the record at its current address, and use an Elastic IP or an alias to a load balancer so the address can't change again.
+3. If the address moved to an AWS account that isn't in Edgewatch, add that account to this entity.
+
+#### ADN-003: Route 53 record points at an AWS address outside the entity's accounts
+
+**Severity:** Low · **Reads:** Route 53 hosted zones and records, Network interfaces and Elastic IPs, AWS's published address ranges (ip-ranges.amazonaws.com) · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
+
+The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Edgewatch doesn't scan. It may also be an address you released before Edgewatch started watching, which AWS has since given to someone else.
+
+**How to fix**
+
+1. Find out who runs the server at that address.
+2. If it is an AWS account of yours, add it to this entity so its addresses are tracked.
+3. If it is a vendor's, mark the finding as accepted.
+4. If nobody knows, delete the record.
+
+#### XP-005: Route 53 record points at Vercel, but no Vercel project in the entity serves it
+
+**Severity:** High · **Attack path** · **Spans providers** · **Reads:** Route 53 hosted zones and records · [Vercel docs](https://vercel.com/docs/domains/working-with-domains/add-a-domain)
+
+The record sends visitors to Vercel, yet none of the entity's Vercel projects has this hostname. Whoever adds it to their own Vercel project first serves your traffic under your domain.
+
+**How to fix**
+
+1. If the site moved or was retired, delete the record in Route
+2. If it should be live, add the hostname to the right Vercel project under Settings → Domains.
+3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.
+
+### AWS: Platform
+
+#### AEC-001: Instance still allows IMDSv1
+
+**Severity:** Medium · **Reads:** EC2 instances · [AWS docs](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/configuring-instance-metadata-service.html)
+
+With IMDSv1, a single server-side request forgery bug in anything on the instance hands out the instance role's credentials. IMDSv2 requires a session token that such a bug can't obtain.
+
+**How to fix**
+
+1. Check that the software on the instance uses a current AWS SDK.
+2. In EC2 → the instance → Actions → Instance settings → Modify instance metadata options, set IMDSv2 to Required.
+3. Set it in your launch templates too, so new instances start that way.
+
+#### AEC-002: EBS volumes aren't encrypted by default
+
+**Severity:** Low · **Reads:** EBS encryption, public snapshots and public images, EC2 instances · [AWS docs](https://docs.aws.amazon.com/ebs/latest/userguide/encryption-by-default.html)
+
+New volumes and snapshots in this region are unencrypted unless someone remembers to tick the box, and an unencrypted snapshot can be shared or copied out as it is.
+
+**How to fix**
+
+In EC2 → Settings → Data protection and security for the region, turn on Always encrypt new EBS volumes. Existing volumes stay as they are.
+
+#### AEC-005: Lambda function runs on a deprecated runtime
+
+**Severity:** Medium · **Reads:** Lambda functions and function URLs · [AWS docs](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html)
+
+AWS has stopped patching this runtime, so vulnerabilities in the language and its libraries stay open, and AWS will eventually block updates to the function.
+
+**How to fix**
+
+Test the function on a supported runtime, then change it under Lambda → the function → Code → Runtime settings → Edit.
+
+#### ADB-002: Database storage isn't encrypted
+
+**Severity:** Medium · **Reads:** RDS databases · [AWS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Overview.Encryption.html)
+
+Its disks, automated backups and snapshots are stored in the clear, and an unencrypted snapshot can be shared or copied to another account as it is.
+
+**How to fix**
+
+1. Encryption can't be turned on in place.
+2. Take a snapshot.
+3. Copy the snapshot with encryption enabled.
+4. Restore a new database from the encrypted copy and switch the application to it.
+
+#### ADB-003: Database has no automated backups
+
+**Severity:** Medium · **Reads:** RDS databases · [AWS docs](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html)
+
+With retention set to zero there are no daily backups and no point-in-time recovery. A bad migration, a deleted table or ransomware can't be undone.
+
+**How to fix**
+
+In RDS → the database → Modify → Backup, set the backup retention period to at least 7 days.
+
+### AWS: Monitoring
+
+#### AMO-001: GuardDuty is off in a region that runs workloads
+
+**Severity:** Medium · **Reads:** GuardDuty detectors, EC2 instances, RDS databases, Load balancers and listeners, Lambda functions and function URLs · [AWS docs](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_settingup.html)
+
+Nothing watches the region for stolen credentials in use, instances talking to known malware hosts, or unusual API calls. A compromise there goes unnoticed until the bill or a customer reveals it.
+
+**How to fix**
+
+Open GuardDuty in the region and choose Get started → Enable GuardDuty. With several accounts, enable it for the organization from the delegated administrator account.
+
+#### AMO-002: VPC with running resources has no flow logs
+
+**Severity:** Low · **Reads:** VPCs and flow logs, EC2 instances, RDS databases, Load balancers and listeners · [AWS docs](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html)
+
+Without flow logs there is no record of which addresses talked to what. After an incident you can't tell what an attacker reached or what data left.
+
+**How to fix**
+
+In the VPC console, select the VPC → Flow logs → Create flow log. Capture rejected traffic at least, and send it to CloudWatch Logs or S3.
+
+#### AMO-003: Internet-facing load balancer keeps no access logs
+
+**Severity:** Low · **Reads:** Load balancers and listeners · [AWS docs](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/enable-access-logging.html)
+
+The load balancer is where the internet meets your application, and without access logs there is no record of who requested what. After an attack you can't tell which addresses were involved or what they reached.
+
+**How to fix**
+
+In EC2 → Load Balancers → the load balancer → Attributes → Edit, turn on Access logs and choose an S3 bucket. Give the bucket a lifecycle rule so old logs expire.

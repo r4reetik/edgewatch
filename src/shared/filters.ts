@@ -26,6 +26,8 @@ export interface FindingFilters {
   checkId?: string;
   source?: Finding["source"];
   confidence?: "confirmed" | "likely" | "config";
+  /** "1": only findings from checks that compare platforms. */
+  spans?: "1";
   q?: string;
 }
 
@@ -39,6 +41,7 @@ export const FILTER_PARAMS = {
   checkId: "check",
   source: "source",
   confidence: "confidence",
+  spans: "spans",
   q: "q",
 } as const satisfies Record<keyof FindingFilters, string>;
 
@@ -82,6 +85,7 @@ export function filterFindings(findings: Finding[], f: FindingFilters, isNew?: (
       (!f.checkId || x.checkId === f.checkId) &&
       (!f.source || x.source === f.source) &&
       (!f.confidence || (f.confidence === "config" ? x.confidence === null : x.confidence === f.confidence)) &&
+      (!f.spans || x.spans.length > 0) &&
       (!words.length || matchesWords(x, words)),
   );
 }

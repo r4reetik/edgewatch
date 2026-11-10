@@ -16,9 +16,26 @@ import monitoring from "./monitoring.ts";
 import changeRisk from "./change-risk.ts";
 import cost from "./cost.ts";
 import vercelLinks from "./vercel-links.ts";
+import awsLinks from "./aws-links.ts";
 import type { CheckModule } from "./define.ts";
 
-export const MODULES = [iam, zeroTrust, tls, waf, wafRules, dns, email, platform, monitoring, attackSurface, traffic, changeRisk, cost, vercelLinks] as const;
+export const MODULES = [
+  iam,
+  zeroTrust,
+  tls,
+  waf,
+  wafRules,
+  dns,
+  email,
+  platform,
+  monitoring,
+  attackSurface,
+  traffic,
+  changeRisk,
+  cost,
+  vercelLinks,
+  awsLinks,
+] as const;
 
 type IdsOf<M> = M extends CheckModule<infer Id> ? Id : never;
 /** Every check ID, as a type: report("TLS-05", …) or CASES["TLS-05"] doesn't compile. */

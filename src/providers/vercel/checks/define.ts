@@ -56,19 +56,4 @@ export const plan = (inv: VercelInventory): "hobby" | "pro" | "enterprise" => {
   return p === "enterprise" || p === "pro" ? p : "hobby";
 };
 
-/**
- * Credentials written straight into a command, by kind. A reference to a variable (`$NPM_TOKEN`,
- * `${TOKEN}`) is fine and doesn't match. Only the kind is ever reported, never the value.
- */
-const LITERAL = String.raw`(?!\$)`;
-export const SECRET_IN_TEXT: [string, RegExp][] = [
-  ["an npm auth token", new RegExp(String.raw`_authToken=${LITERAL}[^\s'"]{8,}`)],
-  ["a GitHub token", /\b(gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,})/],
-  ["an AWS access key", /\bAKIA[0-9A-Z]{16}\b/],
-  ["a Slack token", /\bxox[abprs]-[A-Za-z0-9-]{10,}/],
-  ["a Stripe secret key", /\b[sr]k_live_[A-Za-z0-9]{16,}/],
-  ["a password in a URL", new RegExp(String.raw`[a-z][a-z0-9+.-]*://[^/\s:@]+:${LITERAL}[^@\s/]{3,}@`, "i")],
-  ["a bearer token", new RegExp(String.raw`Bearer\s+${LITERAL}[A-Za-z0-9._~+/-]{20,}`)],
-  ["a token passed on the command line", new RegExp(`--(token|password|api-key)[ =]${LITERAL}[A-Za-z0-9._-]{16,}`)],
-];
-export const secretKindIn = (text: string): string | null => SECRET_IN_TEXT.find(([, re]) => re.test(text))?.[0] ?? null;
+export { SECRET_IN_TEXT, secretKindIn } from "../../../core/secret-patterns.ts";

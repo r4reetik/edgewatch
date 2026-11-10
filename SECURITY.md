@@ -22,16 +22,21 @@ A false positive or missed finding in a check is not a vulnerability; use the
 
 ## Threat model
 
-Edgewatch holds Cloudflare API tokens and Vercel access tokens, and a database describing accounts'
-configuration, including member email addresses. It is designed to:
+Edgewatch holds the credentials of the platforms you connect (Cloudflare API tokens, Vercel access tokens,
+AWS access keys), and a database describing accounts' configuration, including member email addresses. It is designed to:
 
 - **Only read.** The scanner issues GET requests, plus Cloudflare GraphQL analytics queries (GraphQL is sent
   as POST, as Cloudflare requires, and only ever queries). Use a Cloudflare token with read permissions;
   Edgewatch never needs anything else. Vercel can't issue read-only tokens, so a Vercel token can do what its
   user's role allows: Edgewatch still only sends GET requests to Vercel, and tests fail on anything else.
+  For AWS, give the access key's user only the managed SecurityAudit policy; Edgewatch sends signed GET requests
+  and nothing else, so services whose APIs only answer POST (CloudTrail, KMS, Config) aren't read.
 - **Never read secret values.** Vercel environment variables are listed without their values; drain and
-  webhook URLs are stored without their paths, query strings or headers.
-- **Contact only what it needs.** Besides the Cloudflare and Vercel APIs and public DNS, the optional takeover check
+  webhook URLs are stored without their paths, query strings or headers. AWS policy documents are reduced to
+  what they allow and Lambda environment variables are dropped as the answer is read; neither is stored. Instance
+  start-up scripts (user data) are scanned for credentials in memory and dropped: only the kind of credential found
+  is stored, never the script or the value.
+- **Contact only what it needs.** Besides the APIs of the platforms you connect and public DNS, the optional takeover check
   sends one GET to your own hostnames that point at known cloud providers, and the update check reads
   GitHub's public list of releases once a day, sending nothing about the installation. Both can be turned off in Settings.
   Secrets found in rules, such as hard-coded header values, and in plain-text Worker or Pages variables are

@@ -8,6 +8,7 @@ import { CHECKS } from "../core/catalog.ts";
 import { listAccounts, probePermissions, tokenTemplateUrl, verifyToken } from "../core/permissions.ts";
 import { activityView, valueView, zoneGrid } from "../core/views.ts";
 import { cloudflareLinks } from "../core/links.ts";
+import { fetchEc2Prefixes } from "../core/aws-ranges.ts";
 import { PROVIDER_INFO } from "../shared/providers.ts";
 import type { Provider } from "./types.ts";
 
@@ -22,6 +23,9 @@ export const cloudflare: Provider = {
     const cf = new CloudflareClient(token, account.id);
     try {
       const inv = await collectInventory(cf, onProgress, { probeTakeovers });
+      // Only with AWS accounts in the entity: AWS's public address ranges, to recognise records that point at AWS.
+      // If the file can't be read the check that needs it is skipped.
+      if (engine.related?.awsAddresses) inv.awsPrefixes = await fetchEc2Prefixes().catch(() => null);
       onProgress({ phase: "Evaluating checks" });
       const evaluation = evaluate(inv, engine);
       const failures = evaluation.findings.filter((f) => f.source === "custom");

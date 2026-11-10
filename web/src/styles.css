@@ -18,6 +18,26 @@ body,
   align-content: start;
 }
 
+/*
+ * A column pinned with Kumo's Table `sticky="left"` casts a 24px fade over the
+ * column after it, even before the table scrolls. A narrow right-aligned heading
+ * there ("Requests (30d)") starts under the fade and its first letters wash out,
+ * so the next column starts clear of it.
+ */
+/*
+ * Column headings stay on one line. A heading broken over two ("Last / scan")
+ * makes its header row taller than the others and reads as two labels; every
+ * table already scrolls sideways inside its card when it is too wide.
+ */
+th {
+  white-space: nowrap;
+}
+
+th[class*="sticky"] + th,
+td[class*="sticky"] + td {
+  padding-left: 2rem;
+}
+
 /* Print: the report renders on white with no app chrome. */
 @media print {
   html {

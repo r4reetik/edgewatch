@@ -7,7 +7,7 @@ import { Badge, Button, Empty, Input, Pagination, Select, Tabs } from "@cloudfla
 import { CaretRightIcon, ClipboardTextIcon } from "@phosphor-icons/react";
 import { useScopedApi, useShell } from "../shell.tsx";
 import { ago, clampPage, dateOnly, link, navigate, num, setParams, useLocation, type FindingEvent, type TriagedFinding, type TriagedResponse } from "../lib.ts";
-import { ListCard, NoRows, Page, PageState, Row, SeverityBadge, Stat, StatusBadge } from "../components/ui.tsx";
+import { ListCard, NoRows, Page, PageState, PlatformMark, Row, SeverityBadge, Stat, StatusBadge } from "../components/ui.tsx";
 import { FindingDialog } from "../components/triage.tsx";
 import { describeEvent, LANE_LABEL, LaneLegend, laneSegments, StatusLane, Timeline, type LaneState } from "../components/history.tsx";
 
@@ -302,6 +302,7 @@ function TriagedRow({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <SeverityBadge severity={f.severity} />
+              <PlatformMark provider={f.provider} spans={f.spans} />
               <TitleLink f={f} onOpen={onOpen} />
             </div>
             <div className="mt-0.5 truncate text-xs text-kumo-subtle">

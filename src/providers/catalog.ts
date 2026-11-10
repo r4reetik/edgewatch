@@ -1,6 +1,6 @@
 // Every check of every provider: what the API, the store and the docs read.
 // Provider code uses its own catalog (src/core/catalog.ts for Cloudflare,
-// src/providers/vercel/catalog.ts for Vercel).
+// src/providers/<id>/catalog.ts for the rest).
 
 import { PROVIDER } from "./index.ts";
 import { SC_CLASSES } from "../core/catalog.ts";

@@ -8,7 +8,7 @@ import { isSeverity, SCORED_SEVERITIES } from "../shared/severity.ts";
 import { TRIAGE_STATUSES, type TriageStatus } from "../shared/triage.ts";
 import type { Entity, EntityUpdate, TriagePatch } from "../store/repo.ts";
 import type { Settings } from "../shared/api.ts";
-import { ACCOUNT_ID_PATTERN, isProvider, type ProviderId } from "../shared/providers.ts";
+import { ACCOUNT_ID_PATTERN, PROVIDER_INFO, isProvider, type ProviderId } from "../shared/providers.ts";
 
 export const FINGERPRINT = /^[0-9a-f]{20}$/;
 export const ACCOUNT_ID = ACCOUNT_ID_PATTERN.cloudflare;
@@ -36,9 +36,11 @@ export async function requireJson(c: Context): Promise<Body> {
   return b;
 }
 
-export function token(v: unknown): string {
+/** A provider's credential as it is stored: a token, or its several fields joined (PROVIDER_INFO.fields). */
+export function token(v: unknown, provider: ProviderId = "cloudflare"): string {
   const t = String(v ?? "").trim();
-  if (!t || t.length > MAX_TOKEN) throw badRequest("Enter an API token.");
+  const what = PROVIDER_INFO[provider].credential;
+  if (!t || t.length > MAX_TOKEN) throw badRequest(`Enter ${/^[aeiou]/i.test(what) ? "an" : "a"} ${what}.`);
   return t;
 }
 
@@ -66,10 +68,10 @@ export function providerId(v: unknown): ProviderId {
 export function accountIds(v: unknown, provider: ProviderId = "cloudflare"): string[] {
   if (v == null) return [];
   if (!Array.isArray(v)) throw badRequest("accountIds must be a list");
-  // Cloudflare IDs are hex and compared lowercase; Vercel IDs are case-sensitive.
-  const ids = [...new Set(v.map((x) => (provider === "cloudflare" ? String(x).trim().toLowerCase() : String(x).trim())))];
-  if (ids.some((id) => !ACCOUNT_ID_PATTERN[provider].test(id)))
-    throw badRequest(provider === "cloudflare" ? "An account ID is 32 hexadecimal characters." : "That isn't a Vercel team or account ID.");
+  // Some providers' IDs are hex and compared lowercase; others are case-sensitive.
+  const info = PROVIDER_INFO[provider];
+  const ids = [...new Set(v.map((x) => (info.lowercaseIds ? String(x).trim().toLowerCase() : String(x).trim())))];
+  if (ids.some((id) => !ACCOUNT_ID_PATTERN[provider].test(id))) throw badRequest(info.idHint);
   if (ids.length > MAX_ACCOUNTS_PER_ADD) throw badRequest(`Add at most ${MAX_ACCOUNTS_PER_ADD} accounts at a time.`);
   return ids;
 }

@@ -9,6 +9,7 @@ import { pointsAtVercel } from "../links.ts";
 export default defineChecks(
   {
     "XP-001": {
+      spans: ["vercel"],
       category: "DNS",
       severity: "high",
       docs: "https://vercel.com/docs/domains/working-with-domains/add-a-domain",
@@ -19,6 +20,7 @@ export default defineChecks(
       fix: "1. If the site moved or was retired, delete the DNS record in Cloudflare. 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains. 3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.",
     },
     "XP-002": {
+      spans: ["vercel"],
       category: "Platform",
       severity: "low",
       docs: "https://vercel.com/guides/cloudflare-with-vercel",

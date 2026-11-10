@@ -4,7 +4,8 @@ import { dateTime, link, num, plural, PROVIDER_INFO, score, type ScansResponse }
 import { Aside, Flag, ListCard, NoRows, Page, PageState } from "../components/ui.tsx";
 
 const TITLE = "Scans";
-const DESCRIPTION = "Scan history, and what the API token could read. A scan runs daily at the time set in Settings, and whenever you click Run scan.";
+const DESCRIPTION =
+  "Scan history, and what each account's credential could read. A scan runs daily at the time set in Settings, and whenever you click Run scan.";
 const TRIGGER: Record<string, string> = {
   manual: "Manual",
   schedule: "Scheduled",

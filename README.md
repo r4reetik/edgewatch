@@ -5,8 +5,8 @@
 <h1 align="center">Edgewatch</h1>
 
 <p align="center">
-  <strong>Security posture tracking for Cloudflare and Vercel.</strong><br>
-  Read-only checks across DNS, WAF, TLS, Zero Trust, email, live traffic, deployments and secrets, and a place to triage every finding until it's fixed.
+  <strong>Security posture tracking for Cloudflare, Vercel and AWS.</strong><br>
+  Read-only checks across DNS, WAF, TLS, Zero Trust, email, live traffic, deployments, secrets, IAM, storage and networks, and a place to triage every finding until it's fixed.
 </p>
 
 <p align="center">
@@ -31,13 +31,14 @@
   <img src="docs/images/overview.png" alt="The Edgewatch overview: attack paths, posture score, overdue and unowned findings, and the findings to fix first">
 </picture>
 
-Point Edgewatch at your Cloudflare accounts, your Vercel teams, or both, and it scans them (one, or dozens
-across several companies), scores them, and tracks every finding until it's fixed: who owns it, when it's due,
-and which risks were accepted and until when. It runs on your machine or your server, and only ever reads.
-Use it for Cloudflare alone, Vercel alone, or both: a company's accounts on both platforms sit together in
-one entity, and checks that span the two catch what neither dashboard shows.
+Point Edgewatch at your Cloudflare accounts, your Vercel teams, your AWS accounts, or any mix of them, and it
+scans them (one, or dozens across several companies), scores them, and tracks every finding until it's fixed:
+who owns it, when it's due, and which risks were accepted and until when. It runs on your machine or your
+server, and only ever reads. Use it for one platform or several: a company's accounts on every platform sit
+together in one entity, and checks that span platforms catch what no single dashboard shows. More platforms
+are planned.
 
-> Edgewatch is an independent open-source project, not affiliated with or endorsed by Cloudflare or Vercel.
+> Edgewatch is an independent open-source project, not affiliated with or endorsed by Cloudflare, Vercel or AWS.
 > Its interface is built with [Kumo](https://github.com/cloudflare/kumo), Cloudflare's open-source design system.
 
 ## Quick start
@@ -46,7 +47,7 @@ one entity, and checks that span the two catch what neither dashboard shows.
 npx edgewatch@latest
 ```
 
-That's the whole install. A browser tab opens, you choose Cloudflare or Vercel, paste a token, pick the
+That's the whole install. A browser tab opens, you choose a platform (Cloudflare, Vercel or AWS), paste its token or access key, pick the
 accounts or teams it should scan, and the first scans run. It needs Node.js 26 LTS; on an older one it says how to upgrade. To run it for a team, use
 [Docker](#run-it-for-a-team-docker).
 
@@ -89,16 +90,47 @@ never their values.
 | DNS, TLS & monitoring | Domains about to lapse with auto-renew off, unverified project domains, expiring custom certificates, log drains writing public S3 objects or sending over HTTP, failing drains |
 | Platform | Node.js versions past end of life, production builds over a year old, directory listing, public source maps, projects deployed outside Git |
 
+### AWS
+
+One account per access key, read in every enabled region. Edgewatch reads configuration only: never the
+objects in a bucket, the rows in a database, a policy document's text or a Lambda environment variable.
+
+| Area | Examples |
+|---|---|
+| Identity & access | Root user without MFA or with access keys, console users without MFA (critical when they are administrators), access keys that are old or unused, a missing or weak password policy, administrators holding long-lived keys, roles any AWS account can assume, roles that trust an AWS account outside the entity without an external ID, customer managed policies that allow everything, internet-facing instances that run with administrator access |
+| Attack surface | Public S3 buckets (policy or ACL, after the bucket's and the account's Block Public Access, and whether CloudFront serves them), security groups open to the internet on SSH, RDP, database ports or everything, rated by what they are attached to (something with a public address, something private, or nothing), publicly accessible databases, public EBS snapshots and machine images, Lambda function URLs without authentication |
+| Secrets | Credentials written into an instance's start-up script (user data): access keys, tokens, private keys, passwords in URLs. Only the kind is reported; the script is never stored |
+| TLS, HTTPS & WAF | CloudFront distributions and load balancers that serve plain HTTP or accept TLS 1.0 and 1.1, CloudFront reaching its origin over HTTP, distributions without a web ACL |
+| DNS | Route 53 records that still point at a CloudFront distribution or S3 bucket the entity no longer has (anyone can claim those), at a deleted load balancer (dead, but not claimable), at an address Edgewatch saw leave the entity's accounts (AWS gives it to another customer), or at an AWS address nobody in the entity holds |
+| Platform & monitoring | Instances that still allow IMDSv1, EBS volumes not encrypted by default, unencrypted databases and databases without backups, deprecated Lambda runtimes, GuardDuty off and VPCs without flow logs where workloads run, internet-facing load balancers without access logs |
+
+Per-region settings are only judged where something runs, so an empty region doesn't fill the list.
+CloudTrail, KMS and Config aren't read yet: their APIs only answer POST requests, and Edgewatch only sends GET.
+
 ### Across providers
 
-Checks that compare a company's Cloudflare and Vercel accounts in the same entity: a Cloudflare DNS record
-that points at Vercel but no Vercel project serves (anyone could claim it), a Vercel site proxied through
-Cloudflare whose *.vercel.app URLs skip Cloudflare's WAF, and Vercel sites behind Cloudflare's proxy.
+Checks that compare a company's accounts on different platforms in the same entity:
+
+- **Origins that skip Cloudflare.** A hostname proxied through Cloudflare whose AWS load balancer or instance also
+  accepts web traffic from the whole internet, so an attacker who finds the origin skips your WAF, rate limits and
+  bot rules. The same for a Vercel site behind Cloudflare whose *.vercel.app URLs are public.
+- **Dangling records.** A Cloudflare DNS record that points at a CloudFront distribution or S3 bucket that none of
+  the entity's AWS accounts has, and a Cloudflare or Route 53 record that points at Vercel when no Vercel project
+  serves it. Whoever claims the missing resource serves your hostname.
+- **Released addresses.** Edgewatch remembers the public addresses each AWS account holds. When one disappears
+  between scans (a deleted instance, a released Elastic IP) and a Cloudflare or Route 53 record still points at it,
+  that record is reported: AWS hands the address to another customer. An AWS address nobody in the entity ever
+  held is only noted, at low severity, since it is usually a vendor's server or an account that isn't connected.
+- **Who is inside the entity.** With several AWS accounts in an entity, a role one of them trusts from another is
+  internal; a role that trusts an account outside the entity is reported.
+
+A comparison only runs when every account it depends on has been scanned and could read what it needs; otherwise
+the check is skipped, not passed.
 
 Every check, with why it matters and how to fix it, is listed in [docs/checks.md](docs/checks.md).
 
 Each finding explains why it matters, how to fix it, and the evidence behind it, step by step. It links
-to the right page in the Cloudflare or Vercel dashboard. Findings from heuristics (name patterns, sampled analytics)
+to the right page in the provider's dashboard or console. Findings from heuristics (name patterns, sampled analytics)
 and traffic are marked **Likely**, and ones a live check confirmed are marked **Confirmed**. A finding that
 was fixed and came back is marked **Reopened**. Every check links to the provider's documentation, and every
 finding has its own page with a history of each scan and triage change, to share by link.
@@ -116,11 +148,12 @@ finding has its own page with a history of each scan and triage change, to share
   </tr>
 </table>
 
-- **Overview.** Attack paths first, then the score, what's critical, overdue and unowned, the problems to fix first (one row per check, however many places it appears), what changed since the last scan, trends and category scores. With several accounts in view, a table ranks them by score; with Cloudflare and Vercel in view, each gets its own score too.
+- **Overview.** Attack paths first, then the score, what's critical, overdue and unowned, the problems to fix first (one row per check, however many places it appears), what changed since the last scan, trends and category scores. With several accounts in view, a table ranks them by score; with several platforms in view, each gets its own score too.
 - **Findings.** Tabs for open, overdue, unowned and new findings; filter, search, sort, and group by check, zone or account. Triage one at a time (J and K move through the list) or in bulk, changing only the fields you pick: status, owner (suggested from the owners already in the entity), due date, note. Accepted risk takes an expiry date and reopens when it lapses. Each severity has an SLA, and findings past it are flagged overdue. Exports contain exactly what the list shows.
 - **Triaged.** Everything you've triaged in one place: where each finding stands now, a lane showing how its status moved over time (including when a scan stopped finding it), and a feed of every change.
 - **Zones** (Cloudflare). A settings grid for every zone: TLS, HSTS, DNSSEC, WAF, rate limits, bots and more.
 - **Projects** (Vercel). Every project: who can open its previews and *.vercel.app URLs, fork protection, the firewall and its managed rules, how many secrets are Sensitive.
+- **Regions** (AWS). Every enabled region: what runs there, whether GuardDuty is on, and its open findings, plus the account's global resources.
 - **Activity** (Cloudflare). Seven days of audit log, filtered down to changes, with destructive actions highlighted.
 - **Value** (Cloudflare). What you pay for, the traffic and threats it handled, and features your plans include but that are switched off.
 - **Audit report.** A print-ready report for auditors and management (use the browser's Save as PDF). Findings also export as CSV and JSON.
@@ -129,13 +162,14 @@ finding has its own page with a history of each scan and triage change, to share
 
 ## Several accounts and companies
 
-Edgewatch watches as many Cloudflare accounts and Vercel teams as you add, from one token or many. Accounts are
-grouped into **entities**: a company, legal entity or team that owns them. An entity can hold accounts on both
-platforms. You decide how they're shown, and can
+Edgewatch watches as many Cloudflare accounts, Vercel teams and AWS accounts as you add, from one credential or
+many. Accounts are grouped into **entities**: a company, legal entity or team that owns them. An entity can hold
+accounts on every platform. You decide how they're shown, and can
 change it at any time on the **Accounts** page:
 
-- **Pick the view.** The switcher in the top bar shows one account, one entity, or **All accounts**. Beside it,
-  the provider switch narrows the view to Cloudflare or Vercel when both are in it. Every page, the score, the
+- **Pick the view.** The picker in the top bar has a tick box for every entity and every account: tick an entity
+  for all of its accounts, or any accounts you want to see together, or **All accounts**. Beside it, the platform
+  picker does the same by platform, with each platform's accounts beneath it. Every page, the score, the
   audit report and the exports follow them. Links in alerts open the right account.
 - **Keep companies apart.** Turn off **Show in All accounts** for an entity and its accounts never appear in the
   combined view or its report; they're only shown when that entity or account is chosen. Entities that belong
@@ -146,10 +180,10 @@ change it at any time on the **Accounts** page:
 - **Arrange.** Rename accounts, move them between entities, reorder entities and accounts, and leave an
   account out of the daily scan.
 
-Accounts are scanned one after another, each with its own token. When several accounts are in view, the
+Accounts are scanned one after another, each with its own token or access key. When several accounts are in view, the
 posture score is the average of the accounts' scores, so a small account counts as much as a large one.
 
-## Create the tokens
+## Create the tokens and access keys
 
 ### Cloudflare
 
@@ -174,6 +208,16 @@ In Vercel, go to **Account Settings → Tokens** and create a token. Set its sco
 Vercel tokens can't be limited to reading: a token can do what its user's role allows. Edgewatch only ever
 sends GET requests to Vercel (a test fails on anything else) and never asks for environment variable values.
 What each team role can read is in [docs/permissions.md](docs/permissions.md#vercel).
+
+### AWS
+
+In each AWS account, go to **IAM → Users → Create user**, name it edgewatch, leave console access off, and
+attach AWS's managed **SecurityAudit** policy. Then open the user's **Security credentials** and create an
+access key ("Application running outside AWS"). Paste the key ID and the secret into Edgewatch.
+SecurityAudit reads configuration only: it can't change anything and can't read what is stored in your
+buckets or databases. An access key belongs to one account, so each account needs its own; temporary keys
+(the ones starting with ASIA) aren't accepted because they expire within hours. The IAM actions each source
+needs are in [docs/permissions.md](docs/permissions.md#aws).
 
 ## Run it for a team (Docker)
 
@@ -224,13 +268,13 @@ history, email domains and alert destinations.
 
 ## Security and privacy
 
-- **Read-only.** The scanner only sends GET requests to Cloudflare and Vercel, and GraphQL analytics queries to Cloudflare (GraphQL is POST by design, and query-only). Tests run full scans of both and fail if any request is anything else. Vercel environment variables are listed without their values, and drain and webhook URLs are stored without their paths or secrets.
+- **Read-only.** The scanner only sends GET requests to every provider, and GraphQL analytics queries to Cloudflare (GraphQL is POST by design, and query-only). Tests run full scans of each provider and fail if any request is anything else. Vercel environment variables are listed without their values, drain and webhook URLs are stored without their paths or secrets, and AWS policy documents, Lambda environment variables and instance start-up scripts are never stored (start-up scripts are scanned for credentials in memory, and only the kind found is kept).
 - **Local.** Findings and tokens stay in the data directory. The database, tokens and backups are readable by your user only, and so is the directory when Edgewatch creates it.
   Tokens live in `credentials.json`, apart from the database, which only holds a reference to each one.
 - **Contained.**
   - Tokens are never sent to the browser or written to logs. Each account is only ever scanned with its own token.
   - Webhook URLs are write-only in the UI.
-  - Outbound traffic goes to `api.cloudflare.com` and `api.vercel.com` (for the platforms you connect), to `cloudflare-dns.com` (public DNS lookups), to any webhook you configure, and to `api.github.com` shortly after start and then daily, to see if there's a newer release (no identifying data; turn it off in Settings or with `EDGEWATCH_UPDATE_CHECK=off`).
+  - Outbound traffic goes to `api.cloudflare.com`, `api.vercel.com` and `*.amazonaws.com` (for the platforms you connect; with AWS connected that includes AWS's public address-range file at `ip-ranges.amazonaws.com`, read without your access key), to `cloudflare-dns.com` (public DNS lookups), to any webhook you configure, and to `api.github.com` shortly after start and then daily, to see if there's a newer release (no identifying data; turn it off in Settings or with `EDGEWATCH_UPDATE_CHECK=off`).
   - **Takeover check (on by default):** a `GET /` to each of your own hostnames that points at a cloud provider known for takeovers (S3, GitHub Pages, Heroku, Vercel, Azure…), over HTTPS and then HTTP if that fails, following at most two redirects on the same host. At most 100 hosts per scan, no cookies, the first 64 KB of the answer, and a User-Agent of `Edgewatch takeover check (+https://github.com/r4reetik/edgewatch)`. Turn it off under **Settings → Scans → Confirm subdomain takeovers** to keep every request inside Cloudflare's API.
   - There is no telemetry.
 - **Hardened web app.**
@@ -256,10 +300,10 @@ than roughly 20–30. Confirm with the record's owner before deleting anything.
 
 **Can Edgewatch change anything in my account?** No. The scanner only sends GET requests (and, to Cloudflare,
 GraphQL queries), and tests that run full scans fail the build if it ever sends anything else. Give Cloudflare a
-read-only token; Vercel has no read-only tokens, so its token can do what its user's role allows, and Edgewatch
-still only reads.
+read-only token and AWS a user with only the SecurityAudit policy; Vercel has no read-only tokens, so its token
+can do what its user's role allows, and Edgewatch still only reads.
 
-**Does any data leave my machine?** Only requests to the Cloudflare and Vercel APIs and public DNS, the optional takeover
+**Does any data leave my machine?** Only requests to the APIs of the platforms you connect and public DNS, the optional takeover
 check (one GET to your own hostnames that point at cloud providers), alerts to webhooks you configure, and the
 update check.
 The daily update check only reads GitHub's public list of releases. There's no telemetry, no account, and
@@ -293,7 +337,7 @@ and the test suite tells you what's missing.
 
 ```bash
 npm install
-npm run dev -- --mock   # mocked Cloudflare and Vercel data, in three entities
+npm run dev -- --mock   # mocked Cloudflare, Vercel and AWS data, in three entities
 npm run dev             # your real accounts, kept in ./.edgewatch
 npm run check           # typecheck, lint, tests
 ```

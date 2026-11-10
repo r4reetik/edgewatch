@@ -9,7 +9,7 @@ import type { Severity } from "./core/types.ts";
 export interface ScanSummary {
   accountId: string;
   accountName: string;
-  /** The account's platform ("Cloudflare", "Vercel"). */
+  /** The account's platform, as its provider labels it ("Cloudflare", "AWS"). */
   provider?: string;
   entityName: string;
   scanId: number;

@@ -4,6 +4,10 @@ import tailwindcss from "@tailwindcss/vite";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
+// The API's port, and optionally this server's own, so a second copy (the mock, say) can run beside the first:
+// EDGEWATCH_PORT=4417 EDGEWATCH_WEB_PORT=5273 npm run dev -- --mock
+const apiPort = Number(process.env.EDGEWATCH_PORT) || 4317;
+const webPort = Number(process.env.EDGEWATCH_WEB_PORT) || 5173;
 
 export default defineConfig({
   root,
@@ -16,9 +20,11 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500,
   },
   server: {
-    port: 5173,
+    port: webPort,
+    // A port chosen on purpose must be the one used: drifting to the next free one could pair this page with another copy's API.
+    strictPort: !!process.env.EDGEWATCH_WEB_PORT,
     // Keep the browser's Host header (Vite's string shorthand rewrites it to the target). The API's CSRF check
     // compares Origin with Host, so a rewritten Host blocks every POST in development.
-    proxy: { "/api": { target: "http://127.0.0.1:4317", changeOrigin: false } },
+    proxy: { "/api": { target: `http://127.0.0.1:${apiPort}`, changeOrigin: false } },
   },
 });

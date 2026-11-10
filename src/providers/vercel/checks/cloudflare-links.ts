@@ -8,6 +8,7 @@ import { protectsProductionUrls } from "./deployments.ts";
 export default defineChecks(
   {
     "XP-003": {
+      spans: ["cloudflare"],
       category: "WAF & bots",
       severity: "medium",
       docs: "https://vercel.com/docs/deployment-protection#understanding-deployment-protection-by-environment",

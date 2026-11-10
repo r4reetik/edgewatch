@@ -1,6 +1,6 @@
 // What every provider gives the rest of Edgewatch. The scanner, the account routes
 // and the setup screen only talk to providers through this interface, so adding a
-// provider (AWS, Google Cloud, Google Workspace…) means implementing it once and
+// provider (Google Cloud, Google Workspace…) means implementing it once and
 // listing it in ./index.ts. See "Adding a provider" in CONTRIBUTING.md.
 
 import type { Evaluation } from "../core/engine.ts";
@@ -16,11 +16,14 @@ export interface CheckDef extends CheckMeta<string> {
 }
 
 export interface ScanInput {
+  /** The credential as the vault stores it: a token, or a provider's several fields joined (see PROVIDER_INFO.fields). */
   token: string;
   account: Account;
   engine: EngineOptions;
   /** Send probes to the account's own hostnames (Settings → Live checks). */
   probeTakeovers: boolean;
+  /** What the account's last finished scan stored, for providers that compare a scan with the one before it. */
+  previous: ScanSnapshot | null;
   onProgress: (p: ProgressEvent) => void;
 }
 
@@ -37,10 +40,10 @@ export interface ScanOutput {
 export interface Provider {
   info: ProviderInfo;
   checks: CheckDef[];
-  /** Where to create a token, and a pre-filled template when the provider has one. */
+  /** Where to create the credential, and a pre-filled template when the provider has one. */
   tokenHelp(accountId: string | null): { url: string; templateUrl: string | null };
   verify(token: string, accountIds: string[]): Promise<TokenInfo>;
-  /** Accounts (or teams) the token can read, for the setup picker. */
+  /** Accounts (or teams) the credential can read, for the setup picker. */
   listAccounts(token: string): Promise<{ id: string; name: string }[]>;
   probe(token: string, accountId: string): Promise<PermissionProbe[]>;
   scan(input: ScanInput): Promise<ScanOutput>;

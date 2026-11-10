@@ -9,6 +9,9 @@ flowchart LR
   subgraph Vercel
     VREST[REST API<br/>GET only]
   end
+  subgraph AWS
+    AREST[Query and REST APIs<br/>signed GET only]
+  end
   DOH[Public DNS<br/>cloudflare-dns.com]
   HOSTS[Your hostnames<br/>takeover probe, optional]
 
@@ -16,9 +19,11 @@ flowchart LR
   SC --> PROV[Provider<br/>src/providers]
   PROV --> INV[Cloudflare inventory<br/>inventory.ts, analytics.ts]
   PROV --> VINV[Vercel inventory<br/>providers/vercel]
+  PROV --> AINV[AWS inventory<br/>providers/aws]
   INV --> REST & GQL & DOH & HOSTS
   VINV --> VREST
-  INV & VINV --> ENG[Engine<br/>check modules]
+  AINV --> AREST
+  INV & VINV & AINV --> ENG[Engine<br/>check modules]
   ENG --> DB[(SQLite<br/>scans, findings,<br/>history, triage)]
   DB --> API[HTTP API<br/>Hono]
   API --> WEB[Web app<br/>React + Kumo]
@@ -27,21 +32,32 @@ flowchart LR
 
 ## Providers
 
-Every account belongs to one provider (Cloudflare or Vercel), recorded on the account. The scanner, the account
+Every account belongs to one provider (Cloudflare, Vercel or AWS), recorded on the account. The scanner, the account
 routes and the setup screen only talk to a provider through the `Provider` interface in `src/providers/types.ts`:
-verify a token, list the accounts it reaches, probe what it can read, and scan an account. `src/providers/index.ts`
+verify a credential, list the accounts it reaches, probe what it can read, and scan an account. `src/providers/index.ts`
 lists them. Cloudflare's code predates providers and lives in `src/core`, wrapped by `src/providers/cloudflare.ts`;
-Vercel's lives in `src/providers/vercel/`, and new providers get their own folder the same way.
+Vercel's lives in `src/providers/vercel/` and AWS's in `src/providers/aws/`, and new providers get their own folder
+the same way.
+
+What the app says about a provider (its label, what it calls an account and a credential, the credential's fields,
+its API host) comes from `PROVIDER_INFO` in `src/shared/providers.ts`, so screens and messages are worded for any
+provider without comparing names.
 
 What every provider shares: the check-module format and evaluator (`src/core/checks/define.ts`), the categories,
 fingerprints and scoring (`src/core/engine.ts`), storage, triage, alerts and the whole web app. The dashboard's scope
-can be narrowed to one provider (`e:3@vercel`), and every scoped page follows it.
+is a set of accounts: all of them, an entity, one account, or any accounts ticked in the pickers (`s:<id>,<id>`),
+optionally narrowed to one provider (`e:3@vercel`). Every scoped page follows it.
 
 ## A scan
 
 The steps below are Cloudflare's; a Vercel scan reads teams, members, tokens, projects with their domains,
 environment variable names and firewall, and the team's domains, certificates, drains and webhooks (about
-four requests per project), then runs the same check, store and alert steps.
+four requests per project), then runs the same check, store and alert steps. An AWS scan reads IAM (the root
+user, users with their keys and MFA, roles and policies), S3, CloudFront and Route 53 once, and security groups,
+instances, EBS settings, VPCs, databases, load balancers, functions and GuardDuty in every enabled region
+(about twelve requests per region, plus a few per user, bucket, load balancer and function). A region that
+refuses the access key is skipped and recorded, rather than failing the scan. AWS has no client library here:
+`src/providers/aws/sigv4.ts` signs each GET, and `xml.ts` reads the XML answers.
 
 1. **Inventory.** For one account, Edgewatch reads everything the checks need into one typed `Inventory`:
    zones and their settings, DNS records, rulesets, certificates, members, tokens, Access, Gateway, Workers,
@@ -61,15 +77,22 @@ four requests per project), then runs the same check, store and alert steps.
    go to each entity's Slack channel or webhook.
 
 The scanner never changes anything: REST calls are GET, GraphQL is POST but only ever queries, and
-`test/integration.test.ts` (Cloudflare) and `test/vercel.test.ts` (Vercel) fail on any other request.
+`test/integration.test.ts` (Cloudflare), `test/vercel.test.ts` (Vercel) and `test/aws.test.ts` (AWS) fail on any
+other request. AWS services whose APIs only answer POST (CloudTrail, KMS, Config) are left unread for that reason.
 
 ## Checks that span providers
 
-Some problems only show when a company's Cloudflare and Vercel accounts are compared, for example a Cloudflare
-DNS record that points at Vercel when no Vercel project in the company serves that hostname. Each scan stores a
-few `links` in its snapshot (Cloudflare: its DNS records that point at Vercel; Vercel: the domains its projects
-serve). When an account is scanned, the scanner gathers the links from the latest scans of the other accounts
-in the same entity and passes them to the checks as `related`. These checks (IDs `XP-…`) never look outside the
+Some problems only show when a company's accounts on different providers are compared, for example a Cloudflare
+DNS record that points at Vercel when no Vercel project in the company serves that hostname, or at a CloudFront
+distribution none of its AWS accounts has. Each scan stores a few `links` in its snapshot (`ProviderLinks` in
+`src/shared/api.ts`): Cloudflare, its DNS records that point at Vercel and at AWS, and the address of every A
+record; Vercel, the domains its projects serve; AWS, its CloudFront domain names, load balancer names, buckets,
+public addresses and account ID. A list is left out when its scan couldn't read all of it. When an account is
+scanned, the scanner merges every list from the latest scans of the other accounts in the same entity and passes
+them to the checks as `related`. A list is only used when every account of the provider that publishes it
+(`LINK_PROVIDER`) supplied it: if one hasn't been scanned yet, or left it out, the merged list is incomplete, it is
+set aside (`related.unknown` names it), and the checks that need it are skipped. An incomplete list is never
+taken for "nothing there". These checks (IDs `XP-…`) never look outside the
 entity, and are skipped when the entity has no scanned account on the other provider.
 
 ## Scoring
@@ -101,11 +124,12 @@ src/
     engine.ts           runs the modules, de-duplicates, fingerprints, scores
   providers/            the Provider interface, the registry, Cloudflare's adapter and the full check catalog
     vercel/             Vercel: read-only client, sources, inventory, checks, views, token checks
+    aws/                AWS: signed read-only client, sources, inventory, checks, views, access key checks
   store/                SQLite: migrations (db.ts) and one repository per concern
   server/               Hono app: routes/, guards, validation, presentation
   shared/               API types and logic shared with the web app (no Node, no DOM)
 web/src/                React app: routes.tsx lists every page
-dev/mock/               mocked Cloudflare and Vercel APIs, for tests and `npm run dev -- --mock`
+dev/mock/               mocked Cloudflare, Vercel and AWS APIs, for tests and `npm run dev -- --mock`
 scripts/                dev runner, and the generator for docs/checks.md and docs/permissions.md
 test/                   node:test suites
 ```

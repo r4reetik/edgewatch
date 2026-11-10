@@ -19,6 +19,7 @@ import type {
   FindingBrief,
   FindingGroup,
   ProjectRow,
+  RegionRow,
   ProviderScore,
   ScanMeta,
   Settings,
@@ -60,6 +61,7 @@ export const brief = (f: Finding): FindingBrief => ({
   category: f.category,
   accountId: f.accountId,
   provider: f.provider,
+  spans: f.spans,
   account: f.account,
   confidence: f.confidence,
 });
@@ -140,6 +142,8 @@ export function fixFirst(open: Finding[], limit = 8): FindingGroup[] {
       const worst = fs.reduce((a, b) => (SEVERITY_WEIGHT[b.severity] > SEVERITY_WEIGHT[a.severity] ? b : a));
       return {
         checkId,
+        providers: [...new Set(fs.map((f) => f.provider))],
+        spans: CHECK_BY_ID[checkId]?.spans ?? [],
         title: CHECK_BY_ID[checkId]?.title || worst.title,
         severity: worst.severity,
         category: worst.category,
@@ -221,6 +225,11 @@ export function zones(scans: AccountScan[]): ZoneRow[] | null {
 export function projects(scans: AccountScan[]): ProjectRow[] | null {
   if (!scans.some((s) => s.scan.snap.projects)) return null;
   return scans.flatMap(({ account, scan }) => tag(scan.snap.projects, account));
+}
+
+export function regions(scans: AccountScan[]): RegionRow[] | null {
+  if (!scans.some((s) => s.scan.snap.regions)) return null;
+  return scans.flatMap(({ account, scan }) => tag(scan.snap.regions, account));
 }
 
 export function value(scans: AccountScan[]): ValueView | null {

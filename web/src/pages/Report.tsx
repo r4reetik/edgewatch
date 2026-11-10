@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { Button, Meter, Table } from "@cloudflare/kumo";
 import { ArrowLeftIcon, PrinterIcon } from "@phosphor-icons/react";
 import { useShell } from "../shell.tsx";
-import { useApi, plural, dateOnly, dateTime, num, PROVIDER_INFO, SCORED_SEVERITIES, SEVERITY_LABEL, STATUS_LABEL, withScope } from "../lib.ts";
+import { useApi, plural, dateOnly, dateTime, num, PROVIDERS, providerList, SCORED_SEVERITIES, SEVERITY_LABEL, STATUS_LABEL, withScope } from "../lib.ts";
 import { ErrorState, Loading, SeverityBadge } from "../components/ui.tsx";
 import { Wordmark } from "../components/brand.tsx";
 import type { Report } from "../lib.ts";
@@ -41,7 +41,7 @@ export function ReportPage() {
   const gaps = data.coverage.filter((c) => !c.ok);
   const multi = data.accounts.length > 1;
   // The platforms in the report, for its title and method ("Cloudflare and Vercel").
-  const platforms = [...new Set(data.accounts.map((a) => PROVIDER_INFO[a.provider].label))].join(" and ") || "Cloudflare";
+  const platforms = providerList([...new Set(data.accounts.map((a) => a.provider))]) || "your accounts";
   const one = data.accounts.length === 1 ? data.accounts[0] : null;
   const subtitle = one
     ? one.entity && one.entity !== one.name
@@ -109,9 +109,13 @@ export function ReportPage() {
               </ul>
               <p className="mt-3 text-xs text-kumo-subtle">
                 {num(open.length)} open findings across{" "}
-                {[data.zones ? plural(data.zones.length, "zone") : null, data.projects ? plural(data.projects.length, "project") : null]
+                {[
+                  data.zones ? plural(data.zones.length, "zone") : null,
+                  data.projects ? plural(data.projects.length, "project") : null,
+                  data.regions ? plural(data.regions.filter((r) => r.name !== "Global" && !r.skipped).length, "region") : null,
+                ]
                   .filter(Boolean)
-                  .join(" and ") || "0 zones"}
+                  .join(", ") || "0 resources"}
                 . {num(settled.length)} accepted or marked false positive.
               </p>
             </div>
@@ -292,8 +296,8 @@ export function ReportPage() {
             </p>
           )}
           <p className="mt-2">
-            Severity labels: {SCORED_SEVERITIES.map((s) => SEVERITY_LABEL[s]).join(", ")}. Edgewatch is an independent project, not affiliated with Cloudflare
-            or Vercel.
+            Severity labels: {SCORED_SEVERITIES.map((s) => SEVERITY_LABEL[s]).join(", ")}. Edgewatch is an independent project, not affiliated with{" "}
+            {providerList(PROVIDERS, "or")}.
           </p>
         </section>
       </article>

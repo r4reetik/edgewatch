@@ -29,7 +29,7 @@ const CSV_COLUMNS = [
   "note",
   "docs",
   "link",
-  // Added with Vercel support; last, so scripts that read columns by position keep working.
+  // Added when Edgewatch got a second provider; last, so scripts that read columns by position keep working.
   "provider",
 ] as const;
 

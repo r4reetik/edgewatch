@@ -1,5 +1,5 @@
-// First run: pick the platform, create a token there, then choose the accounts to
-// scan. Someone who only uses Vercel, or only Cloudflare, sees only that one's steps.
+// First run: pick the platform, create its credential there, then choose the
+// accounts to scan. Someone who uses one platform sees only that one's steps.
 
 import { useState } from "react";
 import { LayerCard } from "@cloudflare/kumo";
@@ -7,10 +7,10 @@ import { EyeIcon, HardDrivesIcon, LockKeyIcon } from "@phosphor-icons/react";
 import { Wordmark } from "../components/brand.tsx";
 import { ConnectForm, ProviderPicker, TokenHelp } from "../components/connect.tsx";
 import { Card } from "../components/ui.tsx";
-import { PROVIDER_INFO, type ProviderId } from "../lib.ts";
+import { PROVIDER_INFO, PROVIDERS, providerList, withArticle, type ProviderId } from "../lib.ts";
 
 export function SetupPage({ onDone }: { onDone: () => void }) {
-  const [provider, setProvider] = useState<ProviderId>("cloudflare");
+  const [provider, setProvider] = useState<ProviderId>(PROVIDERS[0]);
   const info = PROVIDER_INFO[provider];
   return (
     <div className="min-h-full bg-kumo-canvas">
@@ -21,7 +21,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
         <header>
           <h1 className="m-0 text-3xl font-semibold text-kumo-default">Connect your accounts</h1>
           <p className="mt-1.5 text-lg leading-normal text-pretty text-kumo-subtle">
-            Edgewatch scans your Cloudflare and Vercel configuration for security problems and best-practice gaps, then tracks them until they're fixed.
+            Edgewatch scans your configuration on {providerList()} for security problems and best-practice gaps, then tracks them until they're fixed.
           </p>
         </header>
 
@@ -38,7 +38,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
         <Card title="1. Choose a platform">
           <ProviderPicker value={provider} onChange={setProvider} />
         </Card>
-        <Card title={provider === "vercel" ? "2. Create an access token" : "2. Create a read-only API token"}>
+        <Card title={`2. Create ${info.readOnlyCredential ? `a read-only ${info.credential}` : withArticle(info.credential)}`}>
           <TokenHelp provider={provider} />
         </Card>
         <Card title={`3. Paste it and choose ${info.accounts}`}>
@@ -46,8 +46,8 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
         </Card>
 
         <p className="text-sm text-kumo-subtle">
-          You can add more later from <span className="font-medium text-kumo-default">Accounts</span>: other {info.accounts}, accounts on the other platform for
-          the same company, or accounts that belong to a different company. Group them into entities and decide which ones appear together.
+          You can add more later from <span className="font-medium text-kumo-default">Accounts</span>: other {info.accounts}, the same company's accounts on
+          other platforms, or accounts that belong to a different company. Group them into entities and decide which ones appear together.
         </p>
       </div>
     </div>

@@ -15,11 +15,11 @@ git clone https://github.com/<you>/edgewatch.git
 cd edgewatch
 git remote add upstream https://github.com/r4reetik/edgewatch.git
 npm install
-npm run dev -- --mock   # mocked Cloudflare and Vercel data, nothing written to disk
+npm run dev -- --mock   # mocked Cloudflare, Vercel and AWS data, nothing written to disk
 npm run dev             # your real accounts, data kept in ./.edgewatch
 ```
 
-Both start the API on port 4317 and the web app with hot reload on http://localhost:5173. The mock (`dev/mock/cloudflare.ts` and `dev/mock/vercel.ts`, seeded by `dev/mock/server.ts`) serves Cloudflare accounts and Vercel teams in three entities, one of them with both platforms, with fictional data that trips every family of checks. You don't need a Cloudflare or Vercel account to work on Edgewatch. If you do scan your own, use a read-only Cloudflare token, and remember that a Vercel token can do whatever your role allows.
+Both start the API on port 4317 and the web app with hot reload on http://localhost:5173. To run a second copy beside the first (the mock next to your real accounts, say), give it its own ports: `EDGEWATCH_PORT=4417 EDGEWATCH_WEB_PORT=5273 npm run dev -- --mock`. The mock (`dev/mock/cloudflare.ts`, `dev/mock/vercel.ts` and `dev/mock/aws.ts`, seeded by `dev/mock/server.ts`) serves Cloudflare accounts, Vercel teams and an AWS account in three entities, one of them with every platform, with fictional data that trips every family of checks. You don't need an account on any of them to work on Edgewatch. If you do scan your own, use a read-only Cloudflare token, and remember that a Vercel token can do whatever your role allows.
 
 Before opening a pull request:
 
@@ -45,20 +45,21 @@ src/
   providers/            the Provider interface (types.ts), the registry (index.ts), every provider's checks (catalog.ts)
     cloudflare.ts       Cloudflare as a provider: an adapter over core/
     vercel/             Vercel: client.ts (GET only), sources.ts, inventory.ts, checks/, views.ts, permissions.ts
+    aws/                AWS: client.ts (signed GET only; sigv4.ts, xml.ts), sources.ts, inventory.ts, checks/, views.ts, permissions.ts
   store/                SQLite: migrations (db.ts) and one repository per concern behind Repo
   server/               Hono app: routes/, guards in middleware.ts, validation, presentation
-  shared/               code shared with the web app: API types, severities, triage, scope, filters
+  shared/               code shared with the web app: API types, severities, triage, scope, filters; providers.ts says everything the app knows about each provider
 web/src/                React app: routes.tsx lists every page, shell.tsx holds shared state
-dev/mock/               mocked Cloudflare and Vercel APIs and seeding, for tests and the mock dev server
-test/                   node:test suites; fixtures/ and checks/cases.ts for Cloudflare checks, vercel-cases.ts for Vercel's
+dev/mock/               mocked provider APIs (Cloudflare, Vercel, AWS) and seeding, for tests and the mock dev server
+test/                   node:test suites; fixtures/ and checks/cases.ts for Cloudflare checks, vercel-cases.ts and aws-cases.ts for the others
 ```
 
 The decisions behind the project, and the rules that follow from them, are in [AGENTS.md](AGENTS.md). Coding agents read it (Claude Code through `CLAUDE.md`), and so should you. It tells an agent how to work on a contributor's fork, so you can hand your agent a task without repeating the rules. Keep your own preferences for the agent in your personal settings (for Claude Code, a git-ignored `CLAUDE.local.md`), not in AGENTS.md. With Claude Code, `.claude/settings.json` already lets `npm run check`, the tests, formatting and the mock dev server run without asking, and blocks the release commands and reading your local scan data. Put permissions of your own in `.claude/settings.local.json`, which git ignores.
 
 Rules worth knowing:
 
-- **The scanner only reads.** REST calls are GET; Cloudflare's GraphQL is POST but query-only. `test/integration.test.ts` and `test/vercel.test.ts` fail on any other method.
-- **Secret values are never read.** Vercel environment variables are listed without `decrypt`, and values, drain headers and URL paths are dropped as the inventory is built.
+- **The scanner only reads.** REST calls are GET; Cloudflare's GraphQL is POST but query-only. `test/integration.test.ts`, `test/vercel.test.ts` and `test/aws.test.ts` fail on any other method.
+- **Secret values are never read.** Vercel environment variables are listed without `decrypt`, and values, drain headers and URL paths are dropped as the inventory is built. AWS policy documents and Lambda environment variables are dropped the same way.
 - **`src/shared` is portable**: no `node:` imports, no DOM. The server returns its DTOs (`satisfies`), the web imports them as types.
 - **Routes carry their guards** (`router.ts`): `routes(app).with(requireSession(auth))`. Moving a route never changes who can reach it.
 
@@ -71,23 +72,26 @@ Rules worth knowing:
 5. Add a failing case to `test/checks/cases.ts`. It's typed by check ID, so it won't compile until you do. `test/contract.test.ts` checks that the case fails, that the baseline fixture passes, and that the metadata is complete.
 6. Run `npm run docs` to regenerate `docs/checks.md` and `docs/permissions.md`. A test fails if you forget.
 
-### A Vercel check
+### A check for another provider
 
-The same steps, in `src/providers/vercel/`: a module in `checks/` written with that folder's `defineChecks`, a `docs` link to vercel.com,
-`requires` from `sources.ts`, the read in `inventory.ts` (GET only, values dropped), a mock route in `dev/mock/vercel.ts`, and a failing
-case in `test/vercel-cases.ts`, which `test/vercel-checks.test.ts` checks the same way. Checks that compare providers in an entity get an
+The same steps, in the provider's folder (`src/providers/vercel/`, `src/providers/aws/`): a module in `checks/` written with that folder's
+`defineChecks`, a `docs` link to the provider's own documentation, `requires` from `sources.ts`, the read in `inventory.ts` (GET only,
+values dropped), a mock route in `dev/mock/<id>.ts`, and a failing case in `test/<id>-cases.ts`, which `test/<id>-checks.test.ts` checks
+the same way. An AWS finding's `zone` is its region, or "Global" for IAM, S3 settings, CloudFront and Route 53; a per-region setting is
+only judged where something runs. Checks that compare providers in an entity get an
 `XP-` ID and read `related` (see [docs/architecture.md](docs/architecture.md#checks-that-span-providers)).
 
 ## Adding a provider
 
-AWS, Google Cloud, Google Workspace and others fit the same shape:
+Google Cloud, Google Workspace, Alibaba Cloud and others fit the same shape as Vercel and AWS:
 
-1. Add its ID, label and account words to `src/shared/providers.ts`, with the shape of its account IDs, and a glyph in `ProviderIcon` (`web/src/components/ui.tsx`). Use a neutral icon, not the provider's logo.
+1. Add it to `src/shared/providers.ts`: its ID, and a `PROVIDER_INFO` entry with its label, its words for an account, a resource and a credential, the credential's fields, its API host and the shape of its account IDs. The UI and the server word everything from that entry, so nothing else should compare a provider's name. Add its mark to `PROVIDER_GLYPH` (`web/src/components/ui.tsx`): the provider's monochrome logo as one 24×24 SVG path, such as the one Simple Icons publishes.
 2. Create `src/providers/<id>/` with a read-only client (GET or the provider's read-only equivalent, recording coverage), a sources registry, an inventory, check modules written with `checksFor<YourContext, YourSourceKey>()`, a catalog and an engine that ends in `summarize` from `src/core/engine.ts`.
 3. Implement `Provider` (`src/providers/types.ts`) in its `index.ts` and list it in `src/providers/index.ts`. The scanner, account routes, setup screen, provider switch, scores, exports and docs pick it up from there.
-4. Add a fictional mock API in `dev/mock/<id>.ts`, seed it in `dev/mock/server.ts`, and tests like `test/vercel.test.ts` (only reads, no secret stored) and `test/vercel-checks.test.ts` (every check fails on its case).
-5. Give its inventory page a route limited to the provider (`providers` in `web/src/routes.tsx`), write its token steps in `web/src/components/connect.tsx`, and add its sources to `scripts/docs.ts`.
-6. Record the decision in `AGENTS.md`.
+4. Add a fictional mock API in `dev/mock/<id>.ts`, seed it in `dev/mock/server.ts`, and tests like `test/aws.test.ts` (only reads, no secret stored) and `test/aws-checks.test.ts` (every check fails on its case).
+5. Give its inventory page a route limited to the provider (`providers` in `web/src/routes.tsx`), write the steps for creating its credential in `web/src/components/connect.tsx` (`TOKEN_HELP`), and add its sources and a section to `scripts/docs.ts`. TypeScript points at each of these: they are records keyed by provider, so a new one doesn't compile until it has an entry.
+6. If it shares hostnames or resources with another provider, add a list to `ProviderLinks` (`src/shared/api.ts`) and an `XP-` check on each side that can judge it.
+7. Record the decision in `AGENTS.md`, and update the README, `SECURITY.md` and the changelog.
 
 Severity guide: **critical** means it's exploitable now (a takeover, a leaked credential). **High** means a direct path in or a missing core protection. **Medium** is a weakness that needs another failure to matter. **Low** is hardening.
 

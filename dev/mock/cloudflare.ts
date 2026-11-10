@@ -346,6 +346,40 @@ const routes: [RegExp, Handler][] = [
                 created_on: ago(400),
                 modified_on: ago(400),
               },
+              // Served by the mock AWS account's CloudFront distribution (dev/mock/aws.ts).
+              {
+                id: "r9",
+                name: "cdn.mock.example",
+                type: "CNAME",
+                content: "d1mockexample.cloudfront.net",
+                proxied: false,
+                created_on: ago(250),
+                modified_on: ago(250),
+              },
+              // Proxied to the mock AWS account's web instance and load balancer, whose security group lets anyone in.
+              { id: "r11", name: "origin-api.mock.example", type: "A", content: "198.51.100.50", proxied: true, created_on: ago(250), modified_on: ago(250) },
+              {
+                id: "r12",
+                name: "shop.mock.example",
+                type: "CNAME",
+                content: "web-alb-1234567890.eu-west-1.elb.amazonaws.com",
+                proxied: true,
+                created_on: ago(250),
+                modified_on: ago(250),
+              },
+              // An Elastic IP the mock AWS account gives up between scans, and an AWS address that was never its own.
+              { id: "r13", name: "old-vm.mock.example", type: "A", content: "198.51.100.99", proxied: false, created_on: ago(450), modified_on: ago(450) },
+              { id: "r14", name: "vendor.mock.example", type: "A", content: "198.51.100.201", proxied: false, created_on: ago(450), modified_on: ago(450) },
+              // The bucket behind this one isn't in the mock AWS account.
+              {
+                id: "r10",
+                name: "downloads.mock.example",
+                type: "CNAME",
+                content: "mock-old-downloads.s3-website-eu-west-1.amazonaws.com",
+                proxied: false,
+                created_on: ago(450),
+                modified_on: ago(450),
+              },
             ]
           : []),
       ]),

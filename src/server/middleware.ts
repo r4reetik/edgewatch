@@ -21,7 +21,7 @@ export const requireConfigured =
     await next();
   };
 
-/** Resolves ?scope= (or the JSON body's `scope` on POST): all | e:<entity id> | a:<account id>. */
+/** Resolves ?scope= (or the JSON body's `scope` on POST): all | e:<entity id> | a:<account id> | s:<account id>,<account id>… */
 export const withScope =
   (repo: Repo): MiddlewareHandler<AppEnv> =>
   async (c, next) => {

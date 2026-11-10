@@ -1,7 +1,7 @@
 // The app shell: session gate, sidebar, top bar with the scope switcher and
 // scan progress, and the router. Pages are listed in routes.tsx.
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Breadcrumbs, Button, ButtonGroup, DropdownMenu, Sidebar, Toasty, Tooltip, TooltipProvider, useKumoToastManager } from "@cloudflare/kumo";
 import {
   ArrowCircleUpIcon,
@@ -9,10 +9,12 @@ import {
   BuildingsIcon,
   CaretDownIcon,
   CaretUpDownIcon,
-  CheckIcon,
+  CheckSquareIcon,
   GearIcon,
   GlobeIcon,
+  MinusSquareIcon,
   MoonIcon,
+  SquareIcon,
   SquaresFourIcon,
   StackIcon,
   SunIcon,
@@ -30,10 +32,9 @@ import {
   plural,
   resolveView,
   scopeKeyFor,
-  splitScopeKey,
   PROVIDER_INFO,
-  type ProviderId,
-  withProvider,
+  providerList,
+  toggleAccounts,
   useLocation,
   useMode,
   useScopeKey,
@@ -212,7 +213,8 @@ function Nav() {
   return (
     <Sidebar>
       <Sidebar.Header className="flex h-14 items-center border-b border-kumo-hairline">
-        <a {...link("/")} className="flex items-center gap-2 px-2">
+        {/* The mark sits on the same centre line as the menu icons below it, expanded or collapsed. */}
+        <a {...link("/")} className="flex items-center gap-2 px-2.5 group-data-[state=collapsed]/sidebar:px-1">
           <Wordmark />
         </a>
       </Sidebar.Header>
@@ -227,17 +229,27 @@ function Nav() {
                   icon={r.icon}
                   {...link(r.path)}
                   active={isActive(path, current?.parent || r.path) && (current?.parent ? r.path === current.parent : true)}
-                  tooltip={r.label}
+                  tooltip={r.providers ? `${r.label} (${providerList(r.providers)})` : r.label}
                 >
-                  {r.label}
+                  {/* A page that belongs to one platform says so with that platform's icon. */}
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="flex-1 truncate">{r.label}</span>
+                    {r.providers?.map((p) => (
+                      <span key={p} title={`${PROVIDER_INFO[p].label} only`} className="inline-flex">
+                        <ProviderIcon provider={p} className="h-3.5 w-3.5 text-kumo-inactive" />
+                      </span>
+                    ))}
+                  </span>
                 </Sidebar.MenuButton>
               ))}
             </Sidebar.Menu>
           </Sidebar.Group>
         ))}
       </Sidebar.Content>
-      <Sidebar.Footer>
-        <div className="px-2 pb-2 text-xs leading-relaxed whitespace-normal text-kumo-subtle group-data-[state=collapsed]/sidebar:hidden">
+      {/* Two lines of text don't fit Kumo's one-row footer height, so it grows to fit them. The text lines up with the
+          group labels and menu icons above it. */}
+      <Sidebar.Footer className="h-auto min-h-12 py-3">
+        <div className="px-2.5 text-xs leading-relaxed whitespace-normal text-kumo-subtle group-data-[state=collapsed]/sidebar:hidden">
           <span className="flex flex-wrap items-center gap-x-1.5">
             Edgewatch {session.version}
             {session.update?.latest && (
@@ -251,7 +263,7 @@ function Nav() {
               </a>
             )}
           </span>
-          Not affiliated with any provider.
+          Not affiliated with any platform.
         </div>
       </Sidebar.Footer>
     </Sidebar>
@@ -272,8 +284,9 @@ function TopBar() {
       ? `Last scan ${ago(status.lastScanAt)}`
       : "Not scanned yet";
   return (
-    <div className="no-print sticky top-0 z-10 shrink-0 border-b border-kumo-hairline bg-kumo-base">
-      <div className="flex h-14 items-center gap-3 px-4">
+    // h-14 includes the bottom border, like the sidebar header beside it, so the two lines meet.
+    <div className="no-print sticky top-0 z-10 h-14 shrink-0 border-b border-kumo-hairline bg-kumo-base">
+      <div className="flex h-full items-center gap-3 px-4">
         <Sidebar.Trigger />
         <Breadcrumbs size="sm" className="min-w-0">
           {route?.global ? (
@@ -343,10 +356,24 @@ function ScanButton() {
   const busy = !!status?.running && !!status?.inScope;
   const entityAccounts = view.entity ? accounts.filter((a) => a.entityId === view.entity!.id) : [];
   const entityCount = new Set(accounts.map((a) => a.entityId)).size;
-  const what = view.kind === "account" ? view.label : `the ${plural(view.accounts.length, "account")} in ${view.kind === "all" ? "All accounts" : view.label}`;
+  const what =
+    view.kind === "account"
+      ? view.label
+      : view.kind === "selection"
+        ? `the ${plural(view.accounts.length, "account")} ticked in the view`
+        : `the ${plural(view.accounts.length, "account")} in ${view.kind === "all" ? "All accounts" : view.label}`;
   const primary = (
-    <Button variant="primary" size="sm" icon={<ArrowsClockwiseIcon />} loading={busy} disabled={busy} onClick={() => startScan()}>
-      {busy ? "Scanning" : "Run scan"}
+    <Button
+      variant="primary"
+      size="sm"
+      icon={<ArrowsClockwiseIcon />}
+      loading={busy}
+      disabled={busy}
+      onClick={() => startScan()}
+      aria-label={busy ? "Scanning" : "Run scan"}
+    >
+      {/* On phones the icon alone, so the view picker beside it can show the entity's name. */}
+      <span className="hidden sm:inline">{busy ? "Scanning" : "Run scan"}</span>
     </Button>
   );
   if (accounts.length < 2) return primary;
@@ -386,19 +413,48 @@ function ScanButton() {
   );
 }
 
+/** A tick box as a menu row draws it: ticked, empty, or partly ticked when only some of what it stands for is in view. */
+function Tick({ state }: { state: boolean | "some" }) {
+  const Icon = state === true ? CheckSquareIcon : state === "some" ? MinusSquareIcon : SquareIcon;
+  return <Icon weight={state ? "fill" : "regular"} className={`h-4 w-4 shrink-0 ${state ? "text-kumo-brand" : "text-kumo-subtle"}`} aria-hidden />;
+}
+
+/** One row of a picker: a tick box and what it stands for. Ticking doesn't close the menu, so several can be changed in one go. */
+function TickRow({ state, onToggle, className, children }: { state: boolean | "some"; onToggle: () => void; className?: string; children: React.ReactNode }) {
+  return (
+    <DropdownMenu.Item
+      role="menuitemcheckbox"
+      aria-checked={state === "some" ? "mixed" : state}
+      closeOnClick={false}
+      className={className}
+      icon={<Tick state={state} />}
+      onClick={onToggle}
+    >
+      {children}
+    </DropdownMenu.Item>
+  );
+}
+
+/** Whether all, some or none of these accounts are in view. */
+const tickState = (ids: string[], inView: Set<string>): boolean | "some" => {
+  const n = ids.filter((id) => inView.has(id)).length;
+  return n === 0 ? false : n === ids.length ? true : "some";
+};
+
 /**
- * Chooses what the dashboard shows: every account included in "All accounts",
- * one entity, or one account. With a single account it's just a label.
+ * Chooses which accounts the dashboard shows, with tick boxes: an entity ticks every account in it, and each
+ * account can be ticked on its own. With a single account it's just a label.
  */
 function ScopeSwitcher() {
   const { session, view, setScope } = useShell();
   const accounts = session.accounts || [],
     entities = session.entities || [];
-  // One icon per level, matching the menu: all accounts, an entity, a single account.
+  const inView = new Set(view.accounts.map((a) => a.id));
+  // One icon per level: a single account, one entity (all or part of it), or accounts from several.
   const icon =
-    view.kind === "account" || accounts.length < 2 ? (
+    view.accounts.length === 1 || accounts.length < 2 ? (
       <ProviderIcon provider={view.accounts[0]?.provider ?? "cloudflare"} className="h-4 w-4 text-kumo-default" />
-    ) : view.kind === "entity" ? (
+    ) : view.entity ? (
       <BuildingsIcon className="shrink-0" />
     ) : (
       <SquaresFourIcon className="shrink-0" />
@@ -414,10 +470,14 @@ function ScopeSwitcher() {
   const all = resolveView(session, "all")!;
   const excluded = entities.filter((e) => !e.includeInAll && accounts.some((a) => a.entityId === e.id));
   const providerCount = new Set(accounts.map((a) => a.provider)).size;
-  // Picking another view keeps the provider filter; the new view drops it if it has no account on that provider.
-  const pick = (k: string) => () => setScope(withProvider(k, view.provider));
-  const base = splitScopeKey(view.key).base;
-  const mark = (k: string) => (base === k ? <CheckIcon className="text-kumo-brand" /> : <span className="inline-block w-4" />);
+  const toggle = (ids: string[], on: boolean) => {
+    const key = toggleAccounts(session, view, ids, on);
+    if (key) setScope(key);
+  };
+  // What the selection is part of, so "2 of 3" can be shown when it isn't the whole of it.
+  const whole = view.entity ? accounts.filter((a) => a.entityId === view.entity!.id).length : all.accounts.length;
+  const one = view.accounts.length === 1 ? view.accounts[0] : null;
+  const owner = one ? entities.find((e) => e.id === one.entityId) : null;
   return (
     <DropdownMenu>
       <DropdownMenu.Trigger
@@ -428,22 +488,30 @@ function ScopeSwitcher() {
             className="-mx-1.5 inline-flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-kumo-default hover:bg-kumo-tint"
           >
             {icon}
-            {view.kind === "account" && view.entity && (
-              <span className="hidden min-w-0 max-w-40 shrink-[4] truncate text-kumo-subtle lg:inline">{view.entity.name} /</span>
-            )}
+            {one && owner && <span className="hidden min-w-0 max-w-40 shrink-[4] truncate text-kumo-subtle lg:inline">{owner.name} /</span>}
             <span className="min-w-0 max-w-56 truncate font-medium">{view.label}</span>
-            {view.kind !== "account" && <span className="hidden shrink-0 text-kumo-subtle sm:inline">{view.accounts.length}</span>}
+            {!one && (
+              <span className="hidden shrink-0 whitespace-nowrap text-kumo-subtle sm:inline">
+                {view.accounts.length < whole ? `${view.accounts.length} of ${whole}` : view.accounts.length}
+              </span>
+            )}
             <CaretUpDownIcon className="shrink-0 text-kumo-subtle" />
           </button>
         }
       />
-      <DropdownMenu.Content align="start" className="max-h-[70vh] min-w-72 overflow-y-auto">
+      <DropdownMenu.Content align="start" className="max-h-[70vh] min-w-80 overflow-y-auto">
         {all.accounts.length > 0 && (
           <>
-            <DropdownMenu.Item icon={mark("all")} onClick={pick("all")}>
-              <span className="flex-1">All accounts</span>
+            <TickRow
+              state={tickState(
+                all.accounts.map((a) => a.id),
+                inView,
+              )}
+              onToggle={() => setScope("all")}
+            >
+              <span className="flex-1 font-medium">All accounts</span>
               <span className="text-kumo-subtle">{all.accounts.length}</span>
-            </DropdownMenu.Item>
+            </TickRow>
             {excluded.length > 0 && <div className="px-2 pb-1.5 pl-9 text-xs text-kumo-subtle">Leaves out {excluded.map((e) => e.name).join(", ")}</div>}
             <DropdownMenu.Separator />
           </>
@@ -452,31 +520,25 @@ function ScopeSwitcher() {
           .filter((e) => accounts.some((a) => a.entityId === e.id))
           .map((e, i) => {
             const mine = accounts.filter((a) => a.entityId === e.id);
+            const ids = mine.map((a) => a.id);
+            const state = tickState(ids, inView);
             return (
-              <DropdownMenu.Group key={e.id}>
+              <Fragment key={e.id}>
                 {i > 0 && <DropdownMenu.Separator />}
-                {/* The entity is a heading at the menu's edge; its accounts sit indented beneath it. */}
-                <DropdownMenu.Label className="flex items-center gap-2 pt-2 pb-1 text-xs font-semibold tracking-wide text-kumo-subtle uppercase">
-                  <span data-kumo-part="icon" className="inline-flex shrink-0">
-                    <BuildingsIcon className="h-4 w-4" />
-                  </span>
-                  <span className="flex-1 truncate">{e.name}</span>
-                  <span className="shrink-0 font-normal tracking-normal normal-case">{e.includeInAll ? plural(mine.length, "account") : "Kept separate"}</span>
-                </DropdownMenu.Label>
-                {mine.length > 1 && (
-                  <DropdownMenu.Item className="pl-6" icon={mark(`e:${e.id}`)} onClick={pick(`e:${e.id}`)}>
-                    <SquaresFourIcon className="h-4 w-4 shrink-0 text-kumo-subtle" />
-                    <span className="flex-1">All of {e.name}</span>
-                  </DropdownMenu.Item>
-                )}
+                {/* Ticking the entity ticks every account in it; the accounts sit indented beneath it. */}
+                <TickRow state={state} onToggle={() => toggle(ids, state !== true)}>
+                  <BuildingsIcon className="h-4 w-4 shrink-0 text-kumo-subtle" />
+                  <span className="flex-1 truncate font-medium">{e.name}</span>
+                  <span className="shrink-0 text-kumo-subtle">{e.includeInAll ? plural(mine.length, "account") : "Kept separate"}</span>
+                </TickRow>
                 {mine.map((a) => (
-                  <DropdownMenu.Item key={a.id} className="pl-6" icon={mark(`a:${a.id}`)} onClick={pick(`a:${a.id}`)}>
+                  <TickRow key={a.id} className="pl-8" state={inView.has(a.id)} onToggle={() => toggle([a.id], !inView.has(a.id))}>
                     <ProviderIcon provider={a.provider} />
                     <span className="flex-1 truncate">{a.display}</span>
                     {providerCount > 1 && <span className="text-kumo-subtle">{PROVIDER_INFO[a.provider].label}</span>}
-                  </DropdownMenu.Item>
+                  </TickRow>
                 ))}
-              </DropdownMenu.Group>
+              </Fragment>
             );
           })}
         <DropdownMenu.Separator />
@@ -489,14 +551,25 @@ function ScopeSwitcher() {
 }
 
 /**
- * Narrows the view to one provider, or shows every provider. Only shown when the view
- * has accounts on more than one; it scales to any number of providers.
+ * The same selection, by platform: ticking a platform ticks every account on it, and each account can be ticked
+ * on its own (a platform can hold several). It lists the platforms of the entities in view, and is only shown
+ * when they have more than one; it scales to any number of platforms.
  */
 function ProviderSwitch() {
-  const { view, setScope } = useShell();
-  if (view.providers.length < 2) return null;
-  const pick = (p: ProviderId | null) => () => setScope(withProvider(view.key, p));
-  const mark = (p: ProviderId | null) => (view.provider === p ? <CheckIcon className="text-kumo-brand" /> : <span className="inline-block w-4" />);
+  const { session, view, setScope } = useShell();
+  const accounts = session.accounts || [],
+    entities = session.entities || [];
+  const inView = new Set(view.accounts.map((a) => a.id));
+  // The entities being looked at: unticking a platform keeps it listed, so it can be ticked again.
+  const owners = new Set(view.accounts.map((a) => a.entityId));
+  const pool = accounts.filter((a) => owners.has(a.entityId));
+  const platforms = [...new Set(pool.map((a) => a.provider))];
+  if (platforms.length < 2) return null;
+  const shown = platforms.filter((p) => pool.some((a) => a.provider === p && inView.has(a.id)));
+  const toggle = (ids: string[], on: boolean) => {
+    const key = toggleAccounts(session, view, ids, on);
+    if (key) setScope(key);
+  };
   return (
     <>
       <Breadcrumbs.Separator />
@@ -505,27 +578,40 @@ function ProviderSwitch() {
           render={
             <button
               type="button"
-              aria-label="Choose a provider"
+              aria-label="Choose platforms to show"
               className="-mx-1.5 inline-flex min-w-0 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-1 text-kumo-default hover:bg-kumo-tint"
             >
-              {view.provider ? <ProviderIcon provider={view.provider} className="h-4 w-4 text-kumo-default" /> : <StackIcon className="shrink-0" />}
-              <span className="font-medium">{view.provider ? PROVIDER_INFO[view.provider].label : "All providers"}</span>
+              {shown.length === 1 ? <ProviderIcon provider={shown[0]} className="h-4 w-4 text-kumo-default" /> : <StackIcon className="shrink-0" />}
+              {/* On phones the icon names the platform, so the entity beside it keeps room for its name. */}
+              <span className="hidden font-medium sm:inline">
+                {shown.length === 1 ? PROVIDER_INFO[shown[0]].label : shown.length === platforms.length ? "All platforms" : `${shown.length} platforms`}
+              </span>
               <CaretUpDownIcon className="shrink-0 text-kumo-subtle" />
             </button>
           }
         />
-        <DropdownMenu.Content align="start" className="min-w-56">
-          <DropdownMenu.Item icon={mark(null)} onClick={pick(null)}>
-            <StackIcon className="h-4 w-4 shrink-0 text-kumo-subtle" />
-            <span className="flex-1">All providers</span>
-          </DropdownMenu.Item>
-          <DropdownMenu.Separator />
-          {view.providers.map((p) => (
-            <DropdownMenu.Item key={p} icon={mark(p)} onClick={pick(p)}>
-              <ProviderIcon provider={p} />
-              <span className="flex-1">{PROVIDER_INFO[p].label}</span>
-            </DropdownMenu.Item>
-          ))}
+        <DropdownMenu.Content align="start" className="max-h-[70vh] min-w-72 overflow-y-auto">
+          {platforms.map((p, i) => {
+            const mine = pool.filter((a) => a.provider === p);
+            const ids = mine.map((a) => a.id);
+            const state = tickState(ids, inView);
+            return (
+              <Fragment key={p}>
+                {i > 0 && <DropdownMenu.Separator />}
+                <TickRow state={state} onToggle={() => toggle(ids, state !== true)}>
+                  <ProviderIcon provider={p} />
+                  <span className="flex-1 font-medium">{PROVIDER_INFO[p].label}</span>
+                  <span className="shrink-0 text-kumo-subtle">{plural(mine.length, PROVIDER_INFO[p].account, PROVIDER_INFO[p].accounts)}</span>
+                </TickRow>
+                {mine.map((a) => (
+                  <TickRow key={a.id} className="pl-8" state={inView.has(a.id)} onToggle={() => toggle([a.id], !inView.has(a.id))}>
+                    <span className="flex-1 truncate">{a.display}</span>
+                    {owners.size > 1 && <span className="text-kumo-subtle">{entities.find((e) => e.id === a.entityId)?.name}</span>}
+                  </TickRow>
+                ))}
+              </Fragment>
+            );
+          })}
         </DropdownMenu.Content>
       </DropdownMenu>
     </>

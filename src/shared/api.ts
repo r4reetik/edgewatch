@@ -28,6 +28,8 @@ export interface Finding {
   accountId: string;
   /** The platform the account is on. */
   provider: ProviderId;
+  /** Other platforms the finding's check compared the account with; empty for a check on one platform. */
+  spans: ProviderId[];
   /** Display name of the account. */
   account: string;
   entity: string | null;
@@ -63,12 +65,15 @@ export interface Finding {
 /** A finding in a short list (Overview, notifications). */
 export type FindingBrief = Pick<
   Finding,
-  "fingerprint" | "checkId" | "title" | "resource" | "severity" | "zone" | "category" | "accountId" | "account" | "confidence" | "provider"
+  "fingerprint" | "checkId" | "title" | "resource" | "severity" | "zone" | "category" | "accountId" | "account" | "confidence" | "provider" | "spans"
 >;
 
 /** The same check failing in several places, for "Fix these first". */
 export interface FindingGroup {
   checkId: string;
+  /** The platforms of the accounts it fails in, and the other platforms its check compares them with. */
+  providers: ProviderId[];
+  spans: ProviderId[];
   title: string;
   severity: Severity;
   category: string;
@@ -94,7 +99,7 @@ export interface ScanMeta {
 }
 
 export interface Coverage {
-  /** Data source key (src/core/sources.ts for Cloudflare, src/providers/vercel/sources.ts for Vercel). */
+  /** Data source key, from the provider's source registry (src/core/sources.ts for Cloudflare, src/providers/<id>/sources.ts for the rest). */
   key?: string;
   label: string;
   /** The provider the source belongs to (set when the API combines accounts). */
@@ -102,7 +107,7 @@ export interface Coverage {
   ok: boolean;
   status?: number;
   message?: string;
-  /** Token permission (Cloudflare) or team role (Vercel) that grants this source. */
+  /** What grants this source, in the provider's terms: a token permission, a team role, IAM actions. */
   permission?: string;
   /** Checks that couldn't run because this source wasn't readable. */
   skippedChecks?: string[];
@@ -263,7 +268,7 @@ export interface Settings {
   retentionDays: number;
   /** Days a finding may stay open before it is flagged overdue (when no due date is set). */
   slaDays: SlaDays;
-  /** Live checks that send requests outside Cloudflare's API. */
+  /** Live checks that send requests outside the providers' APIs. */
   probes: { takeover: boolean };
   /** Address people use to open Edgewatch, for links in notifications. */
   baseUrl: string;
@@ -274,6 +279,8 @@ export interface Settings {
 export interface CheckRow {
   id: string;
   provider: ProviderId;
+  /** Other platforms the check compares an account with. */
+  spans: ProviderId[];
   category: string;
   severity: Severity;
   title: string;
@@ -582,6 +589,7 @@ export interface ReportData {
   coverage: Coverage[];
   zones: ZoneRow[] | null;
   projects: ProjectRow[] | null;
+  regions: RegionRow[] | null;
   valueCounts: ValueCounts | undefined;
   checks: Record<string, { evaluated: number; failed: number }>;
 }
@@ -599,21 +607,96 @@ export interface ScanSnapshot {
   probes?: { takeover: { probed: number; unclaimed: number } | null };
   /** Vercel: projects. */
   projects?: ProjectRow[];
+  /** AWS: regions and the account's global resources. */
+  regions?: RegionRow[];
+  /** AWS: the public addresses the account held at its last complete scan, and the ones seen to leave it since. */
+  addressHistory?: AddressHistory;
+  /** Domains the account owns, when no other part of the snapshot lists them (AWS: public hosted zones). */
+  ownedDomains?: string[];
   /** What other providers' accounts in the same entity need for checks that span providers. */
   links?: ProviderLinks;
 }
 
 /**
- * Hostnames one provider shares with another inside an entity. A Cloudflare scan
- * records its DNS records that point at Vercel; a Vercel scan records the domains
- * its projects serve. Each scan reads the other side from the latest scans of the
- * entity's other accounts.
+ * What one provider shares with the others inside an entity, for checks that span
+ * providers. A Cloudflare scan records its DNS records that point at Vercel and at
+ * AWS; a Vercel scan records the domains its projects serve; an AWS scan records
+ * the endpoints it has. Each scan reads the other side from the latest scans of
+ * the entity's other accounts. A list is absent when its scan couldn't read all of
+ * it, so an incomplete list is never mistaken for "nothing there".
  */
 export interface ProviderLinks {
   /** Cloudflare DNS records whose target is Vercel. */
   toVercel?: { host: string; zone: string; type: string; target: string; proxied: boolean }[];
   /** Vercel project domains, with the project that serves each. */
   vercelDomains?: { host: string; project: string; projectId: string; protectsDeploymentUrls: boolean }[];
+  /** Cloudflare DNS records whose target is an AWS endpoint. */
+  toAws?: { host: string; zone: string; target: string; kind: AwsEndpointKind; name: string; proxied: boolean }[];
+  /** Cloudflare A records: the address each hostname points at, and whether Cloudflare proxies it. */
+  dnsAddresses?: { host: string; zone: string; ip: string; proxied: boolean }[];
+  /** Endpoints an AWS account has: CloudFront domain names, load balancer DNS names and S3 bucket names. */
+  awsEndpoints?: { kind: AwsEndpointKind; name: string }[];
+  /** Public IPv4 addresses an AWS account holds: Elastic IPs and the addresses of its network interfaces. */
+  awsAddresses?: string[];
+  /** Addresses Edgewatch saw leave an AWS account between scans, with when. A DNS record that still points at one is dangling. */
+  awsReleased?: { ip: string; at: string }[];
+  /** The AWS account's own ID, so its siblings can tell a role trusted inside the entity from one trusted outside it. */
+  awsAccounts?: string[];
+}
+
+/** How an AWS account's public addresses changed over its scans: what it holds, and what it gave up and when. */
+export interface AddressHistory {
+  held: string[];
+  released: { ip: string; at: string }[];
+}
+
+/** The kinds of AWS endpoint a DNS record can point at by name. */
+export type AwsEndpointKind = "cloudfront" | "elb" | "s3";
+
+/** Every list in ProviderLinks: the scanner merges each across an entity's accounts. */
+export const LINK_KEYS = [
+  "toVercel",
+  "vercelDomains",
+  "toAws",
+  "dnsAddresses",
+  "awsEndpoints",
+  "awsAddresses",
+  "awsReleased",
+  "awsAccounts",
+] as const satisfies readonly (keyof ProviderLinks)[];
+export type LinkKey = (typeof LINK_KEYS)[number];
+
+/** The provider whose scans publish each list. When one of its accounts in the entity didn't, the merged list is incomplete. */
+export const LINK_PROVIDER: Record<LinkKey, ProviderId> = {
+  toVercel: "cloudflare",
+  toAws: "cloudflare",
+  dnsAddresses: "cloudflare",
+  vercelDomains: "vercel",
+  awsEndpoints: "aws",
+  awsAddresses: "aws",
+  awsReleased: "aws",
+  awsAccounts: "aws",
+};
+
+/** One region of an AWS account as the Regions page shows it, or the account's global resources. */
+export interface RegionRow {
+  /** The region ("eu-west-1"), or "Global" for IAM, S3, CloudFront and Route 53. */
+  name: string;
+  account?: string;
+  accountId?: string;
+  /** What was found there, by kind: "Instances", "Buckets"… Kinds that couldn't be read are left out. */
+  resources: { label: string; count: number }[];
+  /** Whether GuardDuty is on; null when it couldn't be read or doesn't apply (Global). */
+  guardDuty: boolean | null;
+  /** The access key was refused in this region, so nothing there was checked. */
+  skipped: boolean;
+  findings: SeverityCounts;
+}
+
+export interface RegionsResponse {
+  scan: ScanMeta | null;
+  regions: RegionRow[] | null;
+  coverage: Coverage[];
 }
 
 /** A Vercel project as the Projects page shows it. */
