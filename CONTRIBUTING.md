@@ -8,13 +8,18 @@ Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). CI also runs the package on 26.13.0, the first Node 26 LTS and the oldest version it supports. The real minimum is `MIN_NODE` in `src/node-check.ts`; `engines` in package.json is deliberately wide, because npm treats it as a filter and would hand users of an older Node.js an older Edgewatch instead of the one that explains how to upgrade. Development runs TypeScript directly, with no build step for the server.
 
+Fork the repository on GitHub, then:
+
 ```bash
+git clone https://github.com/<you>/edgewatch.git
+cd edgewatch
+git remote add upstream https://github.com/r4reetik/edgewatch.git
 npm install
-npm run dev -- --mock   # mocked Cloudflare data, nothing written to disk
+npm run dev -- --mock   # mocked Cloudflare and Vercel data, nothing written to disk
 npm run dev             # your real accounts, data kept in ./.edgewatch
 ```
 
-Both start the API on port 4317 and the web app with hot reload on http://localhost:5173. The mock (`dev/mock/cloudflare.ts`) serves three accounts in two entities, with data that trips every family of checks.
+Both start the API on port 4317 and the web app with hot reload on http://localhost:5173. The mock (`dev/mock/cloudflare.ts` and `dev/mock/vercel.ts`, seeded by `dev/mock/server.ts`) serves Cloudflare accounts and Vercel teams in three entities, one of them with both platforms, with fictional data that trips every family of checks. You don't need a Cloudflare or Vercel account to work on Edgewatch. If you do scan your own, use a read-only Cloudflare token, and remember that a Vercel token can do whatever your role allows.
 
 Before opening a pull request:
 
@@ -48,7 +53,7 @@ dev/mock/               mocked Cloudflare and Vercel APIs and seeding, for tests
 test/                   node:test suites; fixtures/ and checks/cases.ts for Cloudflare checks, vercel-cases.ts for Vercel's
 ```
 
-The decisions behind the project, and the rules that follow from them, are in [AGENTS.md](AGENTS.md). Coding agents read it, and so should you. A change that makes or reverses a decision updates it in the same pull request.
+The decisions behind the project, and the rules that follow from them, are in [AGENTS.md](AGENTS.md). Coding agents read it (Claude Code through `CLAUDE.md`), and so should you. It tells an agent how to work on a contributor's fork, so you can hand your agent a task without repeating the rules. Keep your own preferences for the agent in your personal settings (for Claude Code, a git-ignored `CLAUDE.local.md`), not in AGENTS.md. With Claude Code, `.claude/settings.json` already lets `npm run check`, the tests, formatting and the mock dev server run without asking, and blocks the release commands and reading your local scan data. Put permissions of your own in `.claude/settings.local.json`, which git ignores.
 
 Rules worth knowing:
 
@@ -88,7 +93,10 @@ Severity guide: **critical** means it's exploitable now (a takeover, a leaked cr
 
 ## Pull requests
 
+Work on a branch of your fork, keep it current with `git fetch upstream` and a rebase on `upstream/main`, push it to your fork, and open the pull request against `main`. CI runs `npm run check` and the packaging jobs on it, and the maintainer reviews it.
+
 - Keep each pull request to one change, with a test that would have caught the bug or covers the feature.
+- If it makes or reverses a decision (a dependency, a supported version, a UX pattern, a rule), update [AGENTS.md](AGENTS.md) and its decision log in the same pull request, and say so in the description. Merging it is what accepts the decision.
 - Use the mock (`npm run dev -- --mock`) for screenshots. Never commit real account IDs, hostnames, emails or tokens, in code, fixtures or images.
 - Add a line under `## Unreleased` in `CHANGELOG.md` for anything a user would notice, marked `**Breaking:**` if users may need to act (see [docs/releasing.md](docs/releasing.md)).
 

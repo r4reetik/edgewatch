@@ -3,3 +3,5 @@ dist/
 *.tgz
 .edgewatch/
 coverage/
+CLAUDE.local.md
+.claude/settings.local.json

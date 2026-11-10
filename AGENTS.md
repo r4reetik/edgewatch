@@ -12,7 +12,7 @@ This file is part of the code. It is only useful while it is true, so every chan
 2. **Edit, don't append contradictions.** When a decision is reversed, rewrite the rule where it lives, and change the old log line to say it was superseded and by what. No two lines of this file may disagree.
 3. **Link, don't copy.** When the detail lives in a doc or in code, point to it. Copies go stale.
 4. **Check it.** `test/agents.test.ts` fails when this file names a path that doesn't exist or an `npm run` script that isn't in package.json, when the Node.js version here doesn't match `src/node-check.ts`, or when `CLAUDE.md` stops importing this file. `npm run check` runs it.
-5. **Before you finish a task,** reread the [decision log](#decision-log) and the sections you touched, and ask whether your change belongs in either. If the maintainer told you how they want something done, record it under [Working with the maintainer](#working-with-the-maintainer).
+5. **Before you finish a task,** reread the [decision log](#decision-log) and the sections you touched, and ask whether your change belongs in either. If the maintainer told you how they want something done, record it under [Working with the maintainer](#working-with-the-maintainer). A contributor's own preferences don't go in this file (see [Working with a contributor](#working-with-a-contributor)).
 
 ## What Edgewatch is
 
@@ -48,8 +48,8 @@ npm run check           # typecheck + lint/format check + tests: must pass befor
 npm run format          # fix formatting (Biome)
 npm run docs            # regenerate docs/checks.md and docs/permissions.md after changing a check
 npm run build           # dist/ (server via tsc, web via Vite)
-npm run sync            # catch up with origin/main (instead of git pull), repairing moved release notes
-npm run release -- minor --dry-run   # what a release would do; drop --dry-run to cut it (maintainer only)
+npm run sync            # maintainer's clone only: catch up with origin/main (instead of git pull), repairing moved release notes
+npm run release -- minor --dry-run   # maintainer's clone only: what a release would do; drop --dry-run to cut it
 ```
 
 API on port 4317, web with hot reload on 5173. Tests are `node:test` and run TypeScript directly (`npm test`). There is no build step for the server in development.
@@ -76,6 +76,7 @@ These are never broken. A test enforces most of them.
 - Biome 2.6 is used for both lint and format (`biome.json`: 2 spaces, 160 columns, double quotes, trailing commas). TypeScript runs with type stripping, so use `.ts` extensions in imports and no enums or namespaces.
 - Dependabot ignores major updates of `@types/node` and the Docker `node` image (`.github/dependabot.yml`). Those move together with `NODE_MAJOR`, by hand.
 - GitHub Actions use current majors (checkout and setup-node v7, CodeQL v4, Docker actions v4–v7).
+- **`.claude/settings.json` is shared** with everyone who uses Claude Code here. It lets the checks, tests, formatting, docs, build and the mock dev server run without a prompt, and denies `npm run release`, `npm run sync` and reading `.edgewatch/` (real scan data and tokens). Keep it to commands that are safe on any clone; personal permissions go in `.claude/settings.local.json`, which git ignores.
 
 ## Code conventions
 
@@ -120,23 +121,46 @@ The same rules apply to UI copy, docs, changelog and commit messages:
 - The README and `docs/deployment.md` pin the current release line (`:0.6`, `edgewatch@0.6`). `scripts/release.ts` (`pinLine`) updates them on each new line, so don't edit those pins by hand.
 - Releases come only from `main`. Older lines get no backports.
 
-## Working with the maintainer
+## How to work here
 
-Preferences the maintainer stated, which apply in every session:
+These apply in every session, whoever you're working with:
 
-- **Commit only when asked**, and **never push**: the maintainer pushes and runs releases. Branch only when asked.
-- No attribution lines (`Co-Authored-By`, "Generated with…") in commits or PRs.
-- The maintainer's Cloudflare accounts are **production** and the token is read-only. Never run anything that writes to them, never print the token, and delete any scratch copies of `~/.edgewatch` you make. The same goes for any Vercel token, which can't be read-only.
-- For Vercel tokens, the maintainer chose to **accept any token quietly**: no warning when the token's user can write. Edgewatch's GET-only rule is the protection.
 - **Design for more providers.** AWS, Alibaba Cloud, Google Cloud, Google Workspace and others are planned, so UI and code choices should work for any number of providers, not two.
+- **Treat every real account as production.** Use the mock (`npm run dev -- --mock`) by default. Against real accounts, run nothing that writes, never print a token, and delete any scratch copies of `~/.edgewatch` you make. A Cloudflare token for Edgewatch is read-only; a Vercel token can't be, so Edgewatch's GET-only rule is what protects it.
+- **Accept Vercel tokens quietly**: no warning when the token's user can write (see the decision log).
 - Confirm before anything destructive or outward-facing.
 - When asked for "everywhere", apply the change across the whole app and its docs, not only the place that was named.
-- Verify UI changes in a browser against the mock (`npm run dev -- --mock`), not just with tests, and say what wasn't checked.
+- Verify UI changes in a browser against the mock, not just with tests, and say what wasn't checked.
+- No attribution lines (`Co-Authored-By`, "Generated with…") in commits or pull requests.
+
+### Who you're working with
+
+The maintainer, r4reetik on GitHub, works in a clone whose `origin` is `github.com/r4reetik/edgewatch` and cuts the releases. Everyone else is a contributor, working on a fork, so their `origin` is the fork. When it isn't clear which you're working with, ask once before committing, pushing or recording a preference.
+
+## Working with a contributor
+
+Most people who clone this repository are contributors. In their sessions:
+
+- **Work on a branch of their fork**, never on `main`. Commit and push to the fork when they ask, and open the pull request against `main` of `r4reetik/edgewatch`. Never push to `r4reetik/edgewatch` itself.
+- **Catch up with the upstream repository** (`git remote add upstream https://github.com/r4reetik/edgewatch.git`, then `git fetch upstream` and rebase the branch on `upstream/main`). `npm run sync` and `npm run release` are for the maintainer's clone; they merge into and push `main`.
+- **Check before you commit.** `npm run check` must pass, every change comes with a test, and anything a user would notice gets a line under `## Unreleased` in `CHANGELOG.md` (see [CONTRIBUTING.md](CONTRIBUTING.md#pull-requests)).
+- **Bigger changes start with an issue**, so the approach is agreed before the code is written: a new provider, a new dependency, a change to a hard rule or to the UI's structure.
+- **Decisions are proposed, not made.** If the change makes or reverses a decision, update this file and add a decision-log line in the same pull request, and say so in the pull request description. The maintainer accepts the decision by merging it.
+- **The contributor's own preferences stay out of this file.** They belong in their personal agent settings (for Claude Code, a CLAUDE.local.md file, which git ignores, or its memory), not in the project's rules.
+
+## Working with the maintainer
+
+Preferences the maintainer stated, which apply only in the maintainer's sessions:
+
+- **Commit only when asked**, and **never push**: the maintainer pushes and runs releases. Branch only when asked.
+- The maintainer's Cloudflare accounts are **production** and their token is read-only; their Vercel team is production too. The rules for real accounts under [How to work here](#how-to-work-here) apply in full.
 
 ## Decision log
 
 Newest first. One line each: the date, the decision, and why. When a decision is reversed, mark the old line "Superseded" and point to the new one.
 
+- 2026-11-10: A shared `.claude/settings.json` allows the safe development commands and denies release, sync and reading `.edgewatch/`. *Why:* contributors working with Claude Code shouldn't be asked to approve every test run, and no session should cut a release or read real tokens.
+- 2026-11-10: This file separates rules for every session from the maintainer's own preferences, and gives contributors' agents a workflow: a branch on their fork, a pull request to `r4reetik/edgewatch`, decisions proposed in the pull request. *Why:* it was written as if every session were the maintainer's, so a contributor's agent would refuse to push to its own fork and record the contributor's preferences as the maintainer's.
 - 2026-11-09: Vercel is the second provider, behind a `Provider` interface built for more (AWS, Google Cloud, Google Workspace…). Accounts record their provider; an entity can mix providers. *Why:* the maintainer runs Vercel next to Cloudflare and wants one place for both, with more platforms to come.
 - 2026-11-09: Vercel tokens are accepted without a warning about their write access; Edgewatch only sends GET requests and never reads environment variable values. *Why:* Vercel has no read-only tokens, and the maintainer chose not to warn.
 - 2026-11-09: The provider filter is part of the scope key and applies to every page; the Overview shows a score per provider next to the combined one. *Why:* the maintainer wants to see Cloudflare or Vercel findings on their own, and one filter that scales to many providers beats per-page filters.
