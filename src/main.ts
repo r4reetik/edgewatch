@@ -1,4 +1,4 @@
-// Starts Edgewatch: store, scanner, scheduler and HTTP server. The CLI parses
+// Starts Keelson: store, scanner, scheduler and HTTP server. The CLI parses
 // options and calls this; the mock dev server calls it with seeded accounts.
 
 import { existsSync } from "node:fs";
@@ -16,6 +16,7 @@ import { importLegacy } from "./store/legacy.ts";
 import { log } from "./log.ts";
 import { REPOSITORY, VERSION } from "./meta.ts";
 import { UpdateChecker } from "./updates.ts";
+import { databasePath, env } from "./names.ts";
 
 export { VERSION } from "./meta.ts";
 
@@ -55,7 +56,7 @@ function findWebDir(): string | null {
 
 export async function start(o: StartOptions): Promise<Running> {
   const vault = new TokenVault(o.dataDir);
-  const store = new Store(o.dataDir ? join(o.dataDir, "edgewatch.db") : ":memory:", { log: log.info });
+  const store = new Store(o.dataDir ? databasePath(o.dataDir) : ":memory:", { log: log.info });
   const repo = new Repo(store);
   repo.scans.recoverInterrupted();
   if (o.dataDir) importLegacy(o.dataDir, repo, vault, log.info);
@@ -74,10 +75,10 @@ export async function start(o: StartOptions): Promise<Running> {
       : new UpdateChecker({
           version: VERSION,
           repository: REPOSITORY,
-          // The Docker image sets EDGEWATCH_INSTALL=docker; npx runs packages from its cache
+          // The Docker image sets KEELSON_INSTALL=docker; npx runs packages from its cache
           // (…/_npx/…), so upgrade instructions match how this copy started.
-          install: process.env.EDGEWATCH_INSTALL === "docker" ? "docker" : /[\\/]_npx[\\/]/.test(process.argv[1] ?? "") ? "npx" : "npm",
-          lockedOff: process.env.EDGEWATCH_UPDATE_CHECK === "off",
+          install: env("INSTALL") === "docker" ? "docker" : /[\\/]_npx[\\/]/.test(process.argv[1] ?? "") ? "npx" : "npm",
+          lockedOff: env("UPDATE_CHECK") === "off",
           enabled: () => repo.settings.get().updates.check,
           log: log.info,
         });

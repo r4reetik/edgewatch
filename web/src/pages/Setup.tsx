@@ -21,7 +21,7 @@ export function SetupPage({ onDone }: { onDone: () => void }) {
         <header>
           <h1 className="m-0 text-3xl font-semibold text-kumo-default">Connect your accounts</h1>
           <p className="mt-1.5 text-lg leading-normal text-pretty text-kumo-subtle">
-            Edgewatch scans your configuration on {providerList()} for security problems and best-practice gaps, then tracks them until they're fixed.
+            Keelson scans your configuration on {providerList()} for security problems and best-practice gaps, then tracks them until they're fixed.
           </p>
         </header>
 

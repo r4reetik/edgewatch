@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Security vulnerability in Edgewatch
-    url: https://github.com/r4reetik/edgewatch/security/advisories/new
+  - name: Security vulnerability in Keelson
+    url: https://github.com/r4reetik/keelson/security/advisories/new
     about: Report it privately, never in a public issue.
   - name: Question or idea
-    url: https://github.com/r4reetik/edgewatch/discussions
+    url: https://github.com/r4reetik/keelson/discussions
     about: Ask how to do something, or talk through an idea before opening an issue.

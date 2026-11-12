@@ -290,7 +290,7 @@ export function ConfidenceBadge({ confidence }: { confidence: "confirmed" | "lik
 /**
  * Which platform an account is on: the platform's own monochrome mark (as published by Simple Icons, from each
  * platform's brand page), drawn in the text colour so it sits with the rest of the UI. Used only to say which
- * platform something is on; Edgewatch isn't affiliated with them. One per provider in src/shared/providers.ts.
+ * platform something is on; Keelson isn't affiliated with them. One per provider in src/shared/providers.ts.
  */
 const PROVIDER_GLYPH: Record<ProviderId, string> = {
   cloudflare:
@@ -309,7 +309,7 @@ export function ProviderIcon({ provider, className = "h-4 w-4" }: { provider: Pr
 }
 
 /**
- * The words Edgewatch uses for how things are grouped, widest first, each with the icon it carries elsewhere in
+ * The words Keelson uses for how things are grouped, widest first, each with the icon it carries elsewhere in
  * the app. Shown where accounts are managed, so the picker in the top bar and the columns in Findings make sense.
  */
 export function Terms() {
@@ -322,7 +322,7 @@ export function Terms() {
     [StackIcon, "Platform", `Where accounts live: ${providerList()}. Each has its own icon, shown wherever platforms mix.`],
     [IdentificationCardIcon, "Account", `One ${each((p) => `${PROVIDER_INFO[p].label} ${PROVIDER_INFO[p].account}`)}, scanned with its own credential.`],
     [MapPinIcon, "Location", `Where in an account something is: a ${each((p) => `${PROVIDER_INFO[p].label} ${PROVIDER_INFO[p].resource}`)}.`],
-    [ListChecksIcon, "Check", "A rule Edgewatch tests on every resource it applies to. A check that compares platforms shows both icons, joined by arrows."],
+    [ListChecksIcon, "Check", "A rule Keelson tests on every resource it applies to. A check that compares platforms shows both icons, joined by arrows."],
     [ShieldWarningIcon, "Finding", "One resource failing one check. Findings are what you triage: assign, fix, or accept."],
   ];
   return (
@@ -514,7 +514,7 @@ export function unreadableText(
 ): string {
   const c = coverage?.find((x) => x.key === key && !x.ok);
   if (!c) return `No ${what} in the latest scan.`;
-  return `Edgewatch can't read ${c.label.toLowerCase()}${c.notReadableIn?.length ? ` for ${c.notReadableIn.map((a) => a.name).join(", ")}` : ""}. It needs ${c.permission || "the matching read permission"}: grant it, or replace the credential on the Accounts page, then scan again.`;
+  return `Keelson can't read ${c.label.toLowerCase()}${c.notReadableIn?.length ? ` for ${c.notReadableIn.map((a) => a.name).join(", ")}` : ""}. It needs ${c.permission || "the matching read permission"}: grant it, or replace the credential on the Accounts page, then scan again.`;
 }
 
 /** Page wrapper for the loading, error and no-scan states so they sit in the same frame as the content. */

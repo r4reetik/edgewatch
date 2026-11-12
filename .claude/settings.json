@@ -17,6 +17,8 @@
     "deny": [
       "Bash(npm run release *)",
       "Bash(npm run sync *)",
+      "Read(./.keelson/**)",
+      "Read(~/.keelson/**)",
       "Read(./.edgewatch/**)",
       "Read(~/.edgewatch/**)"
     ]

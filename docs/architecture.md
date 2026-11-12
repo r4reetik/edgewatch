@@ -59,7 +59,7 @@ instances, EBS settings, VPCs, databases, load balancers, functions and GuardDut
 refuses the access key is skipped and recorded, rather than failing the scan. AWS has no client library here:
 `src/providers/aws/sigv4.ts` signs each GET, and `xml.ts` reads the XML answers.
 
-1. **Inventory.** For one account, Edgewatch reads everything the checks need into one typed `Inventory`:
+1. **Inventory.** For one account, Keelson reads everything the checks need into one typed `Inventory`:
    zones and their settings, DNS records, rulesets, certificates, members, tokens, Access, Gateway, Workers,
    R2, email routing and more, about 60 REST reads per account plus a few per zone. Every read is declared
    in `src/core/sources.ts` with the permission it needs; a read the token can't do is recorded as a coverage
@@ -114,7 +114,7 @@ reads as open again after its expiry date.
 
 ```
 src/
-  bin.ts, cli.ts        the edgewatch command: Node.js version check, then the command line
+  bin.ts, cli.ts        the keelson command: Node.js version check, then the command line
   main.ts               start(), which wires everything up
   core/                 Cloudflare's client, inventory and checks, and the engine every provider shares
     sources.ts          every Cloudflare data source: label, token permission, setup-screen probe

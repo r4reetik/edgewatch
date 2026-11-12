@@ -37,7 +37,7 @@ export const DANGLING: Record<AwsEndpointKind, { what: string; severity: "high" 
   elb: {
     what: "load balancer",
     severity: "low",
-    risk: "A load balancer's name can't be reused, so this isn't a takeover: the record is dead, or the load balancer is in an AWS account Edgewatch doesn't scan.",
+    risk: "A load balancer's name can't be reused, so this isn't a takeover: the record is dead, or the load balancer is in an AWS account Keelson doesn't scan.",
   },
 };
 

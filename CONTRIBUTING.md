@@ -1,4 +1,4 @@
-# Contributing to Edgewatch
+# Contributing to Keelson
 
 Thanks for helping. Bug reports, wrong findings, new checks, docs and UI fixes are all welcome. For anything
 bigger than a fix, open an issue or a discussion first so we can agree on the approach before you write code.
@@ -6,20 +6,20 @@ Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
-You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). CI also runs the package on 26.13.0, the first Node 26 LTS and the oldest version it supports. The real minimum is `MIN_NODE` in `src/node-check.ts`; `engines` in package.json is deliberately wide, because npm treats it as a filter and would hand users of an older Node.js an older Edgewatch instead of the one that explains how to upgrade. Development runs TypeScript directly, with no build step for the server.
+You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). CI also runs the package on 26.13.0, the first Node 26 LTS and the oldest version it supports. The real minimum is `MIN_NODE` in `src/node-check.ts`; `engines` in package.json is deliberately wide, because npm treats it as a filter and would hand users of an older Node.js an older Keelson instead of the one that explains how to upgrade. Development runs TypeScript directly, with no build step for the server.
 
 Fork the repository on GitHub, then:
 
 ```bash
-git clone https://github.com/<you>/edgewatch.git
-cd edgewatch
-git remote add upstream https://github.com/r4reetik/edgewatch.git
+git clone https://github.com/<you>/keelson.git
+cd keelson
+git remote add upstream https://github.com/r4reetik/keelson.git
 npm install
 npm run dev -- --mock   # mocked Cloudflare, Vercel and AWS data, nothing written to disk
-npm run dev             # your real accounts, data kept in ./.edgewatch
+npm run dev             # your real accounts, data kept in ./.keelson
 ```
 
-Both start the API on port 4317 and the web app with hot reload on http://localhost:5173. To run a second copy beside the first (the mock next to your real accounts, say), give it its own ports: `EDGEWATCH_PORT=4417 EDGEWATCH_WEB_PORT=5273 npm run dev -- --mock`. The mock (`dev/mock/cloudflare.ts`, `dev/mock/vercel.ts` and `dev/mock/aws.ts`, seeded by `dev/mock/server.ts`) serves Cloudflare accounts, Vercel teams and an AWS account in three entities, one of them with every platform, with fictional data that trips every family of checks. You don't need an account on any of them to work on Edgewatch. If you do scan your own, use a read-only Cloudflare token, and remember that a Vercel token can do whatever your role allows.
+Both start the API on port 4317 and the web app with hot reload on http://localhost:5173. To run a second copy beside the first (the mock next to your real accounts, say), give it its own ports: `KEELSON_PORT=4417 KEELSON_WEB_PORT=5273 npm run dev -- --mock`. The mock (`dev/mock/cloudflare.ts`, `dev/mock/vercel.ts` and `dev/mock/aws.ts`, seeded by `dev/mock/server.ts`) serves Cloudflare accounts, Vercel teams and an AWS account in three entities, one of them with every platform, with fictional data that trips every family of checks. You don't need an account on any of them to work on Keelson. If you do scan your own, use a read-only Cloudflare token, and remember that a Vercel token can do whatever your role allows.
 
 Before opening a pull request:
 
@@ -32,7 +32,7 @@ npm run format          # fix formatting
 
 ```
 src/
-  bin.ts, cli.ts        the edgewatch command: Node.js version check, then the command line
+  bin.ts, cli.ts        the keelson command: Node.js version check, then the command line
   main.ts               start(), which wires everything up
   core/                 Cloudflare's client, inventory and checks, and the engine every provider shares (no HTTP server, no database)
     sources.ts          every Cloudflare data source: coverage label, token permission, setup-screen probe
@@ -68,7 +68,7 @@ Rules worth knowing:
 1. Pick the module in `src/core/checks/` for its area, or create one and list it in `checks/index.ts`.
 2. Add its metadata next to the others: category, default severity, title, why it matters, how to fix it (write steps as `1. … 2. …`), a `docs` link to developers.cloudflare.com, and `requires`, the data sources it reads.
 3. Report results in the module's function: `report("XXX-012", { zone, resource, pass, detail, evidence, link })`. Report passes too, because they count towards the score. Use `confidence: "likely"` for heuristics and traffic, and `"confirmed"` for live probes.
-4. If it needs data Edgewatch doesn't collect yet, add a source to `sources.ts`, the read to `inventory.ts` (GET only), the field to `types.ts`, a mock route in `dev/mock/cloudflare.ts`, and a well-configured default in `test/fixtures/inventory.ts`.
+4. If it needs data Keelson doesn't collect yet, add a source to `sources.ts`, the read to `inventory.ts` (GET only), the field to `types.ts`, a mock route in `dev/mock/cloudflare.ts`, and a well-configured default in `test/fixtures/inventory.ts`.
 5. Add a failing case to `test/checks/cases.ts`. It's typed by check ID, so it won't compile until you do. `test/contract.test.ts` checks that the case fails, that the baseline fixture passes, and that the metadata is complete.
 6. Run `npm run docs` to regenerate `docs/checks.md` and `docs/permissions.md`. A test fails if you forget.
 

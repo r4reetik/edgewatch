@@ -1,5 +1,5 @@
 // Secrets in Vercel environment variables (each project's and the team's shared
-// ones) and in project commands. Edgewatch reads variable names, types and targets
+// ones) and in project commands. Keelson reads variable names, types and targets
 // only, never values, so secrets are recognised by their names and by what Vercel
 // itself flags. Commands are read to look for credentials written into them; only
 // the kind found is reported, and the command is never stored.

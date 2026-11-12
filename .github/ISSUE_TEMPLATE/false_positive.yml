@@ -44,5 +44,5 @@ body:
   - type: input
     id: version
     attributes:
-      label: Edgewatch version
+      label: Keelson version
       placeholder: "0.4.0"

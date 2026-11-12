@@ -1,4 +1,4 @@
-// The command line: `npx edgewatch` starts the server and opens the browser.
+// The command line: `npx keelson` starts the server and opens the browser.
 // Started by bin.ts once it has checked the Node.js version.
 
 import "./warnings.ts";
@@ -8,35 +8,38 @@ import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 
 const { start, isLoopback, webMissing, VERSION } = await import("./main.ts");
-const { defaultDataDir } = await import("./config.ts");
+const { defaultDataDir, defaultHost, env } = await import("./names.ts");
 const { providerList } = await import("./shared/providers.ts");
 
-const HELP = `Edgewatch ${VERSION}: security posture tracker for ${providerList()}
+const HELP = `Keelson ${VERSION}: security posture tracker for ${providerList()}
 
-Usage: edgewatch [options]
+Usage: keelson [options]
 
 Options:
-  --port <n>            Port to listen on (default 4317, env EDGEWATCH_PORT)
-  --host <addr>         Address to bind (default 127.0.0.1, env EDGEWATCH_HOST)
-  --data-dir <path>     Where the database and credentials live (default ~/.edgewatch, env EDGEWATCH_DATA_DIR)
-  --password-file <p>   File containing the admin password (or env EDGEWATCH_PASSWORD)
-  --trust-proxy         Trust X-Forwarded-* headers from a reverse proxy (env EDGEWATCH_TRUST_PROXY=1)
+  --port <n>            Port to listen on (default 4317, env KEELSON_PORT)
+  --host <addr>         Address to bind (default 127.0.0.1, env KEELSON_HOST)
+  --data-dir <path>     Where the database and credentials live (default ~/.keelson, env KEELSON_DATA_DIR)
+  --password-file <p>   File containing the admin password (or env KEELSON_PASSWORD)
+  --trust-proxy         Trust X-Forwarded-* headers from a reverse proxy (env KEELSON_TRUST_PROXY=1)
   --no-open             Don't open the browser
   -v, --version         Print the version
   -h, --help            Show this help
 
 Environment only:
-  EDGEWATCH_AUTH=none          No password on a network address, because an authenticating proxy
-                               (for example Cloudflare Access) sits in front
-  EDGEWATCH_ALLOWED_HOSTS=a,b  Extra hostnames accepted in local mode
-  EDGEWATCH_LOG=json           Log one JSON object per line
-  EDGEWATCH_UPDATE_CHECK=off   Never check GitHub for new releases
+  KEELSON_AUTH=none          No password on a network address, because an authenticating proxy
+                             (for example Cloudflare Access) sits in front
+  KEELSON_ALLOWED_HOSTS=a,b  Extra hostnames accepted in local mode
+  KEELSON_LOG=json           Log one JSON object per line
+  KEELSON_UPDATE_CHECK=off   Never check GitHub for new releases
+
+Every KEELSON_* variable can also be set with its old name, EDGEWATCH_*, and an existing
+~/.edgewatch folder is used when there is no ~/.keelson.
 
 Accounts on every platform are added in the browser, with one credential or several. Credentials are
 stored in <data-dir>/credentials.json, readable by your user only. Binding to a non-loopback address
-requires a password unless EDGEWATCH_AUTH=none is set.
+requires a password unless KEELSON_AUTH=none is set.
 
-Docs: https://github.com/r4reetik/edgewatch#readme`;
+Docs: https://github.com/r4reetik/keelson#readme`;
 
 const { values: args } = parseOptions({
   options: {
@@ -57,7 +60,7 @@ function parseOptions<T extends ParseArgsConfig>(config: T): ReturnType<typeof p
   try {
     return parseArgs(config);
   } catch (e) {
-    fail(`${(e as Error).message.replace(/\. To specify.*/s, "")}. Run edgewatch --help for the options.`);
+    fail(`${(e as Error).message.replace(/\. To specify.*/s, "")}. Run keelson --help for the options.`);
   }
 }
 
@@ -70,20 +73,20 @@ if (args.version) {
   process.exit(0);
 }
 
-const host = args.host || process.env.EDGEWATCH_HOST || "127.0.0.1";
-const portText = String(args.port || process.env.EDGEWATCH_PORT || process.env.PORT || 4317);
+const host = args.host || defaultHost();
+const portText = String(args.port || env("PORT") || process.env.PORT || 4317);
 const port = Number(portText);
 const dataDir = resolve(args["data-dir"] || defaultDataDir());
 const loopback = isLoopback(host);
-const password = args["password-file"] ? readPassword(String(args["password-file"])) : process.env.EDGEWATCH_PASSWORD || null;
-const insecureNoAuth = process.env.EDGEWATCH_AUTH === "none";
+const password = args["password-file"] ? readPassword(String(args["password-file"])) : env("PASSWORD") || null;
+const insecureNoAuth = env("AUTH") === "none";
 
 if (!Number.isInteger(port) || port < 1 || port > 65535) fail(`Invalid port: ${portText}`);
 if (!loopback && !password && !insecureNoAuth) {
   fail(`Refusing to listen on ${host} without a password.
-Set EDGEWATCH_PASSWORD (or --password-file), or set EDGEWATCH_AUTH=none if an authenticating proxy protects this instance.`);
+Set KEELSON_PASSWORD (or --password-file), or set KEELSON_AUTH=none if an authenticating proxy protects this instance.`);
 }
-if (password && password.length < 12) fail("EDGEWATCH_PASSWORD must be at least 12 characters.");
+if (password && password.length < 12) fail("KEELSON_PASSWORD must be at least 12 characters.");
 
 const running = await start({
   host,
@@ -91,8 +94,8 @@ const running = await start({
   dataDir,
   password,
   insecureNoAuth,
-  trustProxy: !!args["trust-proxy"] || process.env.EDGEWATCH_TRUST_PROXY === "1",
-  allowedHosts: (process.env.EDGEWATCH_ALLOWED_HOSTS || "")
+  trustProxy: !!args["trust-proxy"] || env("TRUST_PROXY") === "1",
+  allowedHosts: (env("ALLOWED_HOSTS") || "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean),
@@ -103,7 +106,7 @@ const running = await start({
 const accounts = running.repo.accounts.list(),
   entities = running.repo.entities.list();
 console.log(
-  `\n  Edgewatch ${VERSION}\n\n  Open:  ${running.url}\n  Data:  ${dataDir}\n  Auth:  ${password ? "password" : insecureNoAuth && !loopback ? "none (behind your proxy)" : "none (local only)"}\n`,
+  `\n  Keelson ${VERSION}\n\n  Open:  ${running.url}\n  Data:  ${dataDir}\n  Auth:  ${password ? "password" : insecureNoAuth && !loopback ? "none (behind your proxy)" : "none (local only)"}\n`,
 );
 if (!accounts.length) console.log(`  No accounts yet: open the URL to connect ${providerList(undefined, "or")}.\n`);
 else
@@ -142,6 +145,6 @@ function readPassword(file: string): string {
 }
 
 function fail(msg: string): never {
-  console.error(`edgewatch: ${msg}`);
+  console.error(`keelson: ${msg}`);
   process.exit(1);
 }

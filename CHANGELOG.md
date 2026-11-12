@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Edgewatch is now Keelson.** Start it with `npx keelson@latest`, or use the image `ghcr.io/r4reetik/keelson`. Existing installations keep working without changes: the `edgewatch` npm package and image are still published with every release and run Keelson, `EDGEWATCH_*` variables are still read, and an existing `~/.edgewatch` folder and `edgewatch.db` are used where they are. See [upgrading from Edgewatch](docs/upgrading.md#upgrading-from-edgewatch).
+- The Docker image no longer sets `KEELSON_HOST` and `KEELSON_DATA_DIR`; it defaults to `0.0.0.0` and `/data` itself, so a variable set on the container (by either name) is the one used.
+
 ## 0.9.0
 
 - **AWS support.** Connect AWS accounts with an access key for an IAM user that has AWS's managed SecurityAudit policy. Scans check IAM (root user MFA and access keys, console users without MFA, old and unused access keys, the password policy, administrators with long-lived keys, roles any AWS account can assume, policies that allow everything), S3 (public buckets after the bucket's and the account's Block Public Access), security groups open to the internet, public databases, EBS snapshots and machine images, instances that still allow IMDSv1, unencrypted and unbacked databases, deprecated Lambda runtimes and function URLs without authentication, CloudFront distributions and load balancers that serve plain HTTP or old TLS, Route 53 records that point at resources the entity no longer has, and GuardDuty and VPC flow logs where workloads run. Edgewatch only sends signed GET requests to AWS, so CloudTrail, KMS and Config, which only answer POST, aren't read yet. The new **Regions** page shows what runs in each region and its findings; a region that refuses the access key is shown as not readable instead of failing the scan.

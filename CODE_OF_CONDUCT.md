@@ -1,6 +1,6 @@
 # Code of conduct
 
-Edgewatch is maintained by volunteers and used by people protecting real systems. We want everyone who
+Keelson is maintained by volunteers and used by people protecting real systems. We want everyone who
 takes part, in issues, pull requests, discussions or anywhere else the project lives, to be treated with respect.
 
 ## What we expect

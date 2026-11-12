@@ -14,7 +14,7 @@ export function useMode(): [Mode, (m: Mode) => void] {
   const set = (m: Mode) => {
     document.documentElement.setAttribute("data-mode", m);
     try {
-      localStorage.setItem("edgewatch-mode", m);
+      localStorage.setItem("keelson-mode", m);
     } catch {
       /* storage unavailable */
     }

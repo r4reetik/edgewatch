@@ -1,4 +1,4 @@
-// A small XML reader for AWS responses, so Edgewatch needs no XML dependency.
+// A small XML reader for AWS responses, so Keelson needs no XML dependency.
 // AWS's Query and REST-XML APIs answer with plain element trees: no mixed
 // content, no namespaces that matter, attributes that checks never read. That is
 // all this handles.

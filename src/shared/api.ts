@@ -170,9 +170,9 @@ export interface Session {
 export type InstallKind = "docker" | "npm" | "npx";
 
 export interface UpdateStatus {
-  /** Checking is on (Settings) and not switched off with EDGEWATCH_UPDATE_CHECK=off. */
+  /** Checking is on (Settings) and not switched off with KEELSON_UPDATE_CHECK=off. */
   enabled: boolean;
-  /** EDGEWATCH_UPDATE_CHECK=off, so the Settings switch has no effect. */
+  /** KEELSON_UPDATE_CHECK=off, so the Settings switch has no effect. */
   lockedOff: boolean;
   current: string;
   install: InstallKind;
@@ -270,7 +270,7 @@ export interface Settings {
   slaDays: SlaDays;
   /** Live checks that send requests outside the providers' APIs. */
   probes: { takeover: boolean };
-  /** Address people use to open Edgewatch, for links in notifications. */
+  /** Address people use to open Keelson, for links in notifications. */
   baseUrl: string;
   /** Check GitHub daily for a newer release. */
   updates: { check: boolean };
@@ -638,7 +638,7 @@ export interface ProviderLinks {
   awsEndpoints?: { kind: AwsEndpointKind; name: string }[];
   /** Public IPv4 addresses an AWS account holds: Elastic IPs and the addresses of its network interfaces. */
   awsAddresses?: string[];
-  /** Addresses Edgewatch saw leave an AWS account between scans, with when. A DNS record that still points at one is dangling. */
+  /** Addresses Keelson saw leave an AWS account between scans, with when. A DNS record that still points at one is dangling. */
   awsReleased?: { ip: string; at: string }[];
   /** The AWS account's own ID, so its siblings can tell a role trusted inside the entity from one trusted outside it. */
   awsAccounts?: string[];

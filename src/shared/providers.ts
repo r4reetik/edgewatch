@@ -1,4 +1,4 @@
-// The platforms Edgewatch scans. Every account belongs to exactly one provider, and
+// The platforms Keelson scans. Every account belongs to exactly one provider, and
 // an entity can hold accounts from several. Adding a provider starts here; see
 // "Adding a provider" in CONTRIBUTING.md for the rest.
 //
@@ -24,7 +24,7 @@ export interface ProviderInfo {
   accounts: string;
   /** What one scanned resource is called in the provider's inventory page, and what a finding's `zone` holds. */
   resource: string;
-  /** What Edgewatch checks there, for the platform choice. */
+  /** What Keelson checks there, for the platform choice. */
   blurb: string;
   /** The same in a sentence: "It checks …". */
   covers: string;
@@ -32,7 +32,7 @@ export interface ProviderInfo {
   credential: string;
   /** The credential's inputs, in order. Several are joined with ":" before they're sent (CREDENTIAL_SEPARATOR). */
   fields: CredentialField[];
-  /** Whether the provider can issue a credential that only reads. Where it can't, Edgewatch's GET-only rule is the protection. */
+  /** Whether the provider can issue a credential that only reads. Where it can't, Keelson's GET-only rule is the protection. */
   readOnlyCredential: boolean;
   /** What kind of credential an account uses, when the provider has several (a user's or an account's): shown on the Accounts page. */
   credentialKinds?: { user?: string; account?: string };

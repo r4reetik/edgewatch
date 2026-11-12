@@ -76,7 +76,7 @@ export function vercelInventory(extra: Partial<VercelInventory> = {}): VercelInv
     tokens: [
       {
         id: "t1",
-        name: "edgewatch",
+        name: "keelson",
         createdAt: days(-10),
         activeAt: days(-1),
         expiresAt: days(300),

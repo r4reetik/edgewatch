@@ -4,7 +4,6 @@
 
 import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync, chmodSync, rmSync } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { homedir } from "node:os";
 import { join } from "node:path";
 
 export type TokenKind = "user" | "account" | null;
@@ -13,10 +12,6 @@ export interface StoredToken {
   token: string;
   kind: TokenKind;
   addedAt: string;
-}
-
-export function defaultDataDir(): string {
-  return process.env.EDGEWATCH_DATA_DIR || join(homedir(), ".edgewatch");
 }
 
 export class TokenVault {
@@ -30,7 +25,7 @@ export class TokenVault {
       try {
         this.#tokens = JSON.parse(readFileSync(this.#path, "utf8")).tokens || {};
       } catch {
-        throw new Error(`Can't read ${this.#path}. Fix or remove it, then start Edgewatch again.`);
+        throw new Error(`Can't read ${this.#path}. Fix or remove it, then start Keelson again.`);
       }
     }
   }
@@ -84,7 +79,7 @@ export class TokenVault {
   }
 }
 
-/** The single-account config.json written by Edgewatch 0.2 and earlier. */
+/** The single-account config.json written by Keelson 0.2 and earlier. */
 export function readLegacyConfig(dataDir: string): { token: string; accountId: string; accountName: string | null; tokenKind: TokenKind } | null {
   const path = join(dataDir, "config.json");
   if (!existsSync(path)) return null;

@@ -1,5 +1,5 @@
 name: Feature request
-description: An idea to make Edgewatch more useful (not a new check).
+description: An idea to make Keelson more useful (not a new check).
 labels: [enhancement]
 body:
   - type: textarea

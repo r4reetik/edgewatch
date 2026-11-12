@@ -47,7 +47,7 @@ export async function sendTest(n: EntityNotifications, baseUrl: string, entityNa
     finishedAt: new Date().toISOString(),
     score: 72.5,
     counts: { critical: 0, high: 1, medium: 4, low: 9 },
-    newFindings: [{ severity: "high", title: "This is a test notification from Edgewatch", resource: "example.com", zone: "example.com" }],
+    newFindings: [{ severity: "high", title: "This is a test notification from Keelson", resource: "example.com", zone: "example.com" }],
   };
   const out: { slack?: string; webhook?: string } = {};
   await send(
@@ -151,7 +151,7 @@ function slackPayload(s: ScanSummary, link: string | null, findingUrl: (fp?: str
         elements: [
           {
             type: "mrkdwn",
-            text: `${esc(s.entityName)} · posture score ${s.score ?? "n/a"} · open: ${s.counts.critical || 0} critical, ${s.counts.high || 0} high · Edgewatch`,
+            text: `${esc(s.entityName)} · posture score ${s.score ?? "n/a"} · open: ${s.counts.critical || 0} critical, ${s.counts.high || 0} high · Keelson`,
           },
         ],
       },

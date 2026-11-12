@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in Edgewatch doesn't work as it should.
+description: Something in Keelson doesn't work as it should.
 labels: [bug]
 body:
   - type: markdown
@@ -24,8 +24,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Edgewatch version
-      description: Shown at the bottom of the sidebar, or `edgewatch --version`.
+      label: Keelson version
+      description: Shown at the bottom of the sidebar, or `keelson --version`.
       placeholder: "0.4.0"
     validations:
       required: true

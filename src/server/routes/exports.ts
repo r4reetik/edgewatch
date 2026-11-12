@@ -29,7 +29,7 @@ const CSV_COLUMNS = [
   "note",
   "docs",
   "link",
-  // Added when Edgewatch got a second provider; last, so scripts that read columns by position keep working.
+  // Added when Keelson got a second provider; last, so scripts that read columns by position keep working.
   "provider",
 ] as const;
 
@@ -43,7 +43,7 @@ export function exportRoutes(r: Routes, { repo }: AppContext) {
     const findings = picked.size
       ? all.filter((f) => picked.has(f.fingerprint))
       : filterFindings(all, { status: "all", ...filtersFromParams((k) => c.req.query(k)) });
-    return { scope, meta, findings, name: `edgewatch-findings-${slug(scope.label)}-${String(meta?.finishedAt || "").slice(0, 10)}` };
+    return { scope, meta, findings, name: `keelson-findings-${slug(scope.label)}-${String(meta?.finishedAt || "").slice(0, 10)}` };
   };
 
   r.get("/api/export/findings.json", (c) => {

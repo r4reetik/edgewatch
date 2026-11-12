@@ -177,11 +177,11 @@ function checkReleasedNotes(changelog: string, atTag: (version: string) => strin
 export const LINE_DOCS = ["README.md", "docs/deployment.md"];
 
 /**
- * Points install commands at release line `line`: the Docker tag (`edgewatch:0.5`, "Docker tag `:0.5`")
- * and the npm range (`edgewatch@0.5`). Exact versions (`edgewatch@0.5.1`) and `@latest` are left alone.
+ * Points install commands at release line `line`: the Docker tag (`keelson:0.5`, "Docker tag `:0.5`")
+ * and the npm range (`keelson@0.5`). Exact versions (`keelson@0.5.1`) and `@latest` are left alone.
  */
 export function pinLine(text: string, line: string): string {
-  return text.replace(/(ghcr\.io\/[\w.-]+\/edgewatch:|\bedgewatch@|Docker tag `:)(\d+(?:\.\d+)?)(?![\w.-])/g, (_m, prefix: string) => `${prefix}${line}`);
+  return text.replace(/(ghcr\.io\/[\w.-]+\/keelson:|\bkeelson@|Docker tag `:)(\d+(?:\.\d+)?)(?![\w.-])/g, (_m, prefix: string) => `${prefix}${line}`);
 }
 
 /** Fingerprints added to the shipped-migrations list since a git ref (test/migrations.test.ts). */
@@ -353,7 +353,7 @@ export function release(kind: string, { dir = process.cwd(), dryRun = false, che
   const { next, touched } = bump(kind, dir);
   git("add", "--", ...touched);
   git("commit", "--quiet", "-m", `Release v${next}`);
-  git("tag", "-a", `v${next}`, "-m", `Edgewatch v${next}`);
+  git("tag", "-a", `v${next}`, "-m", `Keelson v${next}`);
   git("push", "--atomic", "--quiet", "origin", "HEAD:main", `v${next}`);
   const repo = /github\.com[:/](.+?)(?:\.git)?$/.exec(git("remote", "get-url", "origin"))?.[1];
   log(`Released v${next}: main and the tag are on origin.${repo ? ` Publishing: https://github.com/${repo}/actions/workflows/release.yml` : ""}`);
@@ -365,7 +365,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   try {
     if (cmd === "bump") {
       const { next } = bump(arg);
-      console.log(`edgewatch ${next}`);
+      console.log(`keelson ${next}`);
       if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `version=${next}\ntag=v${next}\n`);
     } else if (cmd === "release") release(arg, { dryRun: process.argv.includes("--dry-run"), check: !process.argv.includes("--skip-check") });
     else if (cmd === "sync") {

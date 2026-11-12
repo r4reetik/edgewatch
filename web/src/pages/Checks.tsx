@@ -10,7 +10,7 @@ const ALL = "all";
 const DEFAULT = "default";
 const TITLE = "Checks";
 const DESCRIPTION =
-  "Every check Edgewatch runs. Turning a check off or changing its severity applies to every account, from the next scan. The counts show the accounts in view.";
+  "Every check Keelson runs. Turning a check off or changing its severity applies to every account, from the next scan. The counts show the accounts in view.";
 
 export function ChecksPage() {
   const { multi } = useShell();

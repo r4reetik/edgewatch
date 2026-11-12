@@ -256,7 +256,7 @@ export function OverviewPage() {
           ? `${plural(data.scan.accounts, "account")} scanned between ${dateTime(data.scan.oldestFinishedAt)} and ${dateTime(data.scan.finishedAt)}, with ${num(data.scan.apiCalls)} read-only API calls.`
           : `Scanned ${dateTime(data.scan.finishedAt)} with ${num(data.scan.apiCalls)} read-only API calls.`}
         {data.securityCenter.total != null &&
-          ` Includes ${num(data.securityCenter.imported)} Cloudflare Security Center insights; ${num(data.securityCenter.corroborated)} more confirm Edgewatch's own findings.`}
+          ` Includes ${num(data.securityCenter.imported)} Cloudflare Security Center insights; ${num(data.securityCenter.corroborated)} more confirm Keelson's own findings.`}
       </p>
     </Page>
   );

@@ -2,7 +2,7 @@
 
 # Checks
 
-Edgewatch runs its own checks on every provider, and imports Cloudflare Security Center insights alongside them.
+Keelson runs its own checks on every provider, and imports Cloudflare Security Center insights alongside them.
 A check evaluates every resource it applies to (an account, zone, project, bucket, hostname, rule, token…) as pass or fail;
 each failure is a finding. Severity is the check's default, and a finding can raise or lower it
 (for example, a public R2 bucket is critical when it holds backups). Checks marked **Attack path** describe a concrete way in
@@ -1048,37 +1048,37 @@ The record sends visitors to Vercel, yet none of the entity's Vercel projects ha
 
 1. If the site moved or was retired, delete the DNS record in Cloudflare.
 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains.
-3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.
+3. If it belongs to a Vercel team that isn't in Keelson, add that team to this entity, or mark the finding as a false positive.
 
 #### XP-004: DNS record points at an AWS resource that no AWS account in the entity has
 
 **Severity:** High · **Attack path** · **Spans providers** · **Reads:** DNS records · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
 
-The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Edgewatch doesn't see.
+The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Keelson doesn't see.
 
 **How to fix**
 
 1. If the site moved or was retired, delete the DNS record in Cloudflare.
 2. If it should be live, recreate the resource or point the record at the current one.
-3. If the resource belongs to an AWS account that isn't in Edgewatch, add that account to this entity, or mark the finding as a false positive.
+3. If the resource belongs to an AWS account that isn't in Keelson, add that account to this entity, or mark the finding as a false positive.
 
 #### XP-007: DNS record points at an AWS address the entity released
 
 **Severity:** High · **Attack path** · **Spans providers** · **Reads:** DNS records · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
 
-Edgewatch saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic, through Cloudflare's proxy too, and can obtain a certificate for it.
+Keelson saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic, through Cloudflare's proxy too, and can obtain a certificate for it.
 
 **How to fix**
 
 1. If the server is gone, delete the DNS record in Cloudflare.
 2. If it moved, point the record at its current address, and give the server an Elastic IP so the address can't change again.
-3. If the address moved to an AWS account that isn't in Edgewatch, add that account to this entity.
+3. If the address moved to an AWS account that isn't in Keelson, add that account to this entity.
 
 #### XP-008: DNS record points at an AWS address outside the entity's accounts
 
 **Severity:** Low · **Spans providers** · **Reads:** DNS records · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
 
-The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Edgewatch doesn't scan. It may also be an address you released before Edgewatch started watching, which AWS has since given to someone else.
+The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Keelson doesn't scan. It may also be an address you released before Keelson started watching, which AWS has since given to someone else.
 
 **How to fix**
 
@@ -2068,7 +2068,7 @@ Another company's AWS account can assume this role with nothing but its own perm
 **How to fix**
 
 1. Open the role in IAM → Trust relationships.
-2. If the other account is one of yours, add it to this entity in Edgewatch.
+2. If the other account is one of yours, add it to this entity in Keelson.
 3. If it is a vendor's, add a Condition that requires the external ID they gave you (sts:ExternalId).
 4. If nobody uses the role any more, delete it.
 
@@ -2180,31 +2180,31 @@ Visitors reach this origin through Cloudflare, where your WAF, rate limits and b
 
 **Severity:** High · **Attack path** · **Reads:** Route 53 hosted zones and records, CloudFront distributions, S3 buckets, Load balancers and listeners · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
 
-The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Edgewatch doesn't see.
+The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Keelson doesn't see.
 
 **How to fix**
 
 1. If the site was retired, delete the record in Route
 2. If it should be live, recreate the resource or point the record at the current one.
-3. If the resource belongs to an AWS account that isn't in Edgewatch, add that account to this entity, or mark the finding as a false positive.
+3. If the resource belongs to an AWS account that isn't in Keelson, add that account to this entity, or mark the finding as a false positive.
 
 #### ADN-002: Route 53 record points at an AWS address the entity released
 
 **Severity:** High · **Attack path** · **Reads:** Route 53 hosted zones and records, Network interfaces and Elastic IPs · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
 
-Edgewatch saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic and can obtain a certificate for it.
+Keelson saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic and can obtain a certificate for it.
 
 **How to fix**
 
 1. If the server is gone, delete the record in Route
 2. If it moved, point the record at its current address, and use an Elastic IP or an alias to a load balancer so the address can't change again.
-3. If the address moved to an AWS account that isn't in Edgewatch, add that account to this entity.
+3. If the address moved to an AWS account that isn't in Keelson, add that account to this entity.
 
 #### ADN-003: Route 53 record points at an AWS address outside the entity's accounts
 
 **Severity:** Low · **Reads:** Route 53 hosted zones and records, Network interfaces and Elastic IPs, AWS's published address ranges (ip-ranges.amazonaws.com) · [AWS docs](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html)
 
-The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Edgewatch doesn't scan. It may also be an address you released before Edgewatch started watching, which AWS has since given to someone else.
+The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Keelson doesn't scan. It may also be an address you released before Keelson started watching, which AWS has since given to someone else.
 
 **How to fix**
 
@@ -2223,7 +2223,7 @@ The record sends visitors to Vercel, yet none of the entity's Vercel projects ha
 
 1. If the site moved or was retired, delete the record in Route
 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains.
-3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.
+3. If it belongs to a Vercel team that isn't in Keelson, add that team to this entity, or mark the finding as a false positive.
 
 ### AWS: Platform
 

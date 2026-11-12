@@ -4,7 +4,7 @@
 //
 // Not every such record can be taken over, and the findings say which: a bucket
 // name or a CloudFront alias can be claimed by someone else, an address that
-// Edgewatch saw leave the entity's accounts will be handed to another AWS
+// Keelson saw leave the entity's accounts will be handed to another AWS
 // customer, but a deleted load balancer's name can't be reused, and an AWS
 // address nobody here ever held is most likely someone else's server.
 
@@ -32,8 +32,8 @@ export default defineChecks(
       requires: ["route53", "cloudfront", "s3Buckets", "loadBalancers"],
       attackPath: true,
       title: "Route 53 record points at an AWS resource the entity doesn't have",
-      why: "The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Edgewatch doesn't see.",
-      fix: "1. If the site was retired, delete the record in Route 53. 2. If it should be live, recreate the resource or point the record at the current one. 3. If the resource belongs to an AWS account that isn't in Edgewatch, add that account to this entity, or mark the finding as a false positive.",
+      why: "The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Keelson doesn't see.",
+      fix: "1. If the site was retired, delete the record in Route 53. 2. If it should be live, recreate the resource or point the record at the current one. 3. If the resource belongs to an AWS account that isn't in Keelson, add that account to this entity, or mark the finding as a false positive.",
     },
     "ADN-002": {
       category: "DNS",
@@ -42,8 +42,8 @@ export default defineChecks(
       requires: ["route53", "networkInterfaces"],
       attackPath: true,
       title: "Route 53 record points at an AWS address the entity released",
-      why: "Edgewatch saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic and can obtain a certificate for it.",
-      fix: "1. If the server is gone, delete the record in Route 53. 2. If it moved, point the record at its current address, and use an Elastic IP or an alias to a load balancer so the address can't change again. 3. If the address moved to an AWS account that isn't in Edgewatch, add that account to this entity.",
+      why: "Keelson saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic and can obtain a certificate for it.",
+      fix: "1. If the server is gone, delete the record in Route 53. 2. If it moved, point the record at its current address, and use an Elastic IP or an alias to a load balancer so the address can't change again. 3. If the address moved to an AWS account that isn't in Keelson, add that account to this entity.",
     },
     "ADN-003": {
       category: "DNS",
@@ -51,7 +51,7 @@ export default defineChecks(
       docs: "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html",
       requires: ["route53", "networkInterfaces", "ipRanges"],
       title: "Route 53 record points at an AWS address outside the entity's accounts",
-      why: "The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Edgewatch doesn't scan. It may also be an address you released before Edgewatch started watching, which AWS has since given to someone else.",
+      why: "The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Keelson doesn't scan. It may also be an address you released before Keelson started watching, which AWS has since given to someone else.",
       fix: "1. Find out who runs the server at that address. 2. If it is an AWS account of yours, add it to this entity so its addresses are tracked. 3. If it is a vendor's, mark the finding as accepted. 4. If nobody knows, delete the record.",
     },
     "XP-005": {
@@ -63,7 +63,7 @@ export default defineChecks(
       attackPath: true,
       title: "Route 53 record points at Vercel, but no Vercel project in the entity serves it",
       why: "The record sends visitors to Vercel, yet none of the entity's Vercel projects has this hostname. Whoever adds it to their own Vercel project first serves your traffic under your domain.",
-      fix: "1. If the site moved or was retired, delete the record in Route 53. 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains. 3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.",
+      fix: "1. If the site moved or was retired, delete the record in Route 53. 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains. 3. If it belongs to a Vercel team that isn't in Keelson, add that team to this entity, or mark the finding as a false positive.",
     },
   },
   ({ inv, d, related }, report) => {
@@ -119,7 +119,7 @@ export default defineChecks(
                   : {
                       chain: [
                         { label: "Route 53", value: `${r.name} A ${ip} (zone ${z.name})` },
-                        { label: "Last held", value: `Edgewatch saw ${ip} in the entity's AWS accounts until ${gone!.slice(0, 10)}` },
+                        { label: "Last held", value: `Keelson saw ${ip} in the entity's AWS accounts until ${gone!.slice(0, 10)}` },
                         { label: "Now", value: `${held.size} addresses checked, none is ${ip}` },
                       ],
                     },

@@ -54,7 +54,7 @@ type Modal =
 const TITLE = "Accounts";
 /** "Cloudflare accounts, Vercel teams and AWS accounts". */
 const SCANNED = PROVIDERS.map((p) => `${PROVIDER_INFO[p].label} ${PROVIDER_INFO[p].accounts}`);
-const DESCRIPTION = `The ${SCANNED.slice(0, -1).join(", ")} and ${SCANNED[SCANNED.length - 1]} Edgewatch scans, grouped by the company or team that owns them. An entity can hold accounts on several platforms, has its own email domains and alerts, and you choose which entities appear together in All accounts.`;
+const DESCRIPTION = `The ${SCANNED.slice(0, -1).join(", ")} and ${SCANNED[SCANNED.length - 1]} Keelson scans, grouped by the company or team that owns them. An entity can hold accounts on several platforms, has its own email domains and alerts, and you choose which entities appear together in All accounts.`;
 
 export function AccountsPage() {
   const { dataVersion, status, refreshSession, setScope, startScan } = useShell();
@@ -163,7 +163,7 @@ export function AccountsPage() {
           placeholder={modal.account.name || modal.account.id}
           submit="Save"
           allowEmpty
-          description={`Shown everywhere in Edgewatch instead of the ${PROVIDER_INFO[modal.account.provider].label} name${modal.account.name ? ` (${modal.account.name})` : ""}. Leave empty to use the ${PROVIDER_INFO[modal.account.provider].label} name. Nothing changes in ${PROVIDER_INFO[modal.account.provider].label}.`}
+          description={`Shown everywhere in Keelson instead of the ${PROVIDER_INFO[modal.account.provider].label} name${modal.account.name ? ` (${modal.account.name})` : ""}. Leave empty to use the ${PROVIDER_INFO[modal.account.provider].label} name. Nothing changes in ${PROVIDER_INFO[modal.account.provider].label}.`}
           onClose={close}
           onSave={(alias) => patchAccount(modal.account, { alias: alias || null }, "Account renamed")}
         />
@@ -196,7 +196,7 @@ export function AccountsPage() {
           title={`Remove ${modal.account.display}?`}
           confirm="Remove account"
           onClose={close}
-          description={`Edgewatch stops scanning this ${PROVIDER_INFO[modal.account.provider].account} and deletes its scan history, findings and triage. Nothing changes in ${PROVIDER_INFO[modal.account.provider].label}. A token no other account uses is deleted too.`}
+          description={`Keelson stops scanning this ${PROVIDER_INFO[modal.account.provider].account} and deletes its scan history, findings and triage. Nothing changes in ${PROVIDER_INFO[modal.account.provider].label}. A token no other account uses is deleted too.`}
           onConfirm={() => act(() => api(`/api/accounts/${modal.account.id}`, { method: "DELETE", body: {} }), `${modal.account.display} removed`)}
         />
       )}
@@ -665,7 +665,7 @@ function EntitySettingsDialog({
           <SensitiveInput
             className="w-full"
             label="Webhook"
-            placeholder="https://example.com/hooks/edgewatch"
+            placeholder="https://example.com/hooks/keelson"
             value={hook}
             onChange={(ev: React.ChangeEvent<HTMLInputElement>) => setHook(ev.target.value)}
             description={

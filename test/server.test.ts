@@ -147,7 +147,7 @@ describe("loopback mode (no password)", () => {
     const { call, cleanup } = makeApp();
     const page = await call("/findings");
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /Edgewatch/);
+    assert.match(await page.text(), /Keelson/);
     assert.match(page.headers.get("content-security-policy") || "", /default-src 'self'/);
     assert.equal(page.headers.get("x-frame-options"), "DENY");
     assert.equal((await call("/assets/app.js")).headers.get("cache-control"), "public, max-age=31536000, immutable");
@@ -224,7 +224,7 @@ describe("several accounts and entities", () => {
     assert.equal((await call("/api/overview?scope=bogus")).status, 404);
     const csv = await (await call(`/api/export/findings.csv?scope=a:${MOCK_ACCOUNT_2}`)).text();
     assert.ok(csv.includes("Other Ltd") && !csv.includes("Mock Co"));
-    assert.match((await call(`/api/export/findings.csv?scope=a:${MOCK_ACCOUNT_2}`)).headers.get("content-disposition") || "", /edgewatch-findings-other-ltd-/);
+    assert.match((await call(`/api/export/findings.csv?scope=a:${MOCK_ACCOUNT_2}`)).headers.get("content-disposition") || "", /keelson-findings-other-ltd-/);
     const scans = await json(`/api/scans?scope=a:${MOCK_ACCOUNT}`);
     assert.ok(scans.scans.every((s: { accountId: string }) => s.accountId === MOCK_ACCOUNT));
     const started = await json("/api/scan", "POST", { scope: `a:${MOCK_ACCOUNT_2}` });
@@ -311,7 +311,7 @@ describe("several accounts and entities", () => {
 
 describe("upgrade from a single-account install", () => {
   test("config.json becomes the first account and global alerts move to its entity", () => {
-    const dir = mkdtempSync(join(tmpdir(), "edgewatch-legacy-"));
+    const dir = mkdtempSync(join(tmpdir(), "keelson-legacy-"));
     writeFileSync(join(dir, "config.json"), JSON.stringify({ token: MOCK_TOKEN, accountId: MOCK_ACCOUNT, accountName: "Mock Co", tokenKind: "user" }), {
       mode: 0o600,
     });

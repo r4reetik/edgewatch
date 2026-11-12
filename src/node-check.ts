@@ -1,10 +1,10 @@
-// Which Node.js runs Edgewatch, and how to upgrade it. Loaded by bin.ts before
+// Which Node.js runs Keelson, and how to upgrade it. Loaded by bin.ts before
 // anything else, so it imports nothing: it has to run on old Node.js versions
 // too, to say what's wrong instead of failing on an import.
 
-/** The Node.js line Edgewatch runs on. */
+/** The Node.js line Keelson runs on. */
 export const NODE_MAJOR = 26;
-/** The first Node.js 26 LTS release, the oldest that runs Edgewatch (tested in CI). */
+/** The first Node.js 26 LTS release, the oldest that runs Keelson (tested in CI). */
 export const MIN_NODE = "26.13.0";
 
 export interface NodeCheck {
@@ -37,21 +37,21 @@ export function upgradeCommand(env: Record<string, string | undefined>, execPath
   return `Download Node.js ${n} LTS from https://nodejs.org/en/download`;
 }
 
-/** Whether this Node.js can run Edgewatch, and if not, how to upgrade. */
+/** Whether this Node.js can run Keelson, and if not, how to upgrade. */
 export function checkNode(version: string, env: Record<string, string | undefined>, execPath: string, platform: string): NodeCheck {
   if (!older(version, MIN_NODE)) return { ok: true, message: "" };
   const fix = upgradeCommand(env, execPath, platform);
   return {
     ok: false,
     message: [
-      `edgewatch: this is Node.js ${version}; Edgewatch needs Node.js ${NODE_MAJOR} LTS (${MIN_NODE} or newer).`,
+      `keelson: this is Node.js ${version}; Keelson needs Node.js ${NODE_MAJOR} LTS (${MIN_NODE} or newer).`,
       "",
       fix.startsWith("Download") ? `  ${fix}` : `Upgrade with:\n  ${fix}`,
       "",
-      "Then start the newest Edgewatch:",
-      "  npx edgewatch@latest",
+      "Then start the newest Keelson:",
+      "  npx keelson@latest",
       "",
-      "Or run it without Node.js, with Docker: see https://github.com/r4reetik/edgewatch#run-it-for-a-team-docker",
+      "Or run it without Node.js, with Docker: see https://github.com/r4reetik/keelson#run-it-for-a-team-docker",
     ].join("\n"),
   };
 }

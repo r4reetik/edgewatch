@@ -145,5 +145,5 @@ export function tokenTemplateUrl(accountId?: string | null): string {
     "ssl_and_certificates",
   ];
   const perms = encodeURIComponent(JSON.stringify(keys.map((key) => ({ key, type: "read" }))));
-  return `https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=${perms}&accountId=${encodeURIComponent(accountId || "*")}&zoneId=all&name=${encodeURIComponent("Edgewatch (read-only)")}`;
+  return `https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=${perms}&accountId=${encodeURIComponent(accountId || "*")}&zoneId=all&name=${encodeURIComponent("Keelson (read-only)")}`;
 }

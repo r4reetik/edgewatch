@@ -12,7 +12,7 @@ const MAX_HOSTS = 100;
 const MAX_BYTES = 64 * 1024;
 const TIMEOUT_MS = 8000;
 /** Identifies the probe to whoever runs the host, with a link to the project (package.json homepage). */
-const USER_AGENT = `Edgewatch takeover check (+${HOMEPAGE})`;
+const USER_AGENT = `Keelson takeover check (+${HOMEPAGE})`;
 
 interface Fingerprint {
   provider: string;

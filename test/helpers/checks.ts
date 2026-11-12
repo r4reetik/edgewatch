@@ -4,7 +4,7 @@ import { evaluate } from "../../src/core/engine.ts";
 import type { EngineOptions, Inventory, Result } from "../../src/core/types.ts";
 import { opts } from "../fixtures/inventory.ts";
 
-/** Failing results from Edgewatch's own checks (Security Center insights left out). */
+/** Failing results from Keelson's own checks (Security Center insights left out). */
 export const failing = (inv: Inventory, o: EngineOptions = opts()): Result[] => evaluate(inv, o).findings.filter((f) => f.source === "custom");
 /** IDs of the checks that fail. */
 export const failIds = (inv: Inventory, o: EngineOptions = opts()): Set<string> => new Set(failing(inv, o).map((f) => f.checkId));

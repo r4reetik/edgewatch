@@ -110,7 +110,7 @@ export default defineChecks(
       requires: ["iamDetails"],
       title: "IAM role trusts an AWS account outside the entity without an external ID",
       why: "Another company's AWS account can assume this role with nothing but its own permissions. If that account is a vendor's, any of the vendor's other customers may be able to make it act on your account (the confused deputy problem); if it is an old partner or a forgotten account, it still has the access.",
-      fix: "1. Open the role in IAM → Trust relationships. 2. If the other account is one of yours, add it to this entity in Edgewatch. 3. If it is a vendor's, add a Condition that requires the external ID they gave you (sts:ExternalId). 4. If nobody uses the role any more, delete it.",
+      fix: "1. Open the role in IAM → Trust relationships. 2. If the other account is one of yours, add it to this entity in Keelson. 3. If it is a vendor's, add a Condition that requires the external ID they gave you (sts:ExternalId). 4. If nobody uses the role any more, delete it.",
     },
   },
   ({ inv, d, related }, report) => {

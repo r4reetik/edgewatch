@@ -1,4 +1,4 @@
-// Edgewatch's own mark: a shield with a check. Deliberately not Cloudflare's logo.
+// Keelson's own mark: a shield with a check. Deliberately not Cloudflare's logo.
 
 export function Mark({ size = 24 }: { size?: number }) {
   return (
@@ -15,7 +15,7 @@ export function Wordmark() {
     <span className="flex items-center gap-2">
       <Mark />
       {/* In a collapsed sidebar only the mark fits; the name would show as a clipped sliver. */}
-      <span className="text-base font-semibold tracking-tight text-kumo-default group-data-[state=collapsed]/sidebar:hidden">Edgewatch</span>
+      <span className="text-base font-semibold tracking-tight text-kumo-default group-data-[state=collapsed]/sidebar:hidden">Keelson</span>
     </span>
   );
 }

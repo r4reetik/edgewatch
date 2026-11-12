@@ -2,7 +2,7 @@
 
 # Permissions
 
-Edgewatch only reads, on every provider. Each provider's section lists the data a scan reads and what grants it:
+Keelson only reads, on every provider. Each provider's section lists the data a scan reads and what grants it:
 a token permission on Cloudflare, a team role on Vercel, IAM actions on AWS.
 
 ## Cloudflare
@@ -11,7 +11,7 @@ The simplest token is Cloudflare's **Read all resources** template, which covers
 Two sources need more:
 
 - **Account API tokens** need *Account API Tokens Read*, which the template doesn't include.
-- **Logpush jobs** can only be listed with a write permission, so Edgewatch doesn't list them; it reads Logpush health from GraphQL analytics instead.
+- **Logpush jobs** can only be listed with a write permission, so Keelson doesn't list them; it reads Logpush health from GraphQL analytics instead.
 
 A source the token can't read shows up under **Scans → Data coverage** with the permission it needs, and the checks that depend on it are
 skipped rather than passed. The setup screen tests a token against each source before you connect it.
@@ -89,7 +89,7 @@ These sources aren't Cloudflare API reads and need no permission:
 ## Vercel
 
 Vercel access tokens can't be limited to reading: a token can do whatever its user's role allows on each team it reaches.
-Edgewatch only ever sends GET requests to Vercel (`test/vercel.test.ts` fails on anything else), and never asks for environment
+Keelson only ever sends GET requests to Vercel (`test/vercel.test.ts` fails on anything else), and never asks for environment
 variable values. A token created by a member with the **Viewer** role reads almost everything below; environment variable names,
 the firewall configuration, drains and webhooks need a role that can see them. Create the token under **Account Settings → Tokens**,
 scoped to the team you want to scan (or Full Account for every team), with an expiration date.
@@ -112,12 +112,12 @@ scoped to the team you want to scan (or Full Account for every team), with an ex
 
 ## AWS
 
-An access key belongs to one AWS account, so each account needs its own. In each account, create an IAM user for Edgewatch,
+An access key belongs to one AWS account, so each account needs its own. In each account, create an IAM user for Keelson,
 attach AWS's managed **SecurityAudit** policy, and create an access key under **IAM → Users → the user → Security credentials**.
 SecurityAudit reads configuration only: it can't change anything, and it can't read the objects in your buckets or the rows in your
 databases. Temporary keys (the ones that start with ASIA) aren't accepted, because they expire within hours.
 
-Edgewatch signs every request itself and only ever sends GET requests to AWS (`test/aws.test.ts` fails on anything else). Services
+Keelson signs every request itself and only ever sends GET requests to AWS (`test/aws.test.ts` fails on anything else). Services
 that can only be read with POST requests, such as CloudTrail, KMS and Config, aren't read yet. It never stores a policy document, a
 Lambda environment variable or an instance's start-up script (the script is scanned for credentials in memory, and only the kind found
 is kept), and keeps only the last four characters of an access key ID. To recognise DNS records that point at AWS addresses it also

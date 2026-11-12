@@ -1,11 +1,13 @@
-// One logger for the server. Plain lines by default; EDGEWATCH_LOG=json writes
+// One logger for the server. Plain lines by default; KEELSON_LOG=json writes
 // one JSON object per line (for Docker and log shippers). Errors go to stderr.
 
+import { env } from "./names.ts";
+
 type Level = "info" | "warn" | "error";
-const json = process.env.EDGEWATCH_LOG === "json";
+const json = env("LOG") === "json";
 
 function write(level: Level, msg: string) {
-  const line = json ? JSON.stringify({ time: new Date().toISOString(), level, msg }) : `[edgewatch] ${level === "info" ? "" : `${level}: `}${msg}`;
+  const line = json ? JSON.stringify({ time: new Date().toISOString(), level, msg }) : `[keelson] ${level === "info" ? "" : `${level}: `}${msg}`;
   (level === "info" ? process.stdout : process.stderr).write(line + "\n");
 }
 

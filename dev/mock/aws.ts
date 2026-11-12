@@ -386,10 +386,7 @@ export function installMockAws(o: MockOptions = {}): () => void {
 
     if (service === "sts")
       return xml(
-        x(
-          "GetCallerIdentityResponse",
-          x("GetCallerIdentityResult", x("Arn", `arn:aws:iam::${MOCK_AWS_ACCOUNT}:user/edgewatch`), x("Account", MOCK_AWS_ACCOUNT)),
-        ),
+        x("GetCallerIdentityResponse", x("GetCallerIdentityResult", x("Arn", `arn:aws:iam::${MOCK_AWS_ACCOUNT}:user/keelson`), x("Account", MOCK_AWS_ACCOUNT))),
       );
     if (service === "iam") {
       const body = iam[action]?.(q);

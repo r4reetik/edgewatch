@@ -1,7 +1,7 @@
-// Tells the dashboard when a newer Edgewatch is out, and whether upgrading to it
+// Tells the dashboard when a newer Keelson is out, and whether upgrading to it
 // includes breaking changes. Once a day it reads the public list of GitHub
 // releases: one unauthenticated GET with a generic User-Agent, and nothing about
-// this install is sent. Turned off in Settings, or with EDGEWATCH_UPDATE_CHECK=off.
+// this install is sent. Turned off in Settings, or with KEELSON_UPDATE_CHECK=off.
 //
 // A release is breaking when its notes mark a change "**Breaking:**" (the
 // CHANGELOG convention, see docs/releasing.md). By the versioning policy those
@@ -78,7 +78,7 @@ export interface UpdateCheckerOptions {
   install: InstallKind;
   /** Read on every check, so the Settings switch applies without a restart. */
   enabled: () => boolean;
-  /** Switched off by EDGEWATCH_UPDATE_CHECK=off, whatever Settings says. */
+  /** Switched off by KEELSON_UPDATE_CHECK=off, whatever Settings says. */
   lockedOff?: boolean;
   fetch?: typeof fetch;
   log?: (msg: string) => void;
@@ -118,14 +118,14 @@ export class UpdateChecker {
     if (!repository || !this.#on()) return this.status();
     try {
       const res = await (this.#o.fetch ?? fetch)(`https://api.github.com/repos/${repository}/releases?per_page=30`, {
-        headers: { accept: "application/vnd.github+json", "user-agent": "Edgewatch update check" },
+        headers: { accept: "application/vnd.github+json", "user-agent": "Keelson update check" },
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
       this.#status = { ...this.#status, ...evaluate(version, (await res.json()) as GithubRelease[]), checkedAt: new Date().toISOString(), error: null };
       if (this.#status.latest)
         this.#o.log?.(
-          `Edgewatch ${this.#status.latest.version} is available (running ${version})${this.#status.breaking ? ", with breaking changes" : ""}: ${this.#status.latest.url}`,
+          `Keelson ${this.#status.latest.version} is available (running ${version})${this.#status.breaking ? ", with breaking changes" : ""}: ${this.#status.latest.url}`,
         );
     } catch (e) {
       // A failed check is never an error for the user: keep the last result and try again tomorrow.

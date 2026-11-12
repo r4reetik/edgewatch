@@ -1,10 +1,10 @@
 name: New check
-description: Suggest a misconfiguration or risk Edgewatch should detect.
+description: Suggest a misconfiguration or risk Keelson should detect.
 labels: [checks, enhancement]
 body:
   - type: markdown
     attributes:
-      value: The [list of checks](https://github.com/r4reetik/edgewatch/blob/main/docs/checks.md) shows what's covered today.
+      value: The [list of checks](https://github.com/r4reetik/keelson/blob/main/docs/checks.md) shows what's covered today.
   - type: textarea
     id: risk
     attributes:
@@ -32,7 +32,7 @@ body:
     id: permission
     attributes:
       label: Token permission needed
-      description: If you know it. Edgewatch only ever reads.
+      description: If you know it. Keelson only ever reads.
   - type: checkboxes
     id: pr
     attributes:

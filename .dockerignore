@@ -5,6 +5,7 @@ dist
 .github
 test
 coverage
+.keelson
 .edgewatch
 docs
 dev

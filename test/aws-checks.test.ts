@@ -277,7 +277,7 @@ test("a Cloudflare-proxied hostname's origin must refuse everyone else", () => {
   assert.equal(by(run(), "XP-006").length, 0);
 });
 
-test("an address is dangling when Edgewatch saw it leave the entity, and only noted when nobody here ever held it", () => {
+test("an address is dangling when Keelson saw it leave the entity, and only noted when nobody here ever held it", () => {
   const released = AWS_CASES["ADN-002"]();
   const f = run(released).findings.find((x) => x.checkId === "ADN-002")!;
   assert.equal(f.severity, "high");

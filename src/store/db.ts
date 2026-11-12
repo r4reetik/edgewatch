@@ -4,7 +4,7 @@
 // Upgrades are safe to skip versions: every migration since the database's
 // version runs in order. Before any run, the database is copied to
 // <data-dir>/backups/, so an upgrade can be undone by restoring that copy.
-// A database from a newer Edgewatch is refused rather than misread.
+// A database from a newer Keelson is refused rather than misread.
 //
 // Shipped migrations are never edited, only appended to: test/migrations.test.ts
 // fails if one changes.
@@ -16,7 +16,7 @@ import { basename, dirname, join } from "node:path";
 /** Backups kept in <data-dir>/backups; older ones are deleted. */
 const BACKUPS_KEPT = 3;
 
-/** The database was written by a newer Edgewatch than this one. */
+/** The database was written by a newer Keelson than this one. */
 export class NewerDatabaseError extends Error {
   constructor(path: string, found: number, known: number) {
     const dir = join(dirname(path), "backups");
@@ -28,9 +28,9 @@ export class NewerDatabaseError extends Error {
           .at(-1)
       : undefined;
     super(
-      `${path} was last opened by a newer Edgewatch (database schema ${found}; this version knows up to ${known}). ` +
+      `${path} was last opened by a newer Keelson (database schema ${found}; this version knows up to ${known}). ` +
         (backup
-          ? `Run that version or newer, or stop Edgewatch and restore ${join(dir, backup)} over ${path} (see docs/upgrading.md).`
+          ? `Run that version or newer, or stop Keelson and restore ${join(dir, backup)} over ${path} (see docs/upgrading.md).`
           : "Run that version or newer."),
     );
   }

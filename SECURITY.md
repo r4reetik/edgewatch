@@ -12,24 +12,24 @@ Security fixes go into the latest minor release. Upgrade to it before reporting,
 ## Reporting a vulnerability
 
 Please report vulnerabilities privately through GitHub's
-[**Report a vulnerability**](https://github.com/r4reetik/edgewatch/security/advisories/new) form
+[**Report a vulnerability**](https://github.com/r4reetik/keelson/security/advisories/new) form
 (Security → Advisories) rather than in a public issue. Include the version,
 how to reproduce it, and the impact. You'll get an acknowledgement within three working days,
 and we'll agree a disclosure date with you once a fix is ready. Reporters are credited in the advisory unless they'd rather not be.
 
 A false positive or missed finding in a check is not a vulnerability; use the
-[false positive template](https://github.com/r4reetik/edgewatch/issues/new?template=false_positive.yml) for those.
+[false positive template](https://github.com/r4reetik/keelson/issues/new?template=false_positive.yml) for those.
 
 ## Threat model
 
-Edgewatch holds the credentials of the platforms you connect (Cloudflare API tokens, Vercel access tokens,
+Keelson holds the credentials of the platforms you connect (Cloudflare API tokens, Vercel access tokens,
 AWS access keys), and a database describing accounts' configuration, including member email addresses. It is designed to:
 
 - **Only read.** The scanner issues GET requests, plus Cloudflare GraphQL analytics queries (GraphQL is sent
   as POST, as Cloudflare requires, and only ever queries). Use a Cloudflare token with read permissions;
-  Edgewatch never needs anything else. Vercel can't issue read-only tokens, so a Vercel token can do what its
-  user's role allows: Edgewatch still only sends GET requests to Vercel, and tests fail on anything else.
-  For AWS, give the access key's user only the managed SecurityAudit policy; Edgewatch sends signed GET requests
+  Keelson never needs anything else. Vercel can't issue read-only tokens, so a Vercel token can do what its
+  user's role allows: Keelson still only sends GET requests to Vercel, and tests fail on anything else.
+  For AWS, give the access key's user only the managed SecurityAudit policy; Keelson sends signed GET requests
   and nothing else, so services whose APIs only answer POST (CloudTrail, KMS, Config) aren't read.
 - **Never read secret values.** Vercel environment variables are listed without their values; drain and
   webhook URLs are stored without their paths, query strings or headers. AWS policy documents are reduced to
@@ -55,7 +55,7 @@ AWS access keys), and a database describing accounts' configuration, including m
   - A strict Content-Security-Policy, framing denied.
   - CSV exports are protected against formula injection.
 - **Require authentication when exposed.**
-  - Binding to a non-loopback address requires an admin password, unless an authenticating proxy is explicitly declared with `EDGEWATCH_AUTH=none`.
+  - Binding to a non-loopback address requires an admin password, unless an authenticating proxy is explicitly declared with `KEELSON_AUTH=none`.
   - Sessions are HttpOnly, SameSite=Strict cookies.
   - Login attempts are rate-limited per IP.
 

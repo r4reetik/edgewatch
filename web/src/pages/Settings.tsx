@@ -9,7 +9,7 @@ import { Card, FormGrid, Page, PageState, SettingRow, SettingRows } from "../com
 
 const TITLE = "Settings";
 const DESCRIPTION = "Scan schedule, history, how findings are tracked, and updates. These apply to every account.";
-const UPGRADING_DOCS = "https://github.com/r4reetik/edgewatch/blob/main/docs/upgrading.md";
+const UPGRADING_DOCS = "https://github.com/r4reetik/keelson/blob/main/docs/upgrading.md";
 const HOURS = Object.fromEntries(Array.from({ length: 24 }, (_, h) => [String(h), `${String(h).padStart(2, "0")}:00 UTC`]));
 type Save = (patch: Record<string, unknown>, label: string) => Promise<boolean>;
 
@@ -100,7 +100,7 @@ function ScansCard({ s, save }: { s: Settings; save: Save }) {
             onCheckedChange={(v: boolean) => save({ schedule: { enabled: v } }, v ? "Daily scan on" : "Daily scan off")}
           />
         </SettingRow>
-        <SettingRow title="Time" description="When the daily scan starts. A missed scan runs shortly after Edgewatch next starts.">
+        <SettingRow title="Time" description="When the daily scan starts. A missed scan runs shortly after Keelson next starts.">
           <Select
             aria-label="Scan time"
             className="w-full"
@@ -188,11 +188,11 @@ function LinksCard({ s, save }: { s: Settings; save: Save }) {
       }
     >
       <SettingRows>
-        <SettingRow title="Link URL" description="Optional. The address people use to open Edgewatch, so alerts can link straight to each finding.">
+        <SettingRow title="Link URL" description="Optional. The address people use to open Keelson, so alerts can link straight to each finding.">
           <Input
-            aria-label="Edgewatch URL"
+            aria-label="Keelson URL"
             className="w-full"
-            placeholder="https://edgewatch.internal.example.com"
+            placeholder="https://keelson.internal.example.com"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
             onBlur={commit}
@@ -235,9 +235,8 @@ function upgradeSteps(u: UpdateStatus, version: string): { text: string; command
       command: "docker compose pull && docker compose up -d",
     };
   }
-  if (u.install === "npx")
-    return { text: "Stop Edgewatch, then start the newest version with npx. Your data stays where it is.", command: "npx edgewatch@latest" };
-  return { text: "Install the new version and restart Edgewatch.", command: `npm install -g edgewatch@${version}` };
+  if (u.install === "npx") return { text: "Stop Keelson, then start the newest version with npx. Your data stays where it is.", command: "npx keelson@latest" };
+  return { text: "Install the new version and restart Keelson.", command: `npm install -g keelson@${version}` };
 }
 
 function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
@@ -263,8 +262,8 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
             title="Check for updates"
             description={
               u?.lockedOff
-                ? "Turned off for this installation with EDGEWATCH_UPDATE_CHECK=off."
-                : "Shortly after start and then daily, reads the public list of Edgewatch releases on GitHub. Nothing about this installation is sent."
+                ? "Turned off for this installation with KEELSON_UPDATE_CHECK=off."
+                : "Shortly after start and then daily, reads the public list of Keelson releases on GitHub. Nothing about this installation is sent."
             }
           >
             <Switch
@@ -280,7 +279,7 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
                 <Banner
                   variant={u.breaking ? "alert" : undefined}
                   icon={u.breaking ? <WarningIcon weight="fill" /> : <ArrowCircleUpIcon weight="fill" />}
-                  title={`Edgewatch ${u.latest.version} is available`}
+                  title={`Keelson ${u.latest.version} is available`}
                   description={
                     <>
                       You're on {u.current}
@@ -301,9 +300,9 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
                   <CheckCircleIcon weight="fill" className="text-kumo-success" />
                   {u.enabled
                     ? u.checkedAt
-                      ? `Edgewatch ${u.current} is the latest version.`
-                      : `Running Edgewatch ${u.current}. The first check runs shortly after start.`
-                    : `Running Edgewatch ${u.current}. Update checks are off.`}
+                      ? `Keelson ${u.current} is the latest version.`
+                      : `Running Keelson ${u.current}. The first check runs shortly after start.`
+                    : `Running Keelson ${u.current}. Update checks are off.`}
                 </div>
               )}
               {steps && (
@@ -313,7 +312,7 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
                   <span>
                     Your database is backed up automatically before an upgrade changes it.{" "}
                     <Link href={UPGRADING_DOCS} target="_blank" rel="noreferrer">
-                      Upgrading Edgewatch
+                      Upgrading Keelson
                     </Link>
                   </span>
                 </div>
@@ -323,10 +322,10 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
                   Not ready for {u.latest?.version}? {u.inLine.version} is the newest compatible update on {u.line}:{" "}
                   <code className="rounded bg-kumo-recessed px-1.5 py-0.5 font-mono text-xs">
                     {u.install === "docker"
-                      ? `ghcr.io/r4reetik/edgewatch:${u.line}`
+                      ? `ghcr.io/r4reetik/keelson:${u.line}`
                       : u.install === "npx"
-                        ? `npx edgewatch@${u.line}`
-                        : `npm install -g edgewatch@${u.line}`}
+                        ? `npx keelson@${u.line}`
+                        : `npm install -g keelson@${u.line}`}
                   </code>{" "}
                   <Link href={u.inLine.url} target="_blank" rel="noreferrer">
                     Notes

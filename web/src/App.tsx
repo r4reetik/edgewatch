@@ -81,7 +81,7 @@ function Root() {
   if (failed) {
     return (
       <div className="mx-auto max-w-md p-10 text-sm">
-        <p className="font-medium text-kumo-danger">The Edgewatch server is unreachable.</p>
+        <p className="font-medium text-kumo-danger">The Keelson server is unreachable.</p>
         <p className="mt-1 text-kumo-subtle">{failed}</p>
         <Button className="mt-4" size="sm" onClick={() => void refreshSession()}>
           Try again
@@ -125,13 +125,13 @@ function AppShell({ session, refreshSession, standalone }: { session: Session; r
         void refreshSession();
       }
       wasRunning.current = s.running;
-      if (failedPolls.current >= POLL_FAILURES_SHOWN) toasts.add({ title: "Connected to Edgewatch again", variant: "success" });
+      if (failedPolls.current >= POLL_FAILURES_SHOWN) toasts.add({ title: "Connected to Keelson again", variant: "success" });
       failedPolls.current = 0;
     } catch (e) {
       // A server that stopped mid-scan would otherwise leave "Scanning…" on screen forever.
       if (++failedPolls.current === POLL_FAILURES_SHOWN) {
         setStatus((s) => s && { ...s, running: false });
-        toasts.add({ title: "Can't reach Edgewatch", description: `${(e as Error).message}. Checking again in a moment.`, variant: "error" });
+        toasts.add({ title: "Can't reach Keelson", description: `${(e as Error).message}. Checking again in a moment.`, variant: "error" });
       }
     }
   }, [toasts, scope, refreshSession]);
@@ -189,7 +189,7 @@ function Router() {
   // Name the tab and history entry after the page.
   const label = m?.route.label;
   useEffect(() => {
-    document.title = label ? `${label} · Edgewatch` : "Edgewatch";
+    document.title = label ? `${label} · Keelson` : "Keelson";
   }, [label]);
   if (!m)
     return (
@@ -251,11 +251,11 @@ function Nav() {
       <Sidebar.Footer className="h-auto min-h-12 py-3">
         <div className="px-2.5 text-xs leading-relaxed whitespace-normal text-kumo-subtle group-data-[state=collapsed]/sidebar:hidden">
           <span className="flex flex-wrap items-center gap-x-1.5">
-            Edgewatch {session.version}
+            Keelson {session.version}
             {session.update?.latest && (
               <a
                 {...link("/settings#updates")}
-                title={`Edgewatch ${session.update.latest.version} is available${session.update.breaking ? ", with breaking changes" : ""}`}
+                title={`Keelson ${session.update.latest.version} is available${session.update.breaking ? ", with breaking changes" : ""}`}
                 className={`inline-flex items-center gap-1 font-medium whitespace-nowrap ${session.update.breaking ? "text-kumo-warning" : "text-kumo-link"}`}
               >
                 {session.update.breaking ? <WarningIcon weight="fill" aria-hidden /> : <ArrowCircleUpIcon weight="fill" aria-hidden />}

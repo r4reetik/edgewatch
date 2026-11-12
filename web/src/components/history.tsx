@@ -86,7 +86,7 @@ const startOfDay = (d: string) => Date.parse(`${d}T00:00:00`);
  * The finding's states from first seen until now. Status comes from triage
  * changes; scans that stop or start finding it switch it to and from "gone";
  * accepted risk turns back to open on its expiry date. Triage set before
- * Edgewatch kept history starts at its last update.
+ * Keelson kept history starts at its last update.
  */
 export function laneSegments(f: TriagedFinding, now = Date.now()): Segment[] {
   type Point = { at: number; apply: (s: { status: TriageStatus; gone: boolean; until: string | null }) => void };

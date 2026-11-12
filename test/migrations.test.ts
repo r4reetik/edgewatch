@@ -1,5 +1,5 @@
 // Upgrades must be safe: shipped migrations never change, an existing database
-// is backed up before it's migrated, and a database from a newer Edgewatch is
+// is backed up before it's migrated, and a database from a newer Keelson is
 // refused instead of being misread.
 
 import { test, describe } from "node:test";
@@ -27,8 +27,8 @@ describe("migrations", () => {
   });
 
   test("an older database is backed up before it's migrated, and only the newest backups are kept", () => {
-    const dir = mkdtempSync(join(tmpdir(), "edgewatch-migrate-"));
-    const path = join(dir, "edgewatch.db");
+    const dir = mkdtempSync(join(tmpdir(), "keelson-migrate-"));
+    const path = join(dir, "keelson.db");
     try {
       // A database left at schema 2 by an older version.
       const old = new DatabaseSync(path);
@@ -41,16 +41,16 @@ describe("migrations", () => {
 
       // Three backups from earlier upgrades; the oldest goes when a fourth is made.
       mkdirSync(join(dir, "backups"));
-      for (const d of ["20250101", "20250201", "20250301"]) writeFileSync(join(dir, "backups", `edgewatch-${d}T000000-schema1.db`), "");
+      for (const d of ["20250101", "20250201", "20250301"]) writeFileSync(join(dir, "backups", `keelson-${d}T000000-schema1.db`), "");
 
       const logs: string[] = [];
       new Store(path, { log: (m) => logs.push(m) }).close();
       const all = readdirSync(join(dir, "backups")).sort();
       assert.equal(all.length, 3);
-      assert.ok(!all.includes("edgewatch-20250101T000000-schema1.db"), "the oldest backup was removed");
-      const backups = all.filter((f) => !f.startsWith("edgewatch-2025"));
+      assert.ok(!all.includes("keelson-20250101T000000-schema1.db"), "the oldest backup was removed");
+      const backups = all.filter((f) => !f.startsWith("keelson-2025"));
       assert.equal(backups.length, 1);
-      assert.match(backups[0], /^edgewatch-\d{8}T\d{6}-schema2\.db$/);
+      assert.match(backups[0], /^keelson-\d{8}T\d{6}-schema2\.db$/);
       assert.equal(statSync(join(dir, "backups", backups[0])).mode & 0o777, 0o600, "owner-only, like the database");
       const copy = new DatabaseSync(join(dir, "backups", backups[0]));
       assert.equal((copy.prepare("SELECT MAX(version) AS v FROM schema_migrations").get() as { v: number }).v, 2, "the backup is the pre-upgrade database");
@@ -65,21 +65,21 @@ describe("migrations", () => {
     }
   });
 
-  test("a database from a newer Edgewatch is refused", () => {
-    const dir = mkdtempSync(join(tmpdir(), "edgewatch-newer-"));
-    const path = join(dir, "edgewatch.db");
+  test("a database from a newer Keelson is refused", () => {
+    const dir = mkdtempSync(join(tmpdir(), "keelson-newer-"));
+    const path = join(dir, "keelson.db");
     try {
       new Store(path).close();
       const db = new DatabaseSync(path);
       db.prepare("INSERT INTO schema_migrations VALUES (?, ?)").run(MIGRATIONS.length + 1, "2027-01-01");
       db.close();
       assert.throws(() => new Store(path), NewerDatabaseError);
-      assert.throws(() => new Store(path), /newer Edgewatch .*Run that version or newer\.$/);
+      assert.throws(() => new Store(path), /newer Keelson .*Run that version or newer\.$/);
       // With backups, it names the one from before the upgrade (the newest this version can read).
       mkdirSync(join(dir, "backups"));
-      for (const f of [`edgewatch-20260101T000000-schema${MIGRATIONS.length}.db`, `edgewatch-20270101T000000-schema${MIGRATIONS.length + 1}.db`])
+      for (const f of [`keelson-20260101T000000-schema${MIGRATIONS.length}.db`, `keelson-20270101T000000-schema${MIGRATIONS.length + 1}.db`])
         writeFileSync(join(dir, "backups", f), "");
-      assert.throws(() => new Store(path), new RegExp(`restore .*edgewatch-20260101T000000-schema${MIGRATIONS.length}\\.db`));
+      assert.throws(() => new Store(path), new RegExp(`restore .*keelson-20260101T000000-schema${MIGRATIONS.length}\\.db`));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

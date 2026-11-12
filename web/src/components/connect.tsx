@@ -139,7 +139,7 @@ function VercelTokenHelp() {
   return (
     <ol className="ml-5 list-decimal space-y-2 text-base text-kumo-default marker:text-kumo-subtle">
       <li>
-        In Vercel, go to <span className="font-medium">Account Settings → Tokens</span> and create a token named Edgewatch.{" "}
+        In Vercel, go to <span className="font-medium">Account Settings → Tokens</span> and create a token named Keelson.{" "}
         <Link href="https://vercel.com/account/settings/tokens" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
           Open Tokens <ArrowSquareOutIcon />
         </Link>
@@ -148,7 +148,7 @@ function VercelTokenHelp() {
         Set <span className="font-medium">Scope</span> to the team you want to scan, or <span className="font-medium">Full Account</span> for every team you
         belong to and your personal projects. Choose an expiration date.
       </li>
-      <li>Edgewatch only reads from Vercel. Teams that belong to another company usually need their own token, created by one of their members.</li>
+      <li>Keelson only reads from Vercel. Teams that belong to another company usually need their own token, created by one of their members.</li>
     </ol>
   );
 }
@@ -157,7 +157,7 @@ function AwsTokenHelp() {
   return (
     <ol className="ml-5 list-decimal space-y-2 text-base text-kumo-default marker:text-kumo-subtle">
       <li>
-        In the AWS console, go to <span className="font-medium">IAM → Users → Create user</span>. Name it edgewatch and leave console access off.{" "}
+        In the AWS console, go to <span className="font-medium">IAM → Users → Create user</span>. Name it keelson and leave console access off.{" "}
         <Link href="https://console.aws.amazon.com/iam/home#/users/create" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
           Open IAM <ArrowSquareOutIcon />
         </Link>
@@ -396,7 +396,7 @@ export function ConnectForm({
           <Banner
             icon={<CheckCircleIcon weight="fill" />}
             title={`${capitalize(cred)} verified`}
-            description={`The ${cred} can read everything Edgewatch checks${ids.length > probeLimit ? ` (checked on the first ${probeLimit} ${info.accounts})` : ""}.`}
+            description={`The ${cred} can read everything Keelson checks${ids.length > probeLimit ? ` (checked on the first ${probeLimit} ${info.accounts})` : ""}.`}
           />
         ))}
 

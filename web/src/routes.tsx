@@ -20,7 +20,7 @@ import {
 /**
  * The sidebar's sections, in order. Posture is what's wrong and what's being done about it, for every platform.
  * Inventory is what each platform has (one page per platform). Insights are what a platform reports besides
- * its configuration. Manage is Edgewatch itself: what it scans, with which checks, and when.
+ * its configuration. Manage is Keelson itself: what it scans, with which checks, and when.
  */
 export type NavGroup = "Posture" | "Inventory" | "Insights" | "Manage";
 export const NAV_GROUPS: NavGroup[] = ["Posture", "Inventory", "Insights", "Manage"];

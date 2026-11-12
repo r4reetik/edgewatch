@@ -1,11 +1,11 @@
 {
-  "name": "edgewatch",
+  "name": "keelson",
   "version": "0.9.0",
   "description": "Security posture and best-practice tracker for Cloudflare, Vercel and AWS. Read-only, runs locally.",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "edgewatch": "dist/bin.js"
+    "keelson": "dist/bin.js"
   },
   "files": [
     "dist",
@@ -33,7 +33,7 @@
   ],
   "scripts": {
     "dev": "node scripts/dev.ts",
-    "dev:server": "node --watch src/bin.ts --no-open --data-dir .edgewatch",
+    "dev:server": "node --watch src/bin.ts --no-open --data-dir .keelson",
     "dev:mock": "node --watch dev/mock/server.ts",
     "dev:web": "vite --config web/vite.config.ts",
     "build": "npm run build:server && npm run build:web",
@@ -75,13 +75,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/r4reetik/edgewatch.git"
+    "url": "git+https://github.com/r4reetik/keelson.git"
   },
-  "homepage": "https://github.com/r4reetik/edgewatch#readme",
+  "homepage": "https://github.com/r4reetik/keelson#readme",
   "bugs": {
-    "url": "https://github.com/r4reetik/edgewatch/issues"
+    "url": "https://github.com/r4reetik/keelson/issues"
   },
-  "author": "Edgewatch contributors",
+  "author": "Keelson contributors",
   "funding": {
     "type": "github",
     "url": "https://github.com/sponsors/r4reetik"

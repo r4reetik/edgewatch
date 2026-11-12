@@ -18,8 +18,8 @@ export default defineChecks(
       requires: ["dnsRecords"],
       attackPath: true,
       title: "DNS record points at an AWS resource that no AWS account in the entity has",
-      why: "The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Edgewatch doesn't see.",
-      fix: "1. If the site moved or was retired, delete the DNS record in Cloudflare. 2. If it should be live, recreate the resource or point the record at the current one. 3. If the resource belongs to an AWS account that isn't in Edgewatch, add that account to this entity, or mark the finding as a false positive.",
+      why: "The record names a CloudFront distribution, load balancer or S3 bucket that none of the entity's AWS accounts has. A missing bucket or CloudFront alias can be claimed by anyone, who then serves content under your hostname. A missing load balancer can't be claimed (its name is random), so that record is dead, or points into an AWS account Keelson doesn't see.",
+      fix: "1. If the site moved or was retired, delete the DNS record in Cloudflare. 2. If it should be live, recreate the resource or point the record at the current one. 3. If the resource belongs to an AWS account that isn't in Keelson, add that account to this entity, or mark the finding as a false positive.",
     },
     "XP-007": {
       spans: ["aws"],
@@ -29,8 +29,8 @@ export default defineChecks(
       requires: ["dnsRecords"],
       attackPath: true,
       title: "DNS record points at an AWS address the entity released",
-      why: "Edgewatch saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic, through Cloudflare's proxy too, and can obtain a certificate for it.",
-      fix: "1. If the server is gone, delete the DNS record in Cloudflare. 2. If it moved, point the record at its current address, and give the server an Elastic IP so the address can't change again. 3. If the address moved to an AWS account that isn't in Edgewatch, add that account to this entity.",
+      why: "Keelson saw this address in one of the entity's AWS accounts on an earlier scan, and it is gone now: the instance was stopped or deleted, or the Elastic IP was released. AWS hands released addresses to other customers, and whoever gets this one receives your hostname's traffic, through Cloudflare's proxy too, and can obtain a certificate for it.",
+      fix: "1. If the server is gone, delete the DNS record in Cloudflare. 2. If it moved, point the record at its current address, and give the server an Elastic IP so the address can't change again. 3. If the address moved to an AWS account that isn't in Keelson, add that account to this entity.",
     },
     "XP-008": {
       spans: ["aws"],
@@ -39,7 +39,7 @@ export default defineChecks(
       docs: "https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/protection-from-dangling-dns.html",
       requires: ["dnsRecords"],
       title: "DNS record points at an AWS address outside the entity's accounts",
-      why: "The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Edgewatch doesn't scan. It may also be an address you released before Edgewatch started watching, which AWS has since given to someone else.",
+      why: "The address is in AWS's EC2 range, but none of the entity's AWS accounts holds it. It may be a vendor's server or an AWS account of yours that Keelson doesn't scan. It may also be an address you released before Keelson started watching, which AWS has since given to someone else.",
       fix: "1. Find out who runs the server at that address. 2. If it is an AWS account of yours, add it to this entity so its addresses are tracked. 3. If it is a vendor's, mark the finding as accepted. 4. If nobody knows, delete the record.",
     },
   },
@@ -68,7 +68,7 @@ export default defineChecks(
                 : {
                     chain: [
                       { label: "Cloudflare DNS", value: `${host} A ${r.content}${r.proxied ? ", proxied" : ""}` },
-                      { label: "Last held", value: `Edgewatch saw ${r.content} in the entity's AWS accounts until ${gone!.slice(0, 10)}` },
+                      { label: "Last held", value: `Keelson saw ${r.content} in the entity's AWS accounts until ${gone!.slice(0, 10)}` },
                       { label: "Now", value: `${held.size} addresses checked, none is ${r.content}` },
                     ],
                   },

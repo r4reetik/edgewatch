@@ -17,10 +17,10 @@ export function ReportPage() {
   useEffect(() => {
     const prev = document.documentElement.getAttribute("data-mode");
     document.documentElement.setAttribute("data-mode", "light");
-    document.title = "Edgewatch report";
+    document.title = "Keelson report";
     return () => {
       if (prev) document.documentElement.setAttribute("data-mode", prev);
-      document.title = "Edgewatch";
+      document.title = "Keelson";
     };
   }, []);
 
@@ -60,7 +60,7 @@ export function ReportPage() {
             location.href = withScope("/", new URLSearchParams(location.search).get("scope") || "all");
           }}
         >
-          Back to Edgewatch
+          Back to Keelson
         </Button>
         <Button variant="primary" icon={<PrinterIcon />} onClick={() => window.print()}>
           Print or save as PDF
@@ -281,8 +281,8 @@ export function ReportPage() {
         <section className="avoid-break border-t border-kumo-hairline pt-6 text-xs text-kumo-subtle">
           <h2 className="mb-2 text-sm font-semibold text-kumo-default">Method</h2>
           <p>
-            Edgewatch {data.version} read {multi ? `the configuration of ${plural(data.accounts.length, "account")}` : "the account's configuration"} through
-            the {platforms} API{platforms.includes(" and ") ? "s" : ""}, sending only read requests ({num(data.scan.apiCalls)} requests), ran{" "}
+            Keelson {data.version} read {multi ? `the configuration of ${plural(data.accounts.length, "account")}` : "the account's configuration"} through the{" "}
+            {platforms} API{platforms.includes(" and ") ? "s" : ""}, sending only read requests ({num(data.scan.apiCalls)} requests), ran{" "}
             {num(Object.keys(data.checks || {}).length)} checks over {num(evaluations)} resources
             {data.zones ? ", and imported Cloudflare Security Center insights" : ""}. Each category score is the severity-weighted share of passing evaluations
             (critical 10, high 6, medium 3, low 1); the posture score is the average of the categories.
@@ -296,7 +296,7 @@ export function ReportPage() {
             </p>
           )}
           <p className="mt-2">
-            Severity labels: {SCORED_SEVERITIES.map((s) => SEVERITY_LABEL[s]).join(", ")}. Edgewatch is an independent project, not affiliated with{" "}
+            Severity labels: {SCORED_SEVERITIES.map((s) => SEVERITY_LABEL[s]).join(", ")}. Keelson is an independent project, not affiliated with{" "}
             {providerList(PROVIDERS, "or")}.
           </p>
         </section>

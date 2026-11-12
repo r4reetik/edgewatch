@@ -122,18 +122,18 @@ describe("released notes", () => {
 describe("install instructions", () => {
   test("follow the newest release line, leaving exact versions and @latest alone", () => {
     const docs =
-      "image: ghcr.io/r4reetik/edgewatch:0.4\nThe Docker tag `:0.4` above; `npm install -g\nedgewatch@0.4`, edgewatch@0.4.1, edgewatch@latest, http://edgewatch:4317";
+      "image: ghcr.io/r4reetik/keelson:0.4\nThe Docker tag `:0.4` above; `npm install -g\nkeelson@0.4`, keelson@0.4.1, keelson@latest, http://keelson:4317";
     assert.equal(
       pinLine(docs, "0.6"),
-      "image: ghcr.io/r4reetik/edgewatch:0.6\nThe Docker tag `:0.6` above; `npm install -g\nedgewatch@0.6`, edgewatch@0.4.1, edgewatch@latest, http://edgewatch:4317",
+      "image: ghcr.io/r4reetik/keelson:0.6\nThe Docker tag `:0.6` above; `npm install -g\nkeelson@0.6`, keelson@0.4.1, keelson@latest, http://keelson:4317",
     );
-    assert.equal(pinLine("ghcr.io/r4reetik/edgewatch:0.9", "1"), "ghcr.io/r4reetik/edgewatch:1");
+    assert.equal(pinLine("ghcr.io/r4reetik/keelson:0.9", "1"), "ghcr.io/r4reetik/keelson:1");
   });
 });
 
 describe("cutting a release from the maintainer's machine", () => {
   // Throwaway repositories, isolated from the user's git configuration (signing, hooks, default branch).
-  const root = mkdtempSync(join(tmpdir(), "edgewatch-release-"));
+  const root = mkdtempSync(join(tmpdir(), "keelson-release-"));
   const cfg = join(root, "gitconfig");
   writeFileSync(
     cfg,
@@ -162,11 +162,11 @@ describe("cutting a release from the maintainer's machine", () => {
       local = join(root, `local-${id}`);
     git(root, "init", "--quiet", "--bare", origin);
     git(root, "clone", "--quiet", origin, local);
-    write(local, "package.json", `${JSON.stringify({ name: "edgewatch", version: "0.6.0", description: "For Cloudflare." }, null, 2)}\n`);
-    write(local, "package-lock.json", `${JSON.stringify({ name: "edgewatch", version: "0.6.0", packages: { "": { version: "0.6.0" } } }, null, 2)}\n`);
+    write(local, "package.json", `${JSON.stringify({ name: "keelson", version: "0.6.0", description: "For Cloudflare." }, null, 2)}\n`);
+    write(local, "package-lock.json", `${JSON.stringify({ name: "keelson", version: "0.6.0", packages: { "": { version: "0.6.0" } } }, null, 2)}\n`);
     write(local, "CHANGELOG.md", "# Changelog\n\n## Unreleased\n\n## 0.6.0\n\n- Old.\n");
-    write(local, "README.md", "docker pull ghcr.io/r4reetik/edgewatch:0.6\n");
-    write(local, "docs/deployment.md", "npm install -g edgewatch@0.6\n");
+    write(local, "README.md", "docker pull ghcr.io/r4reetik/keelson:0.6\n");
+    write(local, "docs/deployment.md", "npm install -g keelson@0.6\n");
     git(local, "add", "-A");
     git(local, "commit", "--quiet", "-m", "Start");
     git(local, "tag", "-a", "v0.6.0", "-m", "v0.6.0");
@@ -193,7 +193,7 @@ describe("cutting a release from the maintainer's machine", () => {
     // Work done meanwhile, never pushed: the release didn't include it. It also edits the line next to "version",
     // which git reports as a conflict with the release's version bump.
     write(local, "CHANGELOG.md", "# Changelog\n\n## Unreleased\n\n- Node 26.\n- Owner suggestions.\n\n## 0.6.0\n\n- Old.\n");
-    write(local, "package.json", `${JSON.stringify({ name: "edgewatch", version: "0.6.0", description: "Now with Vercel." }, null, 2)}\n`);
+    write(local, "package.json", `${JSON.stringify({ name: "keelson", version: "0.6.0", description: "Now with Vercel." }, null, 2)}\n`);
     git(local, "commit", "--quiet", "-am", "Owner suggestions");
 
     const r = sync(local, () => {});
@@ -202,7 +202,7 @@ describe("cutting a release from the maintainer's machine", () => {
     const log = read(local, "CHANGELOG.md");
     assert.equal(section(log, "## Unreleased"), "- Owner suggestions.");
     assert.equal(section(log, "## 0.7.0"), "- Node 26.");
-    assert.deepEqual(JSON.parse(read(local, "package.json")), { name: "edgewatch", version: "0.7.0", description: "Now with Vercel." });
+    assert.deepEqual(JSON.parse(read(local, "package.json")), { name: "keelson", version: "0.7.0", description: "Now with Vercel." });
     assert.equal(git(local, "status", "--porcelain"), "", "the repair is committed");
   });
 
@@ -217,7 +217,7 @@ describe("cutting a release from the maintainer's machine", () => {
     const log = read(local, "CHANGELOG.md");
     assert.equal(section(log, "## 0.7.0"), "- Vercel support.");
     assert.equal(section(log, "## Unreleased"), "");
-    assert.match(read(local, "README.md"), /edgewatch:0\.7/, "a new line moves the install instructions");
+    assert.match(read(local, "README.md"), /keelson:0\.7/, "a new line moves the install instructions");
   });
 
   test("release refuses uncommitted work and other branches, and a dry run changes nothing", () => {

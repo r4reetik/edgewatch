@@ -1,4 +1,4 @@
-// What every provider gives the rest of Edgewatch. The scanner, the account routes
+// What every provider gives the rest of Keelson. The scanner, the account routes
 // and the setup screen only talk to providers through this interface, so adding a
 // provider (Google Cloud, Google Workspace…) means implementing it once and
 // listing it in ./index.ts. See "Adding a provider" in CONTRIBUTING.md.
@@ -28,7 +28,7 @@ export interface ScanInput {
 }
 
 export interface ScanOutput {
-  /** The account's name at the provider, to keep Edgewatch's copy current. */
+  /** The account's name at the provider, to keep Keelson's copy current. */
   accountName: string | null;
   evaluation: Evaluation;
   /** Provider-specific parts of the snapshot (zones, projects, links…). */

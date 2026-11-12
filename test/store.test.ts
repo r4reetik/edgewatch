@@ -14,8 +14,8 @@ import type { Result } from "../src/core/types.ts";
 
 describe("store: migration 2 and reopen tracking", () => {
   test("a v1 database migrates in place and keeps its data", () => {
-    const dir = mkdtempSync(join(tmpdir(), "edgewatch-mig-"));
-    const path = join(dir, "edgewatch.db");
+    const dir = mkdtempSync(join(tmpdir(), "keelson-mig-"));
+    const path = join(dir, "keelson.db");
     const db = new DatabaseSync(path);
     db.exec("CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
     db.exec(MIGRATIONS[0]);

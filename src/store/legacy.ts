@@ -1,4 +1,4 @@
-// One-time upgrade from Edgewatch 0.2, which scanned a single account: its
+// One-time upgrade from Keelson 0.2, which scanned a single account: its
 // config.json token becomes the first account in a new entity, and the global
 // email domains and alert destinations move onto that entity.
 

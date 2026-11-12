@@ -34,13 +34,13 @@ jobs:
       - name: Smoke-test the packed CLI
         run: |
           npm pack
-          npm install -g ./edgewatch-*.tgz
-          edgewatch --version
-          (edgewatch --no-open --port 4999 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
+          npm install -g ./keelson-*.tgz
+          keelson --version
+          (keelson --no-open --port 4999 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
           curl -fsS http://127.0.0.1:4999/api/health
-          curl -fsS http://127.0.0.1:4999/ | grep -q Edgewatch
+          curl -fsS http://127.0.0.1:4999/ | grep -q Keelson
 
-  # The oldest Node.js that runs Edgewatch is 26.13.0 (MIN_NODE in src/node-check.ts): build it, then run it on
+  # The oldest Node.js that runs Keelson is 26.13.0 (MIN_NODE in src/node-check.ts): build it, then run it on
   # exactly that, and check that an older one is refused with upgrade steps.
   minimum-node:
     runs-on: ubuntu-latest
@@ -57,20 +57,20 @@ jobs:
           node-version: 26.13.0
       - name: Smoke-test the packed CLI on Node 26.13.0
         run: |
-          npm install -g ./edgewatch-*.tgz
-          edgewatch --version
-          (edgewatch --no-open --port 4998 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
+          npm install -g ./keelson-*.tgz
+          keelson --version
+          (keelson --no-open --port 4998 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
           curl -fsS http://127.0.0.1:4998/api/health
-          curl -fsS http://127.0.0.1:4998/ | grep -q Edgewatch
+          curl -fsS http://127.0.0.1:4998/ | grep -q Keelson
       - uses: actions/setup-node@v7
         with:
           node-version: 24
       - name: An older Node.js installs this version and gets upgrade steps
         run: |
-          npm install -g ./edgewatch-*.tgz
-          if edgewatch --version > out.txt 2>&1; then cat out.txt; echo "expected Node 24 to be refused"; exit 1; fi
+          npm install -g ./keelson-*.tgz
+          if keelson --version > out.txt 2>&1; then cat out.txt; echo "expected Node 24 to be refused"; exit 1; fi
           cat out.txt
-          grep -q "npx edgewatch@latest" out.txt
+          grep -q "npx keelson@latest" out.txt
 
   docker:
     runs-on: ubuntu-latest
@@ -82,10 +82,17 @@ jobs:
           context: .
           push: false
           load: true
-          tags: edgewatch:ci
+          tags: keelson:ci
       - name: Smoke-test the container
         run: |
-          docker run -d --name ew -p 4318:4317 -e EDGEWATCH_AUTH=none edgewatch:ci
+          docker run -d --name ew -p 4318:4317 -e KEELSON_AUTH=none keelson:ci
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4318/api/health && break; sleep 1; done
           curl -fsS http://127.0.0.1:4318/api/health
           docker logs ew
+      - name: A container set up under the old name still starts
+        # Compose files from before the rename to Keelson set EDGEWATCH_* variables (AGENTS.md: old names keep working).
+        run: |
+          docker run -d --name old -p 4319:5000 -e EDGEWATCH_AUTH=none -e EDGEWATCH_PORT=5000 keelson:ci
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4319/api/health && break; sleep 1; done
+          curl -fsS http://127.0.0.1:4319/api/health
+          docker logs old

@@ -8,7 +8,7 @@ import { makeApp } from "./helpers/app.ts";
 
 const release = (tag: string, body = "", o: { prerelease?: boolean; draft?: boolean } = {}) => ({
   tag_name: tag,
-  html_url: `https://github.com/r4reetik/edgewatch/releases/tag/${tag}`,
+  html_url: `https://github.com/r4reetik/keelson/releases/tag/${tag}`,
   published_at: "2026-12-01T00:00:00Z",
   body,
   draft: !!o.draft,
@@ -78,9 +78,9 @@ describe("checker", () => {
   test("reads the public releases list and keeps the last result when a check fails", async () => {
     let ok = true;
     const { f, calls } = fakeFetch(() => (ok ? new Response(JSON.stringify([release("v0.4.2")])) : new Response("", { status: 503 })));
-    const c = new UpdateChecker({ version: "0.4.0", repository: "r4reetik/edgewatch", install: "docker", enabled: () => true, fetch: f });
+    const c = new UpdateChecker({ version: "0.4.0", repository: "r4reetik/keelson", install: "docker", enabled: () => true, fetch: f });
     assert.equal((await c.check()).latest?.version, "0.4.2");
-    assert.equal(calls[0], "https://api.github.com/repos/r4reetik/edgewatch/releases?per_page=30");
+    assert.equal(calls[0], "https://api.github.com/repos/r4reetik/keelson/releases?per_page=30");
     ok = false;
     const after = await c.check();
     assert.equal(after.latest?.version, "0.4.2", "kept");
@@ -90,8 +90,8 @@ describe("checker", () => {
   test("never contacts GitHub when switched off, in Settings, by environment, or without a repository", async () => {
     const { f, calls } = fakeFetch(() => new Response("[]"));
     const base = { version: "0.4.0", install: "npm" as const, fetch: f };
-    await new UpdateChecker({ ...base, repository: "r4reetik/edgewatch", enabled: () => false }).check();
-    const locked = new UpdateChecker({ ...base, repository: "r4reetik/edgewatch", enabled: () => true, lockedOff: true });
+    await new UpdateChecker({ ...base, repository: "r4reetik/keelson", enabled: () => false }).check();
+    const locked = new UpdateChecker({ ...base, repository: "r4reetik/keelson", enabled: () => true, lockedOff: true });
     await locked.check();
     await new UpdateChecker({ ...base, repository: null, enabled: () => true }).check();
     assert.equal(calls.length, 0);

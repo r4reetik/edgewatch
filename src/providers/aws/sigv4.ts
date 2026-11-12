@@ -1,5 +1,5 @@
 // AWS Signature Version 4 for GET requests, with node:crypto and nothing else.
-// Edgewatch only reads, so the body is always empty; there is no way to sign a
+// Keelson only reads, so the body is always empty; there is no way to sign a
 // request with a payload here. test/aws.test.ts checks it against AWS's published
 // example signature.
 

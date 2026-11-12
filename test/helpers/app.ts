@@ -15,10 +15,10 @@ import { seedAccount } from "../../dev/mock/accounts.ts";
 export const PASSWORD = "correct horse battery staple";
 
 export function makeApp({ password = null as string | null, configured = false, trustProxy = false } = {}) {
-  const dataDir = mkdtempSync(join(tmpdir(), "edgewatch-test-"));
+  const dataDir = mkdtempSync(join(tmpdir(), "keelson-test-"));
   const webDir = join(dataDir, "web");
   mkdirSync(join(webDir, "assets"), { recursive: true });
-  writeFileSync(join(webDir, "index.html"), "<!doctype html><title>Edgewatch</title>");
+  writeFileSync(join(webDir, "index.html"), "<!doctype html><title>Keelson</title>");
   writeFileSync(join(webDir, "assets", "app.js"), "console.log(1)");
   writeFileSync(join(dataDir, "secret.txt"), "do not serve");
   const repo = new Repo(new Store(":memory:"));

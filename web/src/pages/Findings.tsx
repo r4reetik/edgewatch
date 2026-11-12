@@ -50,7 +50,7 @@ const PER_PAGE = 50;
 const ALL = "all";
 const TITLE = "Findings";
 const DESCRIPTION =
-  "Every open problem from Edgewatch's checks, and from the insights a platform reports itself. A finding is one resource failing one check. Assign owners, set due dates, or accept a risk until a date.";
+  "Every open problem from Keelson's checks, and from the insights a platform reports itself. A finding is one resource failing one check. Assign owners, set due dates, or accept a risk until a date.";
 
 type GroupBy = "check" | "zone" | "account" | "platform" | "none";
 type SortKey = "severity" | "age" | "due";
@@ -71,7 +71,7 @@ const SEVERITY_FILTERS: Record<string, string> = {
   medium: "Medium",
   low: "Low",
 };
-const SOURCE_LABEL: Record<string, string> = { custom: "Edgewatch checks", security_center: "Security Center" };
+const SOURCE_LABEL: Record<string, string> = { custom: "Keelson checks", security_center: "Security Center" };
 const CONFIDENCE_LABEL: Record<string, string> = { confirmed: "Confirmed", likely: "Likely", config: "From configuration" };
 const SPANS_LABEL: Record<string, string> = { "1": "Compares platforms" };
 

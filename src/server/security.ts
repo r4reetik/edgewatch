@@ -20,7 +20,7 @@ export interface AuthOptions {
   allowedHosts: string[];
 }
 
-const SESSION_COOKIE = "edgewatch_session";
+const SESSION_COOKIE = "keelson_session";
 const SESSION_TTL_MS = 12 * 3600_000;
 const LOGIN_WINDOW_MS = 15 * 60_000;
 const LOGIN_MAX_ATTEMPTS = 10;

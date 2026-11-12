@@ -1,4 +1,4 @@
-// Edgewatch against mocked provider APIs (Cloudflare, Vercel and AWS), in memory:
+// Keelson against mocked provider APIs (Cloudflare, Vercel and AWS), in memory:
 // three Cloudflare accounts, a Vercel team and an AWS account in two entities,
 // plus a Vercel-only entity with a personal account. Everything is scanned twice,
 // so trends, "new since last scan" and the checks that span providers have data.
@@ -15,7 +15,7 @@ import { providerList } from "../../src/shared/providers.ts";
 installMockCloudflare();
 installMockVercel();
 installMockAws();
-const port = Number(process.env.EDGEWATCH_PORT || 4317);
+const port = Number(process.env.KEELSON_PORT || 4317);
 const running = await start({
   host: "127.0.0.1",
   port,
@@ -42,4 +42,4 @@ await scanner.start("manual").done;
 // Once more for Cloudflare, which was scanned before AWS noticed the address was gone.
 await scanner.start("manual", [MOCK_ACCOUNT]).done;
 seedTriageHistory(repo, MOCK_ACCOUNT);
-console.log(`\n  Edgewatch (mock ${providerList()} data)\n\n  Open:  ${running.url}\n`);
+console.log(`\n  Keelson (mock ${providerList()} data)\n\n  Open:  ${running.url}\n`);

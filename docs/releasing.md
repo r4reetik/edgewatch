@@ -5,12 +5,12 @@ For maintainers. Users' side of this is in [upgrading.md](upgrading.md).
 ## While working
 
 Every user-visible change adds a line under `## Unreleased` at the top of `CHANGELOG.md`, in the pull request
-that makes it. Write it for someone running Edgewatch, not for a reviewer.
+that makes it. Write it for someone running Keelson, not for a reviewer.
 
 Mark anything that may need users to act with `**Breaking:**` and say what to do:
 
 ```markdown
-- **Breaking:** the `--password-file` flag is gone; set `EDGEWATCH_PASSWORD` instead.
+- **Breaking:** the `--password-file` flag is gone; set `KEELSON_PASSWORD` instead.
 ```
 
 That marker matters: the release script refuses to ship it as a compatible update, and running installations
@@ -50,8 +50,12 @@ The command (`scripts/release.ts`):
 
 The tag starts the Release workflow, which runs `npm run check` on it, refuses a tag that isn't on `main`,
 publishes to npm (`latest`, or `next` for a candidate) with provenance, pushes the multi-arch image to
-`ghcr.io/r4reetik/edgewatch` with the tags in [upgrading.md](upgrading.md#docker), and creates the GitHub release
+`ghcr.io/r4reetik/keelson` with the tags in [upgrading.md](upgrading.md#docker), and creates the GitHub release
 with that version's notes (a prerelease for candidates). Running installations see it within a day.
+
+Each release also goes out under the old name, Edgewatch: the `edgewatch` npm package
+([packages/edgewatch](../packages/edgewatch/bin.js), which only starts keelson, at the same version) and the image
+`ghcr.io/r4reetik/edgewatch` with the same tags. Installations from before the rename upgrade through these.
 
 **Why from your machine.** The workflow used to commit `Release vX.Y.Z` to `main` on GitHub. That forked `main`
 on every release: commits you hadn't pushed were silently left out, and the next `git pull` merged
@@ -73,13 +77,16 @@ a released version, the tests fail and say to run `npm run sync`.
 ## Setup, once
 
 - **npm:** add an `NPM_TOKEN` repository secret: a granular access token with read and write access to
-  `edgewatch` (or to all packages, for the very first publish, before the package exists). Once it's
-  published, you can switch to npm trusted publishing for this repository and `release.yml` instead.
+  both `keelson` and `edgewatch` (or to all packages, for the very first publish, before `keelson` exists).
+  Once both are published, you can switch to npm trusted publishing instead: set it up on each package for
+  this repository and `release.yml`.
 - **Labels:** create `checks` and `false-positive` (the issue forms apply them; GitHub has `bug` and
   `enhancement` already).
 - **Protected `main`:** `npm run release` pushes the release commit and tag to `main` as you, so you need to be
   allowed to push to `main` (or to bypass the rule). The workflow itself needs no extra token.
-- **GHCR:** after the first release, make the `edgewatch` package public under the repository's Packages.
+- **GHCR:** after the first release, make the `keelson` package public under the repository's Packages. The
+  `edgewatch` package must stay public and give this repository write access (package settings → Manage
+  Actions access), or the release can't push the old image name.
 
 If a release fails halfway (npm down, a flaky Docker build), re-run the failed jobs: each publishing step skips
 what's already done. If the push itself is refused (someone pushed to `main` a moment earlier), nothing was

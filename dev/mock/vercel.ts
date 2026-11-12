@@ -235,7 +235,7 @@ const TOKENS = {
   [MOCK_VERCEL_TOKEN]: [
     {
       id: "tok1",
-      name: "edgewatch",
+      name: "keelson",
       createdAt: ago(5),
       activeAt: ago(0),
       expiresAt: ahead(360),

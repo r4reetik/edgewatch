@@ -1,4 +1,4 @@
-// Several providers in one Edgewatch, through the HTTP API: connecting a Vercel team
+// Several providers in one Keelson, through the HTTP API: connecting a Vercel team
 // next to Cloudflare accounts in the same entity, the provider filter on every
 // scoped view, per-provider scores, and secrets kept out of every response.
 

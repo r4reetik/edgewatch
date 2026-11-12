@@ -17,7 +17,7 @@ export default defineChecks(
       attackPath: true,
       title: "DNS record points at Vercel, but no Vercel project in the entity serves it",
       why: "The record sends visitors to Vercel, yet none of the entity's Vercel projects has this hostname. Whoever adds it to their own Vercel project first serves your traffic under your domain.",
-      fix: "1. If the site moved or was retired, delete the DNS record in Cloudflare. 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains. 3. If it belongs to a Vercel team that isn't in Edgewatch, add that team to this entity, or mark the finding as a false positive.",
+      fix: "1. If the site moved or was retired, delete the DNS record in Cloudflare. 2. If it should be live, add the hostname to the right Vercel project under Settings → Domains. 3. If it belongs to a Vercel team that isn't in Keelson, add that team to this entity, or mark the finding as a false positive.",
     },
     "XP-002": {
       spans: ["vercel"],

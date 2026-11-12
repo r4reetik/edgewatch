@@ -1,4 +1,4 @@
-# Edgewatch documentation
+# Keelson documentation
 
 - [Deployment](deployment.md): run it on a laptop, a server, Docker or behind Cloudflare Access; backups.
 - [Upgrading](upgrading.md): release lines, automatic updates, what happens on upgrade, and rolling back.
