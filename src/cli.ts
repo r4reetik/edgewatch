@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import { spawn } from "node:child_process";
 
 const { start, isLoopback, webMissing, VERSION } = await import("./main.ts");
-const { defaultDataDir, defaultHost, env } = await import("./names.ts");
+const { defaultDataDir, defaultHost, env } = await import("./env.ts");
 const { providerList } = await import("./shared/providers.ts");
 
 const HELP = `Keelson ${VERSION}: security posture tracker for ${providerList()}
@@ -31,9 +31,6 @@ Environment only:
   KEELSON_ALLOWED_HOSTS=a,b  Extra hostnames accepted in local mode
   KEELSON_LOG=json           Log one JSON object per line
   KEELSON_UPDATE_CHECK=off   Never check GitHub for new releases
-
-Every KEELSON_* variable can also be set with its old name, EDGEWATCH_*, and an existing
-~/.edgewatch folder is used when there is no ~/.keelson.
 
 Accounts on every platform are added in the browser, with one credential or several. Credentials are
 stored in <data-dir>/credentials.json, readable by your user only. Binding to a non-loopback address

@@ -4,11 +4,9 @@
 //   npm run dev -- --mock  mocked provider APIs, nothing written to disk
 
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync } from "node:fs";
 
 const mock = process.argv.includes("--mock");
-// A clone from before the rename to Keelson keeps its ./.edgewatch until it is moved.
-const dataDir = !existsSync(".keelson") && existsSync(".edgewatch") ? ".edgewatch" : ".keelson";
+const dataDir = ".keelson";
 const server = mock ? ["--watch", "dev/mock/server.ts"] : ["--watch", "src/bin.ts", "--no-open", "--data-dir", dataDir];
 const children: ChildProcess[] = [
   spawn(process.execPath, server, { stdio: "inherit" }),

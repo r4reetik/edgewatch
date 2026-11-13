@@ -9,8 +9,6 @@ import type { Session, SessionAccount, SessionEntity } from "../../../src/shared
 import { setParams, useLocation } from "./router.ts";
 
 const STORAGE_KEY = "keelson-scope";
-/** The key from before the rename to Keelson, read until a new choice is saved. */
-const OLD_STORAGE_KEY = "edgewatch-scope";
 
 export type View = ResolvedScope<SessionAccount, SessionEntity>;
 
@@ -19,7 +17,7 @@ export const defaultScope = (session: Session): string => defaultScopeKey(sessio
 
 const remembered = () => {
   try {
-    return localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem(OLD_STORAGE_KEY);
+    return localStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
   }

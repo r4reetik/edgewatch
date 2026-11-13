@@ -98,9 +98,6 @@ keelson.example.com {
 Flags are for the command, so in a container they mean replacing it: for a password kept in a Docker secret, run
 the image with the command `node dist/bin.js --no-open --password-file /run/secrets/keelson_password`.
 
-Keelson was called Edgewatch before 0.10, and still reads every variable by its old name (`EDGEWATCH_PORT` and
-so on) when the new one isn't set. See [upgrading from Edgewatch](upgrading.md#upgrading-from-edgewatch).
-
 Everything else (scan schedule, retention, SLAs, the takeover probe, accounts, entities and alert destinations)
 is set in the web app and stored in the database.
 

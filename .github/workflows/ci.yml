@@ -45,10 +45,10 @@ jobs:
           tags: keelson:ci
       - name: Smoke-test the container
         run: |
-          docker run -d --name ew -p 4318:4317 -e KEELSON_AUTH=none keelson:ci
+          docker run -d --name keelson -p 4318:4317 -e KEELSON_AUTH=none keelson:ci
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4318/api/health && break; sleep 1; done
           curl -fsS http://127.0.0.1:4318/api/health
-          docker logs ew
+          docker logs keelson
       - name: The image stays small
         # Keelson ships only as this image (AGENTS.md). Alpine with the Node.js binary: no npm, and a size budget
         # that a switch back to a full Node.js base image would break.
@@ -58,10 +58,3 @@ jobs:
           test "$size" -lt 200000000 || { echo "The image grew past 200 MB"; exit 1; }
           if docker run --rm --entrypoint sh keelson:ci -c 'command -v npm'; then echo "npm is in the image"; exit 1; fi
           test "$(docker run --rm --entrypoint id keelson:ci -u)" = 1000
-      - name: A container set up under the old name still starts
-        # Compose files from before the rename to Keelson set EDGEWATCH_* variables (AGENTS.md: old names keep working).
-        run: |
-          docker run -d --name old -p 4319:5000 -e EDGEWATCH_AUTH=none -e EDGEWATCH_PORT=5000 keelson:ci
-          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4319/api/health && break; sleep 1; done
-          curl -fsS http://127.0.0.1:4319/api/health
-          docker logs old

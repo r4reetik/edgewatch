@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- **Edgewatch is now Keelson**, published as the image `ghcr.io/r4reetik/keelson`. Docker installations keep working without changes: the `edgewatch` image is still published with every release and runs Keelson, `EDGEWATCH_*` variables are still read, and an existing `edgewatch.db` is used where it is. See [upgrading from Edgewatch](docs/upgrading.md#upgrading-from-edgewatch).
-- **Breaking:** Keelson ships only as a Docker image now, and is no longer published to npm. If you run it with `npx edgewatch` or `npm install -g edgewatch`, you stay on 0.9. To move to the image and keep your data, stop Edgewatch and run `docker run -d --name keelson -p 127.0.0.1:4317:4317 --user "$(id -u):$(id -g)" -v ~/.edgewatch:/data -e KEELSON_PASSWORD='a-long-admin-password' ghcr.io/r4reetik/keelson:latest`, then open http://localhost:4317 ([details](docs/upgrading.md#upgrading-from-edgewatch)). The container asks for that password even on your own machine.
-- The image is smaller: Alpine with only Node.js, without npm, Yarn or Corepack, so image scanners also have fewer packages to report. It still runs as uid 1000, so existing `/data` volumes need nothing.
-- The Docker image no longer sets `KEELSON_HOST` and `KEELSON_DATA_DIR`; it defaults to `0.0.0.0` and `/data` itself, so a variable set on the container (by either name) is the one used.
+- **Breaking: Edgewatch is now Keelson, and starts fresh.** Keelson reads nothing that Edgewatch left: not `EDGEWATCH_*` variables, the `~/.edgewatch` folder or `edgewatch.db`, and the `edgewatch` image and npm package are no longer published. Start Keelson with the image `ghcr.io/r4reetik/keelson`, set `KEELSON_*` variables, and add your accounts again. To keep your Edgewatch data instead, rename the database to `keelson.db` (with its `-wal` and `-shm` files) in a folder you mount at `/data`.
+- **Breaking:** Keelson ships only as a Docker image, and is no longer published to npm. On your own machine: `docker run -d --name keelson -p 127.0.0.1:4317:4317 -v keelson-data:/data -e KEELSON_PASSWORD='a-long-admin-password' ghcr.io/r4reetik/keelson:latest`, then open http://localhost:4317. The container asks for that password even on your own machine.
+- The image is smaller: Alpine with only Node.js, without npm, Yarn or Corepack, so image scanners also have fewer packages to report. It runs as uid 1000, as before.
+- The Docker image no longer sets `KEELSON_HOST` and `KEELSON_DATA_DIR`; it defaults to `0.0.0.0` and `/data` itself.
 
 ## 0.9.0
 

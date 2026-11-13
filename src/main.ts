@@ -16,7 +16,7 @@ import { importLegacy } from "./store/legacy.ts";
 import { log } from "./log.ts";
 import { REPOSITORY, VERSION } from "./meta.ts";
 import { UpdateChecker } from "./updates.ts";
-import { databasePath, env } from "./names.ts";
+import { env } from "./env.ts";
 
 export { VERSION } from "./meta.ts";
 
@@ -56,7 +56,7 @@ function findWebDir(): string | null {
 
 export async function start(o: StartOptions): Promise<Running> {
   const vault = new TokenVault(o.dataDir);
-  const store = new Store(o.dataDir ? databasePath(o.dataDir) : ":memory:", { log: log.info });
+  const store = new Store(o.dataDir ? join(o.dataDir, "keelson.db") : ":memory:", { log: log.info });
   const repo = new Repo(store);
   repo.scans.recoverInterrupted();
   if (o.dataDir) importLegacy(o.dataDir, repo, vault, log.info);

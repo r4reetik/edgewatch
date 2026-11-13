@@ -2,7 +2,6 @@ node_modules/
 dist/
 *.tgz
 .keelson/
-.edgewatch/
 coverage/
 CLAUDE.local.md
 .claude/settings.local.json

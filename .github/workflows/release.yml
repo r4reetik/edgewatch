@@ -8,8 +8,7 @@ name: Release
 #
 # Keelson ships only as a container image on GHCR (nothing is published to npm).
 # Stable releases are tagged :X.Y.Z, :X.Y (the release line), :X from 1.0, and
-# :latest. Each also goes out as ghcr.io/<owner>/edgewatch, the old name, so
-# Docker installations from before the rename to Keelson keep upgrading.
+# :latest.
 # Release candidates (X.Y.Z-rc.N) get :X.Y.Z-rc.N only, so nobody receives one
 # without asking.
 #
@@ -87,10 +86,7 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v6
         with:
-          # Also under the old name, which Docker installations from before the rename pull.
-          images: |
-            ghcr.io/${{ github.repository }}
-            ghcr.io/${{ github.repository_owner }}/edgewatch
+          images: ghcr.io/${{ github.repository }}
           # Prereleases only get their exact version; {{major}}.{{minor}} is never generated for them.
           tags: |
             type=semver,pattern={{version}},value=${{ needs.verify.outputs.version }}

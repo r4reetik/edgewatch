@@ -1,7 +1,7 @@
 // One logger for the server. Plain lines by default; KEELSON_LOG=json writes
 // one JSON object per line (for Docker and log shippers). Errors go to stderr.
 
-import { env } from "./names.ts";
+import { env } from "./env.ts";
 
 type Level = "info" | "warn" | "error";
 const json = env("LOG") === "json";

@@ -54,9 +54,6 @@ pushes the multi-arch image (`linux/amd64`, `linux/arm64`) to `ghcr.io/r4reetik/
 candidates). Running installations see it within a day. Nothing is published to npm: the image is the only way
 Keelson ships, and `package.json` is marked `private` so it can't be published by accident.
 
-Each release also pushes the same image as `ghcr.io/r4reetik/edgewatch`, the old name, with the same tags, so
-Docker installations from before the rename keep upgrading.
-
 **Why from your machine.** The workflow used to commit `Release vX.Y.Z` to `main` on GitHub. That forked `main`
 on every release: commits you hadn't pushed were silently left out, and the next `git pull` merged
 `CHANGELOG.md` across the rename of `## Unreleased`, moving new notes under the version just released. Now the
@@ -80,9 +77,7 @@ a released version, the tests fail and say to run `npm run sync`.
   `enhancement` already).
 - **Protected `main`:** `npm run release` pushes the release commit and tag to `main` as you, so you need to be
   allowed to push to `main` (or to bypass the rule). The workflow itself needs no extra token.
-- **GHCR:** after the first release, make the `keelson` package public under the repository's Packages. The
-  `edgewatch` package must stay public and give this repository write access (package settings → Manage
-  Actions access), or the release can't push the old image name.
+- **GHCR:** after the first release, make the `keelson` package public under the repository's Packages.
 
 If a release fails halfway (a flaky Docker build, GHCR down), re-run the failed jobs: each publishing step skips
 what's already done. If the push itself is refused (someone pushed to `main` a moment earlier), nothing was

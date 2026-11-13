@@ -7,7 +7,6 @@
 <p align="center">
   <strong>Security posture tracking for Cloudflare, Vercel and AWS.</strong><br>
   Read-only checks across DNS, WAF, TLS, Zero Trust, email, live traffic, deployments, secrets, IAM, storage and networks, and a place to triage every finding until it's fixed.<br>
-  <sub>Formerly Edgewatch: <a href="docs/upgrading.md#upgrading-from-edgewatch">upgrading from Edgewatch</a>.</sub>
 </p>
 
 <p align="center">
