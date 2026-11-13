@@ -1,5 +1,5 @@
-// The command line: `npx keelson` starts the server and opens the browser.
-// Started by bin.ts once it has checked the Node.js version.
+// The command line: starts the server, and opens the browser when run from a
+// clone on your own machine. Started by bin.ts once it has checked the Node.js version.
 
 import "./warnings.ts";
 import { parseArgs, type ParseArgsConfig } from "node:util";
@@ -17,8 +17,8 @@ Usage: keelson [options]
 
 Options:
   --port <n>            Port to listen on (default 4317, env KEELSON_PORT)
-  --host <addr>         Address to bind (default 127.0.0.1, env KEELSON_HOST)
-  --data-dir <path>     Where the database and credentials live (default ~/.keelson, env KEELSON_DATA_DIR)
+  --host <addr>         Address to bind (default 127.0.0.1, 0.0.0.0 in the image, env KEELSON_HOST)
+  --data-dir <path>     Where the database and credentials live (default ~/.keelson, /data in the image, env KEELSON_DATA_DIR)
   --password-file <p>   File containing the admin password (or env KEELSON_PASSWORD)
   --trust-proxy         Trust X-Forwarded-* headers from a reverse proxy (env KEELSON_TRUST_PROXY=1)
   --no-open             Don't open the browser

@@ -49,13 +49,13 @@ The command (`scripts/release.ts`):
 5. commits `Release vX.Y.Z`, tags it, and pushes `main` and the tag in one atomic push: both land or neither does.
 
 The tag starts the Release workflow, which runs `npm run check` on it, refuses a tag that isn't on `main`,
-publishes to npm (`latest`, or `next` for a candidate) with provenance, pushes the multi-arch image to
-`ghcr.io/r4reetik/keelson` with the tags in [upgrading.md](upgrading.md#docker), and creates the GitHub release
-with that version's notes (a prerelease for candidates). Running installations see it within a day.
+pushes the multi-arch image (`linux/amd64`, `linux/arm64`) to `ghcr.io/r4reetik/keelson` with the tags in
+[upgrading.md](upgrading.md#docker), and creates the GitHub release with that version's notes (a prerelease for
+candidates). Running installations see it within a day. Nothing is published to npm: the image is the only way
+Keelson ships, and `package.json` is marked `private` so it can't be published by accident.
 
-Each release also goes out under the old name, Edgewatch: the `edgewatch` npm package
-([packages/edgewatch](../packages/edgewatch/bin.js), which only starts keelson, at the same version) and the image
-`ghcr.io/r4reetik/edgewatch` with the same tags. Installations from before the rename upgrade through these.
+Each release also pushes the same image as `ghcr.io/r4reetik/edgewatch`, the old name, with the same tags, so
+Docker installations from before the rename keep upgrading.
 
 **Why from your machine.** The workflow used to commit `Release vX.Y.Z` to `main` on GitHub. That forked `main`
 on every release: commits you hadn't pushed were silently left out, and the next `git pull` merged
@@ -76,10 +76,6 @@ a released version, the tests fail and say to run `npm run sync`.
 
 ## Setup, once
 
-- **npm:** add an `NPM_TOKEN` repository secret: a granular access token with read and write access to
-  both `keelson` and `edgewatch` (or to all packages, for the very first publish, before `keelson` exists).
-  Once both are published, you can switch to npm trusted publishing instead: set it up on each package for
-  this repository and `release.yml`.
 - **Labels:** create `checks` and `false-positive` (the issue forms apply them; GitHub has `bug` and
   `enhancement` already).
 - **Protected `main`:** `npm run release` pushes the release commit and tag to `main` as you, so you need to be
@@ -88,7 +84,7 @@ a released version, the tests fail and say to run `npm run sync`.
   `edgewatch` package must stay public and give this repository write access (package settings → Manage
   Actions access), or the release can't push the old image name.
 
-If a release fails halfway (npm down, a flaky Docker build), re-run the failed jobs: each publishing step skips
+If a release fails halfway (a flaky Docker build, GHCR down), re-run the failed jobs: each publishing step skips
 what's already done. If the push itself is refused (someone pushed to `main` a moment earlier), nothing was
 published: delete the local tag (`git tag -d vX.Y.Z`), undo the release commit (`git reset --hard HEAD~1`), and run
 `npm run release` again; it merges their commits first.

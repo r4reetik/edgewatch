@@ -13,9 +13,8 @@
 <p align="center">
   <a href="https://github.com/r4reetik/keelson/actions/workflows/ci.yml"><img src="https://github.com/r4reetik/keelson/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/r4reetik/keelson/actions/workflows/codeql.yml"><img src="https://github.com/r4reetik/keelson/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
-  <a href="https://www.npmjs.com/package/keelson"><img src="https://img.shields.io/npm/v/keelson" alt="npm"></a>
+  <a href="https://github.com/r4reetik/keelson/releases"><img src="https://img.shields.io/github/v/release/r4reetik/keelson" alt="Latest release"></a>
   <a href="https://github.com/r4reetik/keelson/pkgs/container/keelson"><img src="https://img.shields.io/badge/docker-ghcr.io-2496ED?logo=docker&logoColor=white" alt="Docker"></a>
-  <img src="https://img.shields.io/node/v/keelson" alt="Node.js">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/r4reetik/keelson" alt="MIT license"></a>
 </p>
 
@@ -45,12 +44,16 @@ are planned.
 ## Quick start
 
 ```bash
-npx keelson@latest
+docker run -d --name keelson -p 127.0.0.1:4317:4317 \
+  -v keelson-data:/data \
+  -e KEELSON_PASSWORD='a-long-admin-password' \
+  ghcr.io/r4reetik/keelson:0.9
 ```
 
-That's the whole install. A browser tab opens, you choose a platform (Cloudflare, Vercel or AWS), paste its token or access key, pick the
-accounts or teams it should scan, and the first scans run. It needs Node.js 26 LTS; on an older one it says how to upgrade. To run it for a team, use
-[Docker](#run-it-for-a-team-docker).
+That's the whole install: Keelson ships as this one image, for Intel and Arm, and needs nothing but Docker. Open
+http://localhost:4317, sign in with the password, choose a platform (Cloudflare, Vercel or AWS), paste its token or
+access key, pick the accounts or teams it should scan, and the first scans run. `127.0.0.1:` keeps it reachable from
+this machine only; to run it for a team, see [below](#run-it-for-a-team-docker).
 
 ## What it checks
 
@@ -235,31 +238,35 @@ The container listens on all interfaces, so it **refuses to start without a pass
 authenticating proxy such as Cloudflare Access already protects it, set `KEELSON_AUTH=none`
 instead. Behind a TLS-terminating proxy, also set `KEELSON_TRUST_PROXY=1` so session cookies are
 marked Secure. Data lives in `/data`; back up that volume. [docs/deployment.md](docs/deployment.md) covers
-Compose, Cloudflare Access, reverse proxies, systemd and backups.
+Compose, Cloudflare Access, reverse proxies and backups.
 
 ## Updating
 
 Keelson tells you when a new version is out (in the sidebar and under **Settings → Updates**), with the
 exact upgrade command and a warning when it has breaking changes. Releases follow semantic versioning in
 **release lines** (`0.4`, `0.5`…; `1`, `2`… from 1.0): updates within a line never break anything, so it's
-safe to take them automatically. The Docker tag `:0.9` above does exactly that; `npm install -g
-keelson@0.9` is the npm equivalent. The database is backed up before every upgrade that changes it.
+safe to take them automatically. The Docker tag `:0.9` above does exactly that. The database is backed up
+before every upgrade that changes it.
 [docs/upgrading.md](docs/upgrading.md) has automatic updates, release candidates and rolling back.
 
 ## Configuration
 
-| Flag | Environment | Default | |
-|---|---|---|---|
-| `--port` | `KEELSON_PORT` | `4317` | Port to listen on |
-| `--host` | `KEELSON_HOST` | `127.0.0.1` | Address to bind. Anything but loopback requires a password |
-| `--data-dir` | `KEELSON_DATA_DIR` | `~/.keelson` | Database and stored tokens |
-| `--password-file` | `KEELSON_PASSWORD` | none | Admin password, at least 12 characters |
-| `--trust-proxy` | `KEELSON_TRUST_PROXY=1` | off | Trust `X-Forwarded-*` from your reverse proxy |
-| `--no-open` | | | Don't open a browser |
-| | `KEELSON_AUTH=none` | | Allow no password on a network address (only behind an authenticating proxy) |
-| | `KEELSON_ALLOWED_HOSTS` | | Extra hostnames accepted in local mode, comma-separated |
-| | `KEELSON_LOG=json` | text | Log one JSON object per line |
-| | `KEELSON_UPDATE_CHECK=off` | on | Never check GitHub for new releases |
+Set these on the container:
+
+| Environment | Default | |
+|---|---|---|
+| `KEELSON_PASSWORD` | none | Admin password, at least 12 characters. Required unless `KEELSON_AUTH=none` |
+| `KEELSON_PORT` | `4317` | Port to listen on inside the container |
+| `KEELSON_HOST` | `0.0.0.0` | Address to bind inside the container |
+| `KEELSON_DATA_DIR` | `/data` | Database and stored tokens; mount a volume here |
+| `KEELSON_TRUST_PROXY=1` | off | Trust `X-Forwarded-*` from your reverse proxy |
+| `KEELSON_AUTH=none` | | Allow no password (only behind an authenticating proxy) |
+| `KEELSON_ALLOWED_HOSTS` | | Extra hostnames accepted when Keelson listens on loopback without a password, comma-separated |
+| `KEELSON_LOG=json` | text | Log one JSON object per line |
+| `KEELSON_UPDATE_CHECK=off` | on | Never check GitHub for new releases |
+
+[docs/deployment.md](docs/deployment.md#configuration) also covers the command-line flags (`--password-file`, for a
+password kept in a Docker secret) and the defaults when running from a clone.
 
 Schedule, retention, SLAs and the takeover probe are set in **Settings**. Accounts, entities, company
 email domains and alert destinations are set on the **Accounts** page.

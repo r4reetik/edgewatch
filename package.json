@@ -1,36 +1,13 @@
 {
   "name": "keelson",
   "version": "0.9.0",
-  "description": "Security posture and best-practice tracker for Cloudflare, Vercel and AWS. Read-only, runs locally.",
+  "private": true,
+  "description": "Security posture and best-practice tracker for Cloudflare, Vercel and AWS. Read-only, self-hosted, shipped as a Docker image.",
   "license": "MIT",
   "type": "module",
-  "bin": {
-    "keelson": "dist/bin.js"
-  },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE",
-    "SECURITY.md",
-    "CHANGELOG.md"
-  ],
   "engines": {
-    "node": ">=18"
+    "node": ">=26.13.0"
   },
-  "keywords": [
-    "cloudflare",
-    "vercel",
-    "aws",
-    "security",
-    "posture",
-    "cspm",
-    "audit",
-    "compliance",
-    "dns",
-    "waf",
-    "zero-trust",
-    "self-hosted"
-  ],
   "scripts": {
     "dev": "node scripts/dev.ts",
     "dev:server": "node --watch src/bin.ts --no-open --data-dir .keelson",
@@ -47,8 +24,7 @@
     "sync": "node scripts/release.ts sync",
     "test": "node --test --test-reporter=spec 'test/**/*.test.ts'",
     "check": "npm run typecheck && npm run lint && npm test",
-    "start": "node dist/bin.js",
-    "prepack": "npm run build"
+    "start": "node dist/bin.js"
   },
   "dependencies": {
     "@hono/node-server": "2.1.6",

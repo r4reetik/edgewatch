@@ -235,8 +235,10 @@ function upgradeSteps(u: UpdateStatus, version: string): { text: string; command
       command: "docker compose pull && docker compose up -d",
     };
   }
-  if (u.install === "npx") return { text: "Stop Keelson, then start the newest version with npx. Your data stays where it is.", command: "npx keelson@latest" };
-  return { text: "Install the new version and restart Keelson.", command: `npm install -g keelson@${version}` };
+  return {
+    text: "In your clone, check out the release, build it and restart Keelson.",
+    command: `git fetch --tags && git checkout v${version} && npm ci && npm run build`,
+  };
 }
 
 function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
@@ -321,11 +323,7 @@ function UpdatesCard({ s, save }: { s: Settings; save: Save }) {
                 <p className="text-sm text-kumo-default">
                   Not ready for {u.latest?.version}? {u.inLine.version} is the newest compatible update on {u.line}:{" "}
                   <code className="rounded bg-kumo-recessed px-1.5 py-0.5 font-mono text-xs">
-                    {u.install === "docker"
-                      ? `ghcr.io/r4reetik/keelson:${u.line}`
-                      : u.install === "npx"
-                        ? `npx keelson@${u.line}`
-                        : `npm install -g keelson@${u.line}`}
+                    {u.install === "docker" ? `ghcr.io/r4reetik/keelson:${u.line}` : `git checkout v${u.inLine.version}`}
                   </code>{" "}
                   <Link href={u.inLine.url} target="_blank" rel="noreferrer">
                     Notes

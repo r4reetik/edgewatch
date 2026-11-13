@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- **Edgewatch is now Keelson.** Start it with `npx keelson@latest`, or use the image `ghcr.io/r4reetik/keelson`. Existing installations keep working without changes: the `edgewatch` npm package and image are still published with every release and run Keelson, `EDGEWATCH_*` variables are still read, and an existing `~/.edgewatch` folder and `edgewatch.db` are used where they are. See [upgrading from Edgewatch](docs/upgrading.md#upgrading-from-edgewatch).
+- **Edgewatch is now Keelson**, published as the image `ghcr.io/r4reetik/keelson`. Docker installations keep working without changes: the `edgewatch` image is still published with every release and runs Keelson, `EDGEWATCH_*` variables are still read, and an existing `edgewatch.db` is used where it is. See [upgrading from Edgewatch](docs/upgrading.md#upgrading-from-edgewatch).
+- **Breaking:** Keelson ships only as a Docker image now, and is no longer published to npm. If you run it with `npx edgewatch` or `npm install -g edgewatch`, you stay on 0.9. To move to the image and keep your data, stop Edgewatch and run `docker run -d --name keelson -p 127.0.0.1:4317:4317 --user "$(id -u):$(id -g)" -v ~/.edgewatch:/data -e KEELSON_PASSWORD='a-long-admin-password' ghcr.io/r4reetik/keelson:latest`, then open http://localhost:4317 ([details](docs/upgrading.md#upgrading-from-edgewatch)). The container asks for that password even on your own machine.
+- The image is smaller: Alpine with only Node.js, without npm, Yarn or Corepack, so image scanners also have fewer packages to report. It still runs as uid 1000, so existing `/data` volumes need nothing.
 - The Docker image no longer sets `KEELSON_HOST` and `KEELSON_DATA_DIR`; it defaults to `0.0.0.0` and `/data` itself, so a variable set on the container (by either name) is the one used.
 
 ## 0.9.0

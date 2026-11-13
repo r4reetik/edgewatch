@@ -25,7 +25,7 @@ describe("Node.js version check", () => {
       assert.match(c.message, new RegExp(`this is Node\\.js ${v.replaceAll(".", "\\.")}`));
       assert.match(c.message, /Node\.js 26 LTS \(26\.13\.0 or newer\)/);
       assert.match(c.message, /nvm install 26 && nvm alias default 26/);
-      assert.match(c.message, /npx keelson@latest/);
+      assert.match(c.message, /Docker image/);
     }
   });
 
@@ -43,10 +43,9 @@ describe("Node.js version check", () => {
     assert.match(upgradeCommand({}, "/usr/bin/node", "linux"), /nodejs\.org/);
   });
 
-  test("npm can't filter out the newest Keelson on an older Node.js", () => {
-    // A strict engines range makes npm pick an older release instead; the launcher enforces MIN_NODE.
+  test("package.json names the same minimum, for contributors' npm install", () => {
+    // Keelson isn't published to npm (it ships as a Docker image), so engines only warns someone working from a clone.
     const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
-    assert.equal(pkg.engines.node, ">=18");
-    assert.equal(pkg.bin.keelson, "dist/bin.js");
+    assert.equal(pkg.engines.node, `>=${MIN_NODE}`);
   });
 });

@@ -6,11 +6,12 @@ name: Release
 # together. This workflow never commits: when it did, every release forked
 # origin/main from the maintainer's local main.
 #
-# Stable releases go to npm "latest", and to GHCR as :X.Y.Z, :X.Y (the release
-# line), :X from 1.0, and :latest. Each goes out under the old name too (the
-# edgewatch npm package and image), so installations from before the rename
-# to Keelson keep upgrading. Release candidates (X.Y.Z-rc.N) go to npm
-# "next" and GHCR :X.Y.Z-rc.N only, so nobody receives one without asking.
+# Keelson ships only as a container image on GHCR (nothing is published to npm).
+# Stable releases are tagged :X.Y.Z, :X.Y (the release line), :X from 1.0, and
+# :latest. Each also goes out as ghcr.io/<owner>/edgewatch, the old name, so
+# Docker installations from before the rename to Keelson keep upgrading.
+# Release candidates (X.Y.Z-rc.N) get :X.Y.Z-rc.N only, so nobody receives one
+# without asking.
 #
 # Every publishing step skips what's already done, so re-running a release that
 # failed halfway finishes it instead of failing on "version already exists".
@@ -65,43 +66,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-  npm:
-    needs: verify
-    if: ${{ !cancelled() && needs.verify.result == 'success' && needs.verify.outputs.released != 'true' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ needs.verify.outputs.tag }}
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          registry-url: https://registry.npmjs.org
-      - run: npm ci
-      - name: Publish, unless this version is already on npm
-        run: |
-          if npm view "keelson@$VERSION" version > /dev/null 2>&1; then echo "keelson@$VERSION is already published"; exit 0; fi
-          npm publish --provenance --access public --tag "$DIST_TAG"
-        env:
-          VERSION: ${{ needs.verify.outputs.version }}
-          DIST_TAG: ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      - name: Publish edgewatch, the old name, which starts keelson
-        # Installations from before the rename show `npx edgewatch@latest` as their upgrade step.
-        # The version is set here, not committed, so it always matches the keelson just published.
-        working-directory: packages/edgewatch
-        run: |
-          if npm view "edgewatch@$VERSION" version > /dev/null 2>&1; then echo "edgewatch@$VERSION is already published"; exit 0; fi
-          npm pkg set version="$VERSION" "dependencies.keelson=$VERSION"
-          npm publish --provenance --access public --tag "$DIST_TAG"
-        env:
-          VERSION: ${{ needs.verify.outputs.version }}
-          DIST_TAG: ${{ needs.verify.outputs.prerelease == 'true' && 'next' || 'latest' }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
   docker:
     needs: verify
     if: ${{ !cancelled() && needs.verify.result == 'success' && needs.verify.outputs.released != 'true' }}
@@ -143,8 +107,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
   github:
-    needs: [verify, npm, docker]
-    if: ${{ !cancelled() && needs.npm.result == 'success' && needs.docker.result == 'success' }}
+    needs: [verify, docker]
+    if: ${{ !cancelled() && needs.docker.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -155,8 +119,8 @@ jobs:
       - name: Release notes from CHANGELOG.md
         run: |
           node scripts/release.ts notes "$VERSION" > notes.md
-          printf '\n---\n\n**Install:** `npx keelson@%s` or `docker pull ghcr.io/%s:%s`. Upgrading? See [docs/upgrading.md](https://github.com/%s/blob/main/docs/upgrading.md).\n' \
-            "$VERSION" "$GITHUB_REPOSITORY" "$VERSION" "$GITHUB_REPOSITORY" >> notes.md
+          printf '\n---\n\n**Install:** `docker pull ghcr.io/%s:%s`. Upgrading? See [docs/upgrading.md](https://github.com/%s/blob/main/docs/upgrading.md).\n' \
+            "$GITHUB_REPOSITORY" "$VERSION" "$GITHUB_REPOSITORY" >> notes.md
         env:
           VERSION: ${{ needs.verify.outputs.version }}
       - run: gh release create "$TAG" --title "Keelson $TAG" --notes-file notes.md --verify-tag $([ "$PRERELEASE" = true ] && echo --prerelease)

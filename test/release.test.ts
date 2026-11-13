@@ -120,12 +120,12 @@ describe("released notes", () => {
 });
 
 describe("install instructions", () => {
-  test("follow the newest release line, leaving exact versions and @latest alone", () => {
+  test("follow the newest release line, leaving exact versions and :latest alone", () => {
     const docs =
-      "image: ghcr.io/r4reetik/keelson:0.4\nThe Docker tag `:0.4` above; `npm install -g\nkeelson@0.4`, keelson@0.4.1, keelson@latest, http://keelson:4317";
+      "image: ghcr.io/r4reetik/keelson:0.4\nThe Docker tag `:0.4` above; ghcr.io/r4reetik/keelson:0.4.1, ghcr.io/r4reetik/keelson:latest, http://keelson:4317";
     assert.equal(
       pinLine(docs, "0.6"),
-      "image: ghcr.io/r4reetik/keelson:0.6\nThe Docker tag `:0.6` above; `npm install -g\nkeelson@0.6`, keelson@0.4.1, keelson@latest, http://keelson:4317",
+      "image: ghcr.io/r4reetik/keelson:0.6\nThe Docker tag `:0.6` above; ghcr.io/r4reetik/keelson:0.4.1, ghcr.io/r4reetik/keelson:latest, http://keelson:4317",
     );
     assert.equal(pinLine("ghcr.io/r4reetik/keelson:0.9", "1"), "ghcr.io/r4reetik/keelson:1");
   });
@@ -166,7 +166,7 @@ describe("cutting a release from the maintainer's machine", () => {
     write(local, "package-lock.json", `${JSON.stringify({ name: "keelson", version: "0.6.0", packages: { "": { version: "0.6.0" } } }, null, 2)}\n`);
     write(local, "CHANGELOG.md", "# Changelog\n\n## Unreleased\n\n## 0.6.0\n\n- Old.\n");
     write(local, "README.md", "docker pull ghcr.io/r4reetik/keelson:0.6\n");
-    write(local, "docs/deployment.md", "npm install -g keelson@0.6\n");
+    write(local, "docs/deployment.md", "image: ghcr.io/r4reetik/keelson:0.6\n");
     git(local, "add", "-A");
     git(local, "commit", "--quiet", "-m", "Start");
     git(local, "tag", "-a", "v0.6.0", "-m", "v0.6.0");

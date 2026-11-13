@@ -6,7 +6,7 @@ Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
-You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). CI also runs the package on 26.13.0, the first Node 26 LTS and the oldest version it supports. The real minimum is `MIN_NODE` in `src/node-check.ts`; `engines` in package.json is deliberately wide, because npm treats it as a filter and would hand users of an older Node.js an older Keelson instead of the one that explains how to upgrade. Development runs TypeScript directly, with no build step for the server.
+You need Node.js 26 LTS (`.nvmrc` pins it; `nvm install` picks it up). The minimum is 26.13.0, the first Node 26 LTS: `MIN_NODE` in `src/node-check.ts`, and `engines` in package.json says the same. Development runs TypeScript directly, with no build step for the server. Keelson is released only as a Docker image, which brings its own Node.js; to try a change the way users run it, build the image with `docker build -t keelson:dev .`.
 
 Fork the repository on GitHub, then:
 
@@ -97,7 +97,7 @@ Severity guide: **critical** means it's exploitable now (a takeover, a leaked cr
 
 ## Pull requests
 
-Work on a branch of your fork, keep it current with `git fetch upstream` and a rebase on `upstream/main`, push it to your fork, and open the pull request against `main`. CI runs `npm run check` and the packaging jobs on it, and the maintainer reviews it.
+Work on a branch of your fork, keep it current with `git fetch upstream` and a rebase on `upstream/main`, push it to your fork, and open the pull request against `main`. CI runs `npm run check` and builds and starts the Docker image on it, and the maintainer reviews it.
 
 - Keep each pull request to one change, with a test that would have caught the bug or covers the feature.
 - If it makes or reverses a decision (a dependency, a supported version, a UX pattern, a rule), update [AGENTS.md](AGENTS.md) and its decision log in the same pull request, and say so in the description. Merging it is what accepts the decision.
@@ -107,6 +107,6 @@ Work on a branch of your fork, keep it current with `git fetch upstream` and a r
 ## Releases
 
 Releases are cut from the maintainer's clone with `npm run release -- <patch|minor|major|rc>`, which versions,
-commits, tags and pushes `main` and the tag together; the Release workflow then publishes to npm, GHCR and GitHub
-releases. Use `npm run sync` to catch up with GitHub. [docs/releasing.md](docs/releasing.md) covers the steps, release candidates,
+commits, tags and pushes `main` and the tag together; the Release workflow then publishes the image to GHCR and
+creates the GitHub release. Use `npm run sync` to catch up with GitHub. [docs/releasing.md](docs/releasing.md) covers the steps, release candidates,
 breaking changes and the one-time setup; [docs/upgrading.md](docs/upgrading.md) is what users see.

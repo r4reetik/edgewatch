@@ -24,6 +24,10 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    groups:
+      # node:26-alpineX.Y and alpine:X.Y move together (see the Dockerfile).
+      images:
+        patterns: ["*"]
     ignore:
       # The image stays on Node 26 LTS until the project moves to a new Node line.
       - dependency-name: node

@@ -75,9 +75,8 @@ export async function start(o: StartOptions): Promise<Running> {
       : new UpdateChecker({
           version: VERSION,
           repository: REPOSITORY,
-          // The Docker image sets KEELSON_INSTALL=docker; npx runs packages from its cache
-          // (…/_npx/…), so upgrade instructions match how this copy started.
-          install: env("INSTALL") === "docker" ? "docker" : /[\\/]_npx[\\/]/.test(process.argv[1] ?? "") ? "npx" : "npm",
+          // The Docker image sets KEELSON_INSTALL=docker; anything else runs from a clone.
+          install: env("INSTALL") === "docker" ? "docker" : "source",
           lockedOff: env("UPDATE_CHECK") === "off",
           enabled: () => repo.settings.get().updates.check,
           log: log.info,

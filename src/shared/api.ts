@@ -166,8 +166,8 @@ export interface Session {
   update?: UpdateStatus;
 }
 
-/** How this copy was installed, which decides the upgrade instructions. */
-export type InstallKind = "docker" | "npm" | "npx";
+/** How this copy runs, which decides the upgrade instructions: the Docker image, or a clone of the repository. */
+export type InstallKind = "docker" | "source";
 
 export interface UpdateStatus {
   /** Checking is on (Settings) and not switched off with KEELSON_UPDATE_CHECK=off. */

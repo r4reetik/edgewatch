@@ -89,7 +89,7 @@ describe("checker", () => {
 
   test("never contacts GitHub when switched off, in Settings, by environment, or without a repository", async () => {
     const { f, calls } = fakeFetch(() => new Response("[]"));
-    const base = { version: "0.4.0", install: "npm" as const, fetch: f };
+    const base = { version: "0.4.0", install: "source" as const, fetch: f };
     await new UpdateChecker({ ...base, repository: "r4reetik/keelson", enabled: () => false }).check();
     const locked = new UpdateChecker({ ...base, repository: "r4reetik/keelson", enabled: () => true, lockedOff: true });
     await locked.check();

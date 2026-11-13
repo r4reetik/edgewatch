@@ -1,7 +1,8 @@
 // Keelson was called Edgewatch until 0.10. These tests hold the promise that an
 // installation from before the rename upgrades without changes: old variables,
 // folders and database names are still read, and every release still ships the
-// old npm package and image names (see "Old names keep working" in AGENTS.md).
+// old image name (see "Old names keep working" in AGENTS.md). Keelson ships only
+// as that image, and the tests here keep it that way.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
@@ -91,29 +92,37 @@ describe("the data folder", () => {
   });
 });
 
-describe("the old package and image names", () => {
-  test("the edgewatch package only starts keelson, through a path keelson still has", () => {
-    const shim = JSON.parse(read("packages/edgewatch/package.json"));
-    assert.equal(shim.name, "edgewatch");
-    assert.equal(shim.bin.edgewatch, "bin.js");
-    assert.ok("keelson" in shim.dependencies);
-    assert.match(read("packages/edgewatch/bin.js"), /import\("keelson\/dist\/bin\.js"\)/);
-
+describe("the image, the only way Keelson ships", () => {
+  test("nothing is published to npm, under either name", () => {
     const pkg = JSON.parse(read("package.json"));
     assert.equal(pkg.name, "keelson");
-    assert.equal(pkg.bin.keelson, "dist/bin.js");
-    assert.ok(pkg.files.includes("dist"));
-    assert.equal(pkg.exports, undefined, "an exports field would block the edgewatch package's import of keelson/dist/bin.js");
+    assert.equal(pkg.private, true, "private stops an accidental npm publish");
+    const wf = read(".github/workflows/release.yml");
+    assert.doesNotMatch(wf, /npm publish|NPM_TOKEN|registry\.npmjs\.org/);
   });
 
-  test("every release publishes the edgewatch package and image too", () => {
+  test("every release still publishes the image under the old name too", () => {
     const wf = read(".github/workflows/release.yml");
-    assert.match(wf, /working-directory: packages\/edgewatch/);
-    assert.match(wf, /npm pkg set version="\$VERSION" "dependencies\.keelson=\$VERSION"/);
+    assert.match(wf, /ghcr\.io\/\$\{\{ github\.repository \}\}/);
     assert.match(wf, /ghcr\.io\/\$\{\{ github\.repository_owner \}\}\/edgewatch/);
   });
 
-  test("the browser still reads the theme and view saved under the old name", () => {
+  test("the image keeps the node user's uid, so volumes from earlier images stay readable", () => {
+    assert.match(read("Dockerfile"), /adduser -u 1000 /);
+  });
+
+  test("runtime dependencies are plain JavaScript, since the image's build stage runs on the build machine's platform", () => {
+    const deps = Object.keys(JSON.parse(read("package.json")).dependencies);
+    for (const dep of deps) {
+      const meta = JSON.parse(read(`node_modules/${dep}/package.json`));
+      assert.ok(!meta.gypfile && !meta.scripts?.install && !meta.scripts?.postinstall, `${dep} builds native code`);
+      assert.ok(!meta.optionalDependencies, `${dep} may pull in a platform-specific package`);
+    }
+  });
+});
+
+describe("the browser", () => {
+  test("still reads the theme and view saved under the old name", () => {
     assert.match(read("web/public/theme.js"), /localStorage\.getItem\("edgewatch-mode"\)/);
     assert.match(read("web/src/lib/scope.ts"), /"edgewatch-scope"/);
   });

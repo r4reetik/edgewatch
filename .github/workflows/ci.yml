@@ -31,46 +31,6 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
-      - name: Smoke-test the packed CLI
-        run: |
-          npm pack
-          npm install -g ./keelson-*.tgz
-          keelson --version
-          (keelson --no-open --port 4999 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
-          curl -fsS http://127.0.0.1:4999/api/health
-          curl -fsS http://127.0.0.1:4999/ | grep -q Keelson
-
-  # The oldest Node.js that runs Keelson is 26.13.0 (MIN_NODE in src/node-check.ts): build it, then run it on
-  # exactly that, and check that an older one is refused with upgrade steps.
-  minimum-node:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26
-          cache: npm
-      - run: npm ci
-      - run: npm pack
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 26.13.0
-      - name: Smoke-test the packed CLI on Node 26.13.0
-        run: |
-          npm install -g ./keelson-*.tgz
-          keelson --version
-          (keelson --no-open --port 4998 --data-dir "$RUNNER_TEMP/ew" &) && sleep 3
-          curl -fsS http://127.0.0.1:4998/api/health
-          curl -fsS http://127.0.0.1:4998/ | grep -q Keelson
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-      - name: An older Node.js installs this version and gets upgrade steps
-        run: |
-          npm install -g ./keelson-*.tgz
-          if keelson --version > out.txt 2>&1; then cat out.txt; echo "expected Node 24 to be refused"; exit 1; fi
-          cat out.txt
-          grep -q "npx keelson@latest" out.txt
 
   docker:
     runs-on: ubuntu-latest
@@ -89,6 +49,15 @@ jobs:
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4318/api/health && break; sleep 1; done
           curl -fsS http://127.0.0.1:4318/api/health
           docker logs ew
+      - name: The image stays small
+        # Keelson ships only as this image (AGENTS.md). Alpine with the Node.js binary: no npm, and a size budget
+        # that a switch back to a full Node.js base image would break.
+        run: |
+          size=$(docker image inspect keelson:ci --format '{{.Size}}')
+          echo "Image size: $((size / 1000000)) MB"
+          test "$size" -lt 200000000 || { echo "The image grew past 200 MB"; exit 1; }
+          if docker run --rm --entrypoint sh keelson:ci -c 'command -v npm'; then echo "npm is in the image"; exit 1; fi
+          test "$(docker run --rm --entrypoint id keelson:ci -u)" = 1000
       - name: A container set up under the old name still starts
         # Compose files from before the rename to Keelson set EDGEWATCH_* variables (AGENTS.md: old names keep working).
         run: |

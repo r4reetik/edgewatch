@@ -177,11 +177,11 @@ function checkReleasedNotes(changelog: string, atTag: (version: string) => strin
 export const LINE_DOCS = ["README.md", "docs/deployment.md"];
 
 /**
- * Points install commands at release line `line`: the Docker tag (`keelson:0.5`, "Docker tag `:0.5`")
- * and the npm range (`keelson@0.5`). Exact versions (`keelson@0.5.1`) and `@latest` are left alone.
+ * Points install commands at release line `line`: the image tag (`keelson:0.5`, "Docker tag `:0.5`").
+ * Exact versions (`keelson:0.5.1`) and `:latest` are left alone.
  */
 export function pinLine(text: string, line: string): string {
-  return text.replace(/(ghcr\.io\/[\w.-]+\/keelson:|\bkeelson@|Docker tag `:)(\d+(?:\.\d+)?)(?![\w.-])/g, (_m, prefix: string) => `${prefix}${line}`);
+  return text.replace(/(ghcr\.io\/[\w.-]+\/keelson:|Docker tag `:)(\d+(?:\.\d+)?)(?![\w.-])/g, (_m, prefix: string) => `${prefix}${line}`);
 }
 
 /** Fingerprints added to the shipped-migrations list since a git ref (test/migrations.test.ts). */

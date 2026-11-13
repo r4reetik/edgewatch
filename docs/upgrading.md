@@ -1,7 +1,8 @@
 # Upgrading
 
-Keelson is released from GitHub. Every release is published to npm and to the GitHub container registry
-at the same time, with notes on the [releases page](https://github.com/r4reetik/keelson/releases).
+Keelson is released from GitHub. Every release is published as a container image to the GitHub container
+registry (`ghcr.io/r4reetik/keelson`), with notes on the [releases page](https://github.com/r4reetik/keelson/releases).
+It isn't published to npm.
 
 ## How versions work
 
@@ -18,12 +19,12 @@ after reading its notes. A breaking change is anything that could need you to ac
 
 - a command-line flag or environment variable removed or renamed
 - a changed export or alert format (CSV columns, JSON, webhook payloads)
-- a newer minimum Node.js version, or a token permission that's now required
+- a token permission that's now required
 - a database migration (they only come with a new release line, so going back within a line always works)
 
 Release notes mark each of these with **Breaking:** and say what to do. Before a breaking release, a
 **release candidate** (`0.5.0-rc.1`) is published for anyone who wants to try it first. Candidates never
-reach `:latest`, npm's default tag, or the release-line tags.
+reach `:latest` or the release-line tags.
 
 Deprecations come first where possible: a setting that's going away keeps working for at least one release
 line, with a warning in the log saying what replaces it.
@@ -66,20 +67,6 @@ docker compose pull && docker compose up -d
 Image-update tools that watch a registry (Watchtower and similar, or Renovate if you deploy from a Git
 repository) work the same way; point them at the line tag, not `:latest`.
 
-## npm
-
-```bash
-npm install -g keelson@0.4     # newest 0.4.x: compatible updates only
-npm install -g keelson@latest  # newest stable release
-```
-
-Restart Keelson after installing. With npx, `npx keelson@latest` always starts the newest release. Plain
-`npx keelson` also looks for a newer one, except when Keelson is installed globally (`npm install -g`):
-then it runs that copy, whatever its version.
-
-On a Node.js older than Keelson needs, the `keelson` command stops and says how to upgrade Node.js
-rather than falling back to an older Keelson.
-
 ## What happens on upgrade
 
 On start, Keelson applies any database migrations the new version brings, in order, so you can skip
@@ -89,8 +76,7 @@ Tokens in `credentials.json` are never changed by an upgrade.
 
 ## Rolling back
 
-Going back to an older version on the **same release line** needs nothing special: run the older image or
-package.
+Going back to an older version on the **same release line** needs nothing special: run the older image.
 
 Going back across a release line, after the new version changed the database:
 
@@ -105,17 +91,28 @@ aren't in the backup.
 
 ## Upgrading from Edgewatch
 
-Keelson was called Edgewatch until 0.10. Nothing has to change for an existing installation to keep working:
+Keelson was called Edgewatch until 0.10.
 
-- **npx and npm:** the `edgewatch` package is still published with every release and starts Keelson, so
-  `npx edgewatch@latest` keeps working. Switch to `npx keelson@latest` (or `npm install -g keelson@latest`,
-  then `npm uninstall -g edgewatch`) when convenient.
-- **Docker:** every release is also published as `ghcr.io/r4reetik/edgewatch`. Switch the image to
-  `ghcr.io/r4reetik/keelson` with the same tag; the `/data` volume stays as it is.
+- **Docker:** nothing has to change. Every release is also published as `ghcr.io/r4reetik/edgewatch`, so your
+  current image keeps upgrading. Switch the image to `ghcr.io/r4reetik/keelson` with the same tag when convenient;
+  the `/data` volume stays as it is.
+- **npx or npm (`npx edgewatch`, `npm install -g edgewatch`):** Keelson is no longer published to npm, so npm
+  installations stay on 0.9 and stop receiving updates. Move to the image and keep your data by mounting your data
+  folder, which is `~/.edgewatch` unless you set `EDGEWATCH_DATA_DIR`. Stop Edgewatch, then:
+
+  ```bash
+  docker run -d --name keelson -p 127.0.0.1:4317:4317 \
+    --user "$(id -u):$(id -g)" -v ~/.edgewatch:/data \
+    -e KEELSON_PASSWORD='a-long-admin-password' \
+    ghcr.io/r4reetik/keelson:latest
+  ```
+
+  Your accounts, scans, triage and tokens carry over. `--user` runs Keelson as you, so it can read the files
+  Edgewatch created. Unlike the npm version, the container asks for a password even on your own machine, because
+  it can't tell how its port was published. Remove the old package with `npm uninstall -g edgewatch`.
 - **Settings:** every `EDGEWATCH_*` variable is still read when its `KEELSON_*` name isn't set. Rename them
   when convenient; a `KEELSON_*` variable wins over its old name.
-- **Data:** an existing `~/.edgewatch` folder is used when there is no `~/.keelson`, and an existing
-  `edgewatch.db` when there is no `keelson.db`. Nothing is moved. To switch to the new names, stop Keelson,
-  rename the folder to `~/.keelson` and the database (with its `-wal` and `-shm` files) to `keelson.db`, and
-  start it again.
+- **Data:** an existing `edgewatch.db` is used when there is no `keelson.db`, and nothing is moved. To switch to
+  the new name, stop Keelson, rename the database (with its `-wal` and `-shm` files) to `keelson.db`, and start it
+  again.
 - **Sign-in:** an upgrade restarts the server, which signs everyone out, as with any upgrade.

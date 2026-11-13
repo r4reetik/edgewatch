@@ -1,10 +1,7 @@
 #!/usr/bin/env node
-// The `keelson` command. Checks the Node.js version before loading anything
-// that needs a recent one, then starts the CLI.
-//
-// The real minimum lives here, not in package.json "engines": npm treats engines
-// as a filter, so a strict range makes `npx keelson` on an older Node.js
-// quietly install an old Keelson instead of the newest one with this message.
+// The `keelson` command, which the Docker image runs. Checks the Node.js version
+// before loading anything that needs a recent one, so running from a clone on an
+// older Node.js says how to upgrade instead of failing on a syntax or import error.
 
 import { checkNode } from "./node-check.ts";
 

@@ -4,7 +4,7 @@
 
 /** The Node.js line Keelson runs on. */
 export const NODE_MAJOR = 26;
-/** The first Node.js 26 LTS release, the oldest that runs Keelson (tested in CI). */
+/** The first Node.js 26 LTS release, the oldest that runs Keelson. package.json "engines" says the same (test/node-check.test.ts). */
 export const MIN_NODE = "26.13.0";
 
 export interface NodeCheck {
@@ -48,10 +48,7 @@ export function checkNode(version: string, env: Record<string, string | undefine
       "",
       fix.startsWith("Download") ? `  ${fix}` : `Upgrade with:\n  ${fix}`,
       "",
-      "Then start the newest Keelson:",
-      "  npx keelson@latest",
-      "",
-      "Or run it without Node.js, with Docker: see https://github.com/r4reetik/keelson#run-it-for-a-team-docker",
+      "Or run the Docker image, which includes Node.js: see https://github.com/r4reetik/keelson#quick-start",
     ].join("\n"),
   };
 }

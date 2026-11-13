@@ -13,7 +13,7 @@ import { UpdateChecker } from "../../updates.ts";
 
 export function settingsRoutes(r: Routes, { repo, auth, version, updates }: AppContext) {
   // Without a checker (tests, the mock server) updates read as switched off.
-  const checker = updates ?? new UpdateChecker({ version, repository: null, install: "npm", enabled: () => false });
+  const checker = updates ?? new UpdateChecker({ version, repository: null, install: "source", enabled: () => false });
 
   r.get("/api/settings", (c) => c.json(repo.settings.get() satisfies Settings));
 
