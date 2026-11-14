@@ -49,7 +49,7 @@ logs, runtime security, and an AI penetration tester that works from all of it. 
 docker run -d --name keelson -p 127.0.0.1:4317:4317 \
   -v keelson-data:/data \
   -e KEELSON_PASSWORD='a-long-admin-password' \
-  ghcr.io/r4reetik/keelson:0.9
+  ghcr.io/r4reetik/keelson:0.10
 ```
 
 That's the whole install: Keelson ships as this one image, for Intel and Arm, and needs nothing but Docker. Open
@@ -231,7 +231,7 @@ needs are in [docs/permissions.md](docs/permissions.md#aws).
 docker run -d --name keelson -p 4317:4317 \
   -v keelson-data:/data \
   -e KEELSON_PASSWORD='a-long-admin-password' \
-  ghcr.io/r4reetik/keelson:0.9
+  ghcr.io/r4reetik/keelson:0.10
 ```
 
 Open it, sign in with the password, and add accounts in the browser. Tokens are stored in the volume.
@@ -247,7 +247,7 @@ Compose, Cloudflare Access, reverse proxies and backups.
 Keelson tells you when a new version is out (in the sidebar and under **Settings → Updates**), with the
 exact upgrade command and a warning when it has breaking changes. Releases follow semantic versioning in
 **release lines** (`0.4`, `0.5`…; `1`, `2`… from 1.0): updates within a line never break anything, so it's
-safe to take them automatically. The Docker tag `:0.9` above does exactly that. The database is backed up
+safe to take them automatically. The Docker tag `:0.10` above does exactly that. The database is backed up
 before every upgrade that changes it.
 [docs/upgrading.md](docs/upgrading.md) has automatic updates, release candidates and rolling back.
 
