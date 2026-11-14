@@ -2,7 +2,7 @@
   "name": "keelson",
   "version": "0.9.0",
   "private": true,
-  "description": "Security posture and best-practice tracker for Cloudflare, Vercel and AWS. Read-only, self-hosted, shipped as a Docker image.",
+  "description": "One place for the security of your whole infrastructure. Self-hosted and read-only: checks your cloud, edge and hosting platforms, finds the risks between them, and tracks every finding until it's fixed.",
   "license": "MIT",
   "type": "module",
   "engines": {

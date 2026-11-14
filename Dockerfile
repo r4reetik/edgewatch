@@ -21,20 +21,23 @@ RUN npm run build \
  && rm -f node_modules/.package-lock.json
 
 # Node.js for the target platform. Keep its Alpine version the same as the stage below,
-# so the binary and the libstdc++ installed there come from the same release.
+# so the binary and the libraries installed there come from the same release.
 FROM node:26-alpine3.24 AS node
 
 FROM alpine:3.24
 LABEL org.opencontainers.image.source="https://github.com/r4reetik/keelson" \
-      org.opencontainers.image.description="Security posture tracking for Cloudflare, Vercel and AWS. Read-only." \
+      org.opencontainers.image.description="One place for the security of your whole infrastructure. Self-hosted and read-only: checks your cloud, edge and hosting platforms, finds the risks between them, and tracks every finding until it's fixed." \
       org.opencontainers.image.licenses="MIT"
-# The node user has uid 1000, as in Node's own images, so /data volumes made with
-# earlier Keelson images stay readable.
-RUN apk add --no-cache libstdc++ \
+# The libraries are the ones Node's own Alpine image installs for its binary
+# (github.com/nodejs/docker-node, 26/alpine3.24/Dockerfile). The node user has uid
+# 1000, as in Node's own images, so /data volumes made with earlier images stay readable.
+RUN apk add --no-cache libatomic libstdc++ \
  && addgroup -g 1000 node \
  && adduser -u 1000 -G node -s /bin/sh -D node \
  && mkdir -p /data && chown node:node /data && chmod 700 /data
 COPY --from=node /usr/local/bin/node /usr/local/bin/node
+# Fails the build, not the first start, when a library the binary needs is missing.
+RUN node --version
 # Only the install marker: in the image, Keelson defaults to 0.0.0.0 and /data itself (src/env.ts).
 ENV NODE_ENV=production \
     KEELSON_INSTALL=docker

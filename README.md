@@ -5,8 +5,8 @@
 <h1 align="center">Keelson</h1>
 
 <p align="center">
-  <strong>Security posture tracking for Cloudflare, Vercel and AWS.</strong><br>
-  Read-only checks across DNS, WAF, TLS, Zero Trust, email, live traffic, deployments, secrets, IAM, storage and networks, and a place to triage every finding until it's fixed.<br>
+  <strong>One place for the security of your whole infrastructure.</strong><br>
+  Self-hosted and read-only. Connect the cloud, edge and hosting platforms you run on: Keelson checks how everything is set up, finds the risks between them, and tracks every finding until it's fixed. Code, cloud activity and runtime are next.
 </p>
 
 <p align="center">
@@ -34,8 +34,11 @@ Point Keelson at your Cloudflare accounts, your Vercel teams, your AWS accounts,
 scans them (one, or dozens across several companies), scores them, and tracks every finding until it's fixed:
 who owns it, when it's due, and which risks were accepted and until when. It runs on your machine or your
 server, and only ever reads. Use it for one platform or several: a company's accounts on every platform sit
-together in one entity, and checks that span platforms catch what no single dashboard shows. More platforms
-are planned.
+together in one entity, and checks that span platforms catch what no single dashboard shows.
+
+Keelson is growing into one place for the security of everything you run: next come your code (GitHub
+repositories), where that code is deployed and who can reach it, cloud activity such as CloudTrail and VPC flow
+logs, runtime security, and an AI penetration tester that works from all of it. See the [roadmap](#roadmap).
 
 > Keelson is an independent open-source project, not affiliated with or endorsed by Cloudflare, Vercel or AWS.
 > Its interface is built with [Kumo](https://github.com/cloudflare/kumo), Cloudflare's open-source design system.
@@ -333,8 +336,21 @@ Wrong findings are the most useful bug reports we get.
 
 ## Roadmap
 
-Alerts before accepted risks expire, comments on findings, ticketing integrations (Jira, Linear, GitHub
-Issues) and saved views are next. Ideas and votes are welcome in
+Next, in the tracker you use today: alerts before accepted risks expire, comments on findings, ticketing
+integrations (Jira, Linear, GitHub Issues), saved views, and more platforms (Google Cloud, Google Workspace).
+
+Further out, Keelson grows beyond configuration, keeping the same rules: self-hosted, and read-only unless you
+explicitly allow more:
+
+- **Code:** connect GitHub repositories and scan them for vulnerable dependencies, secrets and risky
+  configuration, without running any of their code.
+- **Deployments and exposure:** map which code runs where, and what can reach it from the internet.
+- **Cloud activity:** read CloudTrail, VPC flow logs and similar records to see what actually happened.
+- **Runtime:** watch running workloads.
+- **AI penetration testing:** an AI tester that uses everything above to test your systems from the inside
+  (white box) or, with your permission and scope, from outside (black box).
+
+None of these exist yet. Ideas and votes are welcome in
 [Discussions](https://github.com/r4reetik/keelson/discussions).
 
 ## Contributing

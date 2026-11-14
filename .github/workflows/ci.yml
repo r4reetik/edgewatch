@@ -47,8 +47,9 @@ jobs:
         run: |
           docker run -d --name keelson -p 4318:4317 -e KEELSON_AUTH=none keelson:ci
           for i in $(seq 1 20); do curl -fsS http://127.0.0.1:4318/api/health && break; sleep 1; done
-          curl -fsS http://127.0.0.1:4318/api/health
+          docker ps -a
           docker logs keelson
+          curl -fsS http://127.0.0.1:4318/api/health
       - name: The image stays small
         # Keelson ships only as this image (AGENTS.md). Alpine with the Node.js binary: no npm, and a size budget
         # that a switch back to a full Node.js base image would break.

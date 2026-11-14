@@ -8,18 +8,24 @@ body{width:1280px;height:640px;overflow:hidden;background:#0b0d12;color:#f4f5f7;
 .left{position:absolute;left:72px;top:0;bottom:0;width:560px;display:flex;flex-direction:column;justify-content:center;gap:26px}
 .brand{display:flex;align-items:center;gap:18px;font-size:56px;font-weight:700;letter-spacing:-1.5px}
 .brand svg{width:72px;height:72px}
-h2{font-size:34px;line-height:1.2;font-weight:600;letter-spacing:-.5px;color:#fff}
+h2{font-size:36px;line-height:1.2;font-weight:600;letter-spacing:-.5px;color:#fff}
 p{font-size:21px;line-height:1.45;color:#aeb4c0}
-.pills{display:flex;flex-wrap:wrap;gap:10px}
-.pill{font-size:17px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#dfe3ea}
+.rows{display:flex;flex-direction:column;gap:12px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.label{width:64px;font-size:15px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;color:#7d8594}
+.pill{font-size:17px;padding:7px 13px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:#dfe3ea}
+.pill.next{background:transparent;border-style:dashed;color:#aeb4c0}
 code{font-family:ui-monospace,Menlo,monospace;font-size:20px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);padding:10px 16px;border-radius:10px;color:#fff;align-self:flex-start}
 .shot{position:absolute;left:680px;top:70px;width:900px;border-radius:14px;border:1px solid rgba(255,255,255,.14);box-shadow:0 30px 80px rgba(0,0,0,.6)}
 </style></head><body><div class="glow"></div>
 <img class="shot" src="overview-dark.png" alt="">
 <div class="left">
  <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#0055dc"/><path d="M16 6.5 8 9.6v6.2c0 5 3.4 9 8 10.2 4.6-1.2 8-5.2 8-10.2V9.6z" fill="none" stroke="#fff" stroke-width="2.4" stroke-linejoin="round"/><path d="m12.4 16 2.6 2.6 4.8-5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>Keelson</div>
- <h2>Security posture tracking for Cloudflare, Vercel and AWS</h2>
- <p>Read-only checks across DNS, WAF, TLS, Zero Trust, IAM, storage, deployments and live traffic. Triage every finding until it's fixed.</p>
- <div class="pills"><span class="pill">Read-only</span><span class="pill">Self-hosted</span><span class="pill">Multi-account</span><span class="pill">MIT</span></div>
+ <h2>One place for the security of your whole infrastructure</h2>
+ <p>Self-hosted and read-only. Connect the platforms you run on: Keelson checks how everything is set up, finds the risks between them, and tracks every finding until it's fixed.</p>
+ <div class="rows">
+  <div class="row"><span class="label">Today</span><span class="pill">Posture</span><span class="pill">Cross-platform risks</span><span class="pill">Triage</span></div>
+  <div class="row"><span class="label">Next</span><span class="pill next">Code</span><span class="pill next">Cloud activity</span><span class="pill next">Runtime</span><span class="pill next">AI pentesting</span></div>
+ </div>
  <code>docker run ghcr.io/r4reetik/keelson</code>
 </div></body></html>

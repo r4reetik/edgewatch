@@ -46,6 +46,13 @@ describe("the image, the only way Keelson ships", () => {
     assert.match(read("Dockerfile"), /adduser -u 1000 /);
   });
 
+  test("the image installs every library Node's own Alpine image does, and checks the binary starts", () => {
+    // Without libatomic, Node 26 can't load and the container exits at once (CI caught it).
+    const dockerfile = read("Dockerfile");
+    assert.match(dockerfile, /apk add --no-cache libatomic libstdc\+\+/);
+    assert.match(dockerfile, /RUN node --version/);
+  });
+
   test("runtime dependencies are plain JavaScript, since the image's build stage runs on the build machine's platform", () => {
     const deps = Object.keys(JSON.parse(read("package.json")).dependencies);
     for (const dep of deps) {
